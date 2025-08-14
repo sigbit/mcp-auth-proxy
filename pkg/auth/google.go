@@ -37,7 +37,7 @@ func (p *googleProvider) Name() string {
 }
 
 func (p *googleProvider) RedirectURL() string {
-	return p.oauth2.RedirectURL
+	return GoogleCallbackEndpoint
 }
 
 func (p *googleProvider) AuthCodeURL(c *gin.Context) (string, error) {
@@ -78,12 +78,12 @@ func (p *googleProvider) Authorization(userid string) (bool, error) {
 	if len(p.allowedUsers) == 0 {
 		return true, nil
 	}
-	
+
 	for _, allowedUser := range p.allowedUsers {
 		if allowedUser == userid {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }

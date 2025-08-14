@@ -37,7 +37,7 @@ func (p *githubProvider) Name() string {
 }
 
 func (p *githubProvider) RedirectURL() string {
-	return p.oauth2.RedirectURL
+	return GithubCallbackEndpoint
 }
 
 func (p *githubProvider) AuthCodeURL(c *gin.Context) (string, error) {
@@ -79,12 +79,12 @@ func (p *githubProvider) Authorization(userid string) (bool, error) {
 	if len(p.allowedUsers) == 0 {
 		return true, nil
 	}
-	
+
 	for _, allowedUser := range p.allowedUsers {
 		if allowedUser == userid {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
