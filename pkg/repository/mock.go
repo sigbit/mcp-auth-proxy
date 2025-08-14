@@ -56,6 +56,20 @@ func (mr *MockRepositoryMockRecorder) ClientAssertionJWTValid(ctx, jti any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClientAssertionJWTValid", reflect.TypeOf((*MockRepository)(nil).ClientAssertionJWTValid), ctx, jti)
 }
 
+// Close mocks base method.
+func (m *MockRepository) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockRepositoryMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockRepository)(nil).Close))
+}
+
 // CreateAccessTokenSession mocks base method.
 func (m *MockRepository) CreateAccessTokenSession(ctx context.Context, signature string, request fosite.Requester) error {
 	m.ctrl.T.Helper()

@@ -11,6 +11,7 @@ import (
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/sigbit/mcp-auth-proxy/pkg/idp"
+	"github.com/sigbit/mcp-auth-proxy/pkg/proxy"
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
 	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ func Run(
 	listen string,
 	dataPath string,
 	externalURL string,
+	proxyURL string,
 	globalSecret string,
 ) error {
 	parsedExternalURL, err := url.Parse(externalURL)
@@ -59,11 +61,16 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
+	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL)
+	if err != nil {
+		return fmt.Errorf("failed to create proxy router: %w", err)
+	}
 
 	router := gin.New()
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
 	idpRouter.SetupRoutes(router)
+	proxyRouter.SetupRoutes(router)
 
 	logger.Info("Starting server", zap.String("listen", listen))
 	return router.Run(listen)

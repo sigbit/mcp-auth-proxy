@@ -16,6 +16,7 @@ type Repository interface {
 	pkce.PKCERequestStorage
 	DynamicClientStorage
 	AuthorizeRequestStorage
+	Close() error
 }
 
 type DynamicClientStorage interface {

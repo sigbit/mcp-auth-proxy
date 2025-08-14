@@ -1,0 +1,20 @@
+services:
+  mcp-auth-proxy:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - 8081:8081
+    environment:
+      # If you are accessing from outside (such as Claude Web),
+      # be sure to specify a domain name that can be accessed from outside for EXTERNAL_URL.
+      - EXTERNAL_URL=http://localhost:8081
+      - PROXY_URL=http://playwright:8931
+  playwright:
+    image: mcr.microsoft.com/playwright/mcp
+    restart: unless-stopped
+    init: true
+    command:
+      - --host=0.0.0.0
+      - --port=8931
