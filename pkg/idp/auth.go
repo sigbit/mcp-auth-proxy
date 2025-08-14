@@ -113,7 +113,7 @@ const (
 	JWKSEndpoint                     = "/.well-known/jwks.json"
 )
 
-func (a *IDPRouter) SetupSubRoutes(router gin.IRouter) {
+func (a *IDPRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(AuthorizationEndpoint, a.handleAuth)
 	router.GET(AuthorizationReturnEndpoint, a.handleAuthorizationReturn)
 	router.POST(TokenEndpoint, a.handleToken)
