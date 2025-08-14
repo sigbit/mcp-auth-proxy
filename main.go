@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/sigbit/mcp-auth-proxy/pkg/proxy"
+	mcpproxy "github.com/sigbit/mcp-auth-proxy/pkg/mcp-proxy"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := proxy.Run(listen, dataPath, externalURL, globalSecret); err != nil {
+			if err := mcpproxy.Run(listen, dataPath, externalURL, globalSecret); err != nil {
 				panic(err)
 			}
 		},
