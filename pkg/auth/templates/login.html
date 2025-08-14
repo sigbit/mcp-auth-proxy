@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン - MCP Auth Proxy</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 300px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+        .provider-button {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            margin: 10px auto;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+        }
+        .provider-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .google {
+            background-color: #4285f4;
+            color: white;
+        }
+        .google:hover {
+            background-color: #357ae8;
+        }
+        .github {
+            background-color: #333;
+            color: white;
+        }
+        .github:hover {
+            background-color: #24292e;
+        }
+        .description {
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>MCP Auth Proxy</h1>
+        
+        {{range .Providers}}
+        <a href="/auth/{{.Name}}" class="provider-button {{.Name}}">
+            Login with {{.DisplayName}}
+        </a>
+        {{end}}
+    </div>
+</body>
+</html>

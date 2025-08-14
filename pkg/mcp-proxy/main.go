@@ -24,6 +24,12 @@ func Run(
 	externalURL string,
 	proxyURL string,
 	globalSecret string,
+	googleClientID string,
+	googleClientSecret string,
+	googleAllowedUsers []string,
+	githubClientID string,
+	githubClientSecret string,
+	githubAllowedUsers []string,
 ) error {
 	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
@@ -58,11 +64,31 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to load or generate private key: %w", err)
 	}
-	authRouter, err := auth.NewAuthRouter()
+	var providers []auth.Provider
+
+	// Add Google provider if configured
+	if googleClientID != "" && googleClientSecret != "" {
+		googleProvider, err := auth.NewGoogleProvider(externalURL, googleClientID, googleClientSecret, googleAllowedUsers)
+		if err != nil {
+			return fmt.Errorf("failed to create Google provider: %w", err)
+		}
+		providers = append(providers, googleProvider)
+	}
+
+	// Add GitHub provider if configured
+	if githubClientID != "" && githubClientSecret != "" {
+		githubProvider, err := auth.NewGithubProvider(githubClientID, githubClientSecret, externalURL, githubAllowedUsers)
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub provider: %w", err)
+		}
+		providers = append(providers, githubProvider)
+	}
+
+	authRouter, err := auth.NewAuthRouter(providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
-	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, globalSecret)
+	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, globalSecret, authRouter)
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}

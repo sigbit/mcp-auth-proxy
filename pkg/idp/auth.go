@@ -15,6 +15,7 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/token/jwt"
+	"github.com/sigbit/mcp-auth-proxy/pkg/auth"
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
 	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"go.uber.org/zap"
@@ -29,6 +30,7 @@ type IDPRouter struct {
 	hasher      fosite.Hasher
 	provider    fosite.OAuth2Provider
 	signer      *jwt.DefaultSigner
+	authRouter  *auth.AuthRouter
 }
 
 const Issuer = "mcp-oauth-proxy"
@@ -39,6 +41,7 @@ func NewIDPRouter(
 	logger *zap.Logger,
 	externalURL string,
 	globalSecret string,
+	authRouter *auth.AuthRouter,
 ) (*IDPRouter, error) {
 	var secret []byte
 	if globalSecret != "" {
@@ -80,6 +83,7 @@ func NewIDPRouter(
 		hasher:      hasher,
 		provider:    provider,
 		signer:      signer,
+		authRouter:  authRouter,
 	}, nil
 }
 
@@ -115,7 +119,7 @@ const (
 
 func (a *IDPRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(AuthorizationEndpoint, a.handleAuth)
-	router.GET(AuthorizationReturnEndpoint, a.handleAuthorizationReturn)
+	router.GET(AuthorizationReturnEndpoint, a.authRouter.RequireAuth(), a.handleAuthorizationReturn)
 	router.POST(TokenEndpoint, a.handleToken)
 	router.POST(IntrospectionEndpoint, a.handleIntrospect)
 	router.POST(RegistrationEndpoint, a.handleRegister)

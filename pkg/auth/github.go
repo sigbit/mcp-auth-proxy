@@ -11,10 +11,11 @@ import (
 )
 
 type githubProvider struct {
-	oauth2 oauth2.Config
+	oauth2       oauth2.Config
+	allowedUsers []string
 }
 
-func GithubProvider(clientID, clientSecret, externalURL string) (Provider, error) {
+func NewGithubProvider(clientID, clientSecret, externalURL string, allowedUsers []string) (Provider, error) {
 	r, err := url.JoinPath(externalURL, GithubCallbackEndpoint)
 	if err != nil {
 		return nil, err
@@ -24,9 +25,10 @@ func GithubProvider(clientID, clientSecret, externalURL string) (Provider, error
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			RedirectURL:  r,
-			Scopes:       []string{"openid profile email"},
+			Scopes:       []string{"user:email"},
 			Endpoint:     github.Endpoint,
 		},
+		allowedUsers: allowedUsers,
 	}, nil
 }
 
@@ -70,9 +72,19 @@ func (p *githubProvider) GetUserID(ctx context.Context, token *oauth2.Token) (st
 		return "", err
 	}
 
-	return "", nil
+	return userInfo.Login, nil
 }
 
 func (p *githubProvider) Authorization(userid string) (bool, error) {
-	return true, nil
+	if len(p.allowedUsers) == 0 {
+		return true, nil
+	}
+	
+	for _, allowedUser := range p.allowedUsers {
+		if allowedUser == userid {
+			return true, nil
+		}
+	}
+	
+	return false, nil
 }

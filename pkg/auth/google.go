@@ -11,10 +11,11 @@ import (
 )
 
 type googleProvider struct {
-	oauth2 oauth2.Config
+	oauth2       oauth2.Config
+	allowedUsers []string
 }
 
-func NewGoogleProvider(externalURL, clientID, clientSecret string) (Provider, error) {
+func NewGoogleProvider(externalURL, clientID, clientSecret string, allowedUsers []string) (Provider, error) {
 	r, err := url.JoinPath(externalURL, GoogleCallbackEndpoint)
 	if err != nil {
 		return nil, err
@@ -27,6 +28,7 @@ func NewGoogleProvider(externalURL, clientID, clientSecret string) (Provider, er
 			Scopes:       []string{"openid profile email"},
 			Endpoint:     google.Endpoint,
 		},
+		allowedUsers: allowedUsers,
 	}, nil
 }
 
@@ -69,9 +71,19 @@ func (p *googleProvider) GetUserID(ctx context.Context, token *oauth2.Token) (st
 		return "", err
 	}
 
-	return "", nil
+	return userInfo.Email, nil
 }
 
 func (p *googleProvider) Authorization(userid string) (bool, error) {
-	return true, nil
+	if len(p.allowedUsers) == 0 {
+		return true, nil
+	}
+	
+	for _, allowedUser := range p.allowedUsers {
+		if allowedUser == userid {
+			return true, nil
+		}
+	}
+	
+	return false, nil
 }

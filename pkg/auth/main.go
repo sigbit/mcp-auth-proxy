@@ -2,12 +2,17 @@ package auth
 
 import (
 	"context"
+	"embed"
+	"html/template"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 )
+
+//go:embed templates/*
+var templateFS embed.FS
 
 type Provider interface {
 	Name() string
@@ -20,6 +25,7 @@ type Provider interface {
 
 type AuthRouter struct {
 	providers map[string]Provider
+	template  *template.Template
 }
 
 func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
@@ -27,8 +33,15 @@ func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
 	for _, provider := range providers {
 		providersMap[provider.Name()] = provider
 	}
+
+	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
+	if err != nil {
+		return nil, err
+	}
+
 	return &AuthRouter{
 		providers: providersMap,
+		template:  tmpl,
 	}, nil
 }
 
@@ -63,8 +76,31 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	}
 }
 
-func (a *AuthRouter) handleLogin(c *gin.Context) {
+type ProviderData struct {
+	Name        string
+	DisplayName string
+}
 
+func (a *AuthRouter) handleLogin(c *gin.Context) {
+	var providersData []ProviderData
+	for name := range a.providers {
+		providersData = append(providersData, ProviderData{
+			Name:        name,
+			DisplayName: name,
+		})
+	}
+
+	data := struct {
+		Providers []ProviderData
+	}{
+		Providers: providersData,
+	}
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	if err := a.template.Execute(c.Writer, data); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
 }
 
 func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
