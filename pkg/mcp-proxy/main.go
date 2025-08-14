@@ -10,6 +10,7 @@ import (
 	"github.com/blendle/zapdriver"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"github.com/sigbit/mcp-auth-proxy/pkg/auth"
 	"github.com/sigbit/mcp-auth-proxy/pkg/idp"
 	"github.com/sigbit/mcp-auth-proxy/pkg/proxy"
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
@@ -57,11 +58,15 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to load or generate private key: %w", err)
 	}
+	authRouter, err := auth.NewAuthRouter()
+	if err != nil {
+		return fmt.Errorf("failed to create auth router: %w", err)
+	}
 	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, globalSecret)
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL)
+	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}
@@ -69,6 +74,7 @@ func Run(
 	router := gin.New()
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
+	authRouter.SetupRoutes(router)
 	idpRouter.SetupRoutes(router)
 	proxyRouter.SetupRoutes(router)
 

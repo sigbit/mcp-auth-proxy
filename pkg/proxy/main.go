@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -8,16 +9,19 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type ProxyRouter struct {
 	externalURL string
 	proxy       *httputil.ReverseProxy
+	publicKey   *rsa.PublicKey
 }
 
 func NewProxyRouter(
 	externalURL string,
 	proxyURL string,
+	publicKey *rsa.PublicKey,
 ) (*ProxyRouter, error) {
 	parsedProxyURL, err := url.Parse(proxyURL)
 	if err != nil {
@@ -27,6 +31,7 @@ func NewProxyRouter(
 	return &ProxyRouter{
 		externalURL: externalURL,
 		proxy:       proxy,
+		publicKey:   publicKey,
 	}, nil
 }
 
@@ -58,7 +63,18 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 		return
 	}
 	bearerToken := strings.TrimPrefix(authHeader, "Bearer ")
-	fmt.Println(bearerToken)
+
+	token, err := jwt.Parse(bearerToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return p.publicKey, nil
+	})
+
+	if err != nil || !token.Valid {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
 
 	p.proxy.ServeHTTP(c.Writer, c.Request)
 }
