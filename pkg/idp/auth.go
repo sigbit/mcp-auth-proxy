@@ -2,9 +2,7 @@ package idp
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"encoding/base64"
 	"math/big"
 	"net/url"
@@ -40,21 +38,9 @@ func NewIDPRouter(
 	privKey *rsa.PrivateKey,
 	logger *zap.Logger,
 	externalURL string,
-	globalSecret string,
+	secret []byte,
 	authRouter *auth.AuthRouter,
 ) (*IDPRouter, error) {
-	var secret []byte
-	if globalSecret != "" {
-		// hash the global secret for security
-		sha256Hash := sha256.Sum256([]byte(globalSecret))
-		secret = sha256Hash[:]
-	} else {
-		logger.Warn("Global secret not provided, generating random secret")
-		secret = make([]byte, 32)
-		if _, err := rand.Read(secret); err != nil {
-			return nil, err
-		}
-	}
 	hasher := &fosite.BCrypt{
 		Config: &fosite.Config{
 			HashCost: bcrypt.DefaultCost,

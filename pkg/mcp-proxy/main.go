@@ -1,6 +1,7 @@
 package mcpproxy
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"time"
 
 	"github.com/blendle/zapdriver"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/sigbit/mcp-auth-proxy/pkg/auth"
@@ -38,6 +41,8 @@ func Run(
 	if parsedExternalURL.Path != "" {
 		return fmt.Errorf("external URL must not have a path, got: %s", parsedExternalURL.Path)
 	}
+	sha256Hash := sha256.Sum256([]byte(globalSecret))
+	secret := sha256Hash[:]
 
 	var config zap.Config
 	if os.Getenv("MODE") == "debug" {
@@ -88,7 +93,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
-	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, globalSecret, authRouter)
+	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, secret, authRouter)
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
@@ -98,8 +103,11 @@ func Run(
 	}
 
 	router := gin.New()
+
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
+	store := cookie.NewStore(secret)
+	router.Use(sessions.Sessions("session", store))
 	authRouter.SetupRoutes(router)
 	idpRouter.SetupRoutes(router)
 	proxyRouter.SetupRoutes(router)
