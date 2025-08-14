@@ -45,6 +45,10 @@ func (p *googleProvider) AuthCodeURL(c *gin.Context) (string, error) {
 	return authURL, nil
 }
 
+func (p *googleProvider) AuthURL() string {
+	return GoogleAuthEndpoint
+}
+
 func (p *googleProvider) Exchange(c *gin.Context) (*oauth2.Token, error) {
 	code := c.Query("code")
 	token, err := p.oauth2.Exchange(c, code)

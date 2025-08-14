@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Access Denied - MCP Auth Proxy</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .error-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        min-width: 400px;
+        max-width: 500px;
+      }
+      h1 {
+        color: #e74c3c;
+        margin-bottom: 1rem;
+        font-size: 2rem;
+      }
+      .user-info {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 6px;
+        margin: 1.5rem 0;
+        border-left: 4px solid #e74c3c;
+      }
+      .user-info p {
+        margin: 0.5rem 0;
+        color: #333;
+      }
+      .user-info strong {
+        color: #e74c3c;
+      }
+      .description {
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+        font-size: 1.1rem;
+      }
+      .logout-button {
+        display: inline-block;
+        padding: 12px 30px;
+        background-color: #e74c3c;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+      }
+      .logout-button:hover {
+        background-color: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      .icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="error-container">
+      <div class="icon">🚫</div>
+      <h1>Access Denied</h1>
+      <p class="description">
+        Sorry, you don't have permission to access this resource.
+      </p>
+
+      <div class="user-info">
+        <p><strong>Provider:</strong> {{.Provider}}</p>
+        <p><strong>Current User:</strong> {{.UserID}}</p>
+        <p><strong>Status:</strong> Authenticated but not authorized</p>
+      </div>
+
+      <p class="description">
+        If you need access, please contact your administrator.
+      </p>
+
+      <a href="/.auth/logout" class="logout-button">Logout</a>
+    </div>
+  </body>
+</html>

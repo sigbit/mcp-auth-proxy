@@ -16,7 +16,7 @@ type githubProvider struct {
 }
 
 func NewGithubProvider(clientID, clientSecret, externalURL string, allowedUsers []string) (Provider, error) {
-	r, err := url.JoinPath(externalURL, GithubCallbackEndpoint)
+	r, err := url.JoinPath(externalURL, GitHubCallbackEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,11 @@ func (p *githubProvider) Name() string {
 }
 
 func (p *githubProvider) RedirectURL() string {
-	return GithubCallbackEndpoint
+	return GitHubCallbackEndpoint
+}
+
+func (p *githubProvider) AuthURL() string {
+	return GitHubAuthEndpoint
 }
 
 func (p *githubProvider) AuthCodeURL(c *gin.Context) (string, error) {

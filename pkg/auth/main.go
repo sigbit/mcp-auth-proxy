@@ -17,6 +17,7 @@ var templateFS embed.FS
 type Provider interface {
 	Name() string
 	RedirectURL() string
+	AuthURL() string
 	AuthCodeURL(c *gin.Context) (string, error)
 	Exchange(c *gin.Context) (*oauth2.Token, error)
 	GetUserID(ctx context.Context, token *oauth2.Token) (string, error)
@@ -24,8 +25,9 @@ type Provider interface {
 }
 
 type AuthRouter struct {
-	providers map[string]Provider
-	template  *template.Template
+	providers           map[string]Provider
+	template            *template.Template
+	unauthorizedTemplate *template.Template
 }
 
 func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
@@ -38,21 +40,31 @@ func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	unauthorizedTmpl, err := template.ParseFS(templateFS, "templates/unauthorized.html")
+	if err != nil {
+		return nil, err
+	}
 
 	return &AuthRouter{
-		providers: providersMap,
-		template:  tmpl,
+		providers:           providersMap,
+		template:            tmpl,
+		unauthorizedTemplate: unauthorizedTmpl,
 	}, nil
 }
 
 const (
 	LoginEndpoint          = "/.auth/login"
+	LogoutEndpoint         = "/.auth/logout"
+	GoogleAuthEndpoint     = "/.auth/google"
 	GoogleCallbackEndpoint = "/.auth/google/callback"
-	GithubCallbackEndpoint = "/.auth/github/callback"
+	GitHubAuthEndpoint     = "/.auth/github"
+	GitHubCallbackEndpoint = "/.auth/github/callback"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(LoginEndpoint, a.handleLogin)
+	router.GET(LogoutEndpoint, a.handleLogout)
 	for providerName, provider := range a.providers {
 		router.GET(provider.RedirectURL(), func(c *gin.Context) {
 			session := sessions.Default(c)
@@ -73,20 +85,29 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			redirectURL := session.Get("redirect_url")
 			c.Redirect(http.StatusFound, redirectURL.(string))
 		})
+
+		router.GET(provider.AuthURL(), func(c *gin.Context) {
+			url, err := provider.AuthCodeURL(c)
+			if err != nil {
+				c.Error(err)
+				return
+			}
+			c.Redirect(http.StatusFound, url)
+		})
 	}
 }
 
 type ProviderData struct {
-	Name        string
-	DisplayName string
+	Name string
+	URL  string
 }
 
 func (a *AuthRouter) handleLogin(c *gin.Context) {
 	var providersData []ProviderData
 	for name := range a.providers {
 		providersData = append(providersData, ProviderData{
-			Name:        name,
-			DisplayName: name,
+			Name: name,
+			URL:  a.providers[name].AuthURL(),
 		})
 	}
 
@@ -103,12 +124,21 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 	}
 }
 
+func (a *AuthRouter) handleLogout(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Clear()
+	session.Save()
+	c.Redirect(http.StatusFound, LoginEndpoint)
+}
+
 func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		providerName := session.Get("provider")
 		userID := session.Get("user_id")
 		if providerName == nil || userID == nil {
+			session.Set("redirect_url", c.Request.URL.String())
+			session.Save()
 			c.Redirect(http.StatusFound, LoginEndpoint)
 			return
 		}
@@ -123,7 +153,20 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 			return
 		}
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+			data := struct {
+				UserID   string
+				Provider string
+			}{
+				UserID:   userID.(string),
+				Provider: providerName.(string),
+			}
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.Status(http.StatusForbidden)
+			if err := a.unauthorizedTemplate.Execute(c.Writer, data); err != nil {
+				c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+			c.Abort()
 			return
 		}
 		c.Next()
