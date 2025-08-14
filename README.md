@@ -4,6 +4,10 @@ MCP Auth Proxy is a secure OAuth 2.0 authentication proxy for Model Context Prot
 
 MCP Auth Proxy sits in front of your MCP services and enforces sign-in with OAuth providers (such as Google or GitHub) before users can access protected MCP resources.
 
+## Note
+
+For a simpler approach to publish local MCP servers over OAuth, consider [MCP Warp](https://github.com/sigbit/mcp-warp), which provides an OAuth Proxy + ngrok-like service. We highly recommend considering this option as well.
+
 ## 🔧 Configuration
 
 ### Environment Variables
