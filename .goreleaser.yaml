@@ -1,0 +1,64 @@
+project_name: mcp-auth-proxy
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: mcp-auth-proxy
+    main: ./main.go
+    binary: mcp-auth-proxy
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: []
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    builds: [mcp-auth-proxy]
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+dockers:
+  - id: img-amd64
+    use: buildx
+    dockerfile: Dockerfile
+    image_templates:
+      - "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}-amd64"
+    build_flag_templates:
+      - "--platform=linux/amd64"
+  - id: img-arm64
+    use: buildx
+    dockerfile: Dockerfile
+    image_templates:
+      - "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}-arm64"
+    build_flag_templates:
+      - "--platform=linux/arm64"
+
+docker_manifests:
+  - name_template: "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}-amd64"
+      - "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}-arm64"
+  - name_template: "ghcr.io/sigbit/mcp-auth-proxy:latest"
+    image_templates:
+      - "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}-amd64"
+      - "ghcr.io/sigbit/mcp-auth-proxy:{{ .Tag }}-arm64"

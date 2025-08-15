@@ -1,5 +1,24 @@
 # MCP Auth Proxy
 
+![Secure your MCP server with OAuth 2.1 — in a minute](./mcp-auth-proxy.png)
+
+If this project saves you time, please give it a star — it really helps visibility.
+
+## Quickstart
+
+```
+docker run --rm -p 8081:8081 --net=host \
+  -e EXTERNAL_URL=http://localhost:8081 \
+  -e PROXY_URL=http://localhost:8080 \
+  -e GLOBAL_SECRET=$(openssl rand -hex 32) \
+  -e GOOGLE_CLIENT_ID=... \
+  -e GOOGLE_CLIENT_SECRET=... \
+  -e GOOGLE_ALLOWED_USERS=... \
+  ghcr.io/sigbit/mcp-auth-proxy:latest
+```
+
+## Overview
+
 MCP Auth Proxy is a secure OAuth 2.1 authentication proxy for Model Context Protocol (MCP) servers. MCP servers are expected to support not only standard OAuth 2.1 flows but also Dynamic Client support (e.g., dynamic client registration) and authentication-related .well-known metadata. On top of that, different MCP clients handle tokens differently, which makes implementation tricky.
 
 MCP Auth Proxy sits in front of your MCP services and enforces sign-in with OAuth providers (such as Google or GitHub) before users can access protected MCP resources.
@@ -21,10 +40,10 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | `GLOBAL_SECRET`        | No       | Global secret for session encryption             | `supersecret`           |
 | `GOOGLE_CLIENT_ID`     | No*      | Google OAuth client ID                           | -                       |
 | `GOOGLE_CLIENT_SECRET` | No*      | Google OAuth client secret                       | -                       |
-| `GOOGLE_ALLOWED_USERS` | No       | Comma-separated list of allowed Google emails    | -                       |
+| `GOOGLE_ALLOWED_USERS` | No*      | Comma-separated list of allowed Google emails    | -                       |
 | `GITHUB_CLIENT_ID`     | No*      | GitHub OAuth client ID                           | -                       |
 | `GITHUB_CLIENT_SECRET` | No*      | GitHub OAuth client secret                       | -                       |
-| `GITHUB_ALLOWED_USERS` | No       | Comma-separated list of allowed GitHub usernames | -                       |
+| `GITHUB_ALLOWED_USERS` | No*      | Comma-separated list of allowed GitHub usernames | -                       |
 | `MODE`                 | No       | Set to `debug` for development mode              | `production`            |
 
 *At least one OAuth provider must be configured (Google or GitHub)
@@ -39,9 +58,8 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 5. Add authorized redirect URI: `{EXTERNAL_URL}/.auth/google/callback`
 
 #### GitHub OAuth Setup
-1. Go to GitHub Settings > Developer settings > OAuth Apps
-2. Create a new OAuth App
-3. Set Authorization callback URL: `{EXTERNAL_URL}/.auth/github/callback`
+1. Go to the [Register new GitHub App](https://github.com/settings/apps/new)
+2. Set Authorization callback URL: `{EXTERNAL_URL}/.auth/github/callback`
 
 ## 🚀 Installation & Usage
 
