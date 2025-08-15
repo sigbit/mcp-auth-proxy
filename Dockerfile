@@ -1,10 +1,12 @@
-FROM docker.io/library/golang:alpine AS builder
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:alpine AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY ./ /app
-RUN go build -o bin/main .
+
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOARCH=$TARGETARCH go build -trimpath -ldflags '-w -s' -o bin/main .
 
 FROM docker.io/library/alpine:latest
 
