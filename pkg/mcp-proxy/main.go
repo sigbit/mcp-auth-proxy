@@ -19,6 +19,7 @@ import (
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
 	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func Run(
@@ -33,6 +34,8 @@ func Run(
 	githubClientID string,
 	githubClientSecret string,
 	githubAllowedUsers []string,
+	password string,
+	passwordHash string,
 ) error {
 	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
@@ -89,7 +92,23 @@ func Run(
 		providers = append(providers, githubProvider)
 	}
 
-	authRouter, err := auth.NewAuthRouter(providers...)
+	var passwordHashes []string
+
+	// Handle password argument - generate bcrypt hash if provided
+	if password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to generate password hash: %w", err)
+		}
+		passwordHashes = append(passwordHashes, string(hash))
+	}
+
+	// Handle password-hash argument - use directly if provided
+	if passwordHash != "" {
+		passwordHashes = append(passwordHashes, passwordHash)
+	}
+
+	authRouter, err := auth.NewAuthRouter(passwordHashes, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}

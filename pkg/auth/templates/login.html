@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,7 +7,7 @@
     <style>
       body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         margin: 0;
         padding: 0;
         min-height: 100vh;
@@ -17,23 +17,91 @@
       }
       .login-container {
         background: white;
-        padding: 2rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        padding: 2.5rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
         text-align: center;
-        min-width: 300px;
+        min-width: 350px;
+        max-width: 400px;
+        width: 100%;
       }
       h1 {
         color: #333;
+        margin-bottom: 2rem;
+        font-size: 2rem;
+        font-weight: 600;
+      }
+      .form-group {
         margin-bottom: 1.5rem;
+        text-align: left;
+      }
+      .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #555;
+        font-weight: 500;
+        font-size: 0.9rem;
+      }
+      .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e1e5e9;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+      }
+      .form-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+      .password-button {
+        width: 100%;
+        padding: 12px 20px;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+      }
+      .password-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+      }
+      .divider {
+        margin: 1.5rem 0;
+        position: relative;
+        color: #999;
+        font-size: 0.9rem;
+      }
+      .divider::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #e5e5e5;
+        z-index: 1;
+      }
+      .divider span {
+        background: white;
+        padding: 0 1rem;
+        position: relative;
+        z-index: 2;
       }
       .provider-button {
         display: block;
         width: 100%;
         padding: 12px 20px;
-        margin: 10px auto;
+        margin: 12px auto;
         text-decoration: none;
-        border-radius: 6px;
+        border-radius: 8px;
         font-size: 16px;
         font-weight: 500;
         transition: transform 0.2s, box-shadow 0.2s;
@@ -47,26 +115,27 @@
       }
       .provider-button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
       }
-      .google {
+      .Google {
         background-color: #4285f4;
         color: white;
       }
-      .google:hover {
+      .Google:hover {
         background-color: #357ae8;
       }
-      .github {
+      .GitHub {
         background-color: #333;
         color: white;
       }
-      .github:hover {
+      .GitHub:hover {
         background-color: #24292e;
       }
-      .description {
-        color: #666;
-        margin-bottom: 2rem;
-        line-height: 1.5;
+      .error-message {
+        color: #e74c3c;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        text-align: center;
       }
     </style>
   </head>
@@ -74,8 +143,31 @@
     <div class="login-container">
       <h1>MCP Auth Proxy</h1>
 
-      {{range .Providers}}
-      <a href="{{.URL}}" class="provider-button"> Login with {{.Name}} </a>
+      {{if .HasPassword}}
+      <form class="password-form" action="/.auth/login" method="POST">
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input
+            class="form-input"
+            type="password"
+            id="password"
+            name="password"
+            required
+          />
+        </div>
+        <button class="password-button" type="submit">Login</button>
+        {{if .PasswordError}}
+        <div class="error-message">{{.PasswordError}}</div>
+        {{end}}
+      </form>
+      {{end}} {{if and .HasPassword (gt (len .Providers) 0)}}
+      <div class="divider">
+        <span>or</span>
+      </div>
+      {{end}} {{range .Providers}}
+      <a href="{{.URL}}" class="provider-button {{.Name }}">
+        Login with {{.Name}}
+      </a>
       {{end}}
     </div>
   </body>
