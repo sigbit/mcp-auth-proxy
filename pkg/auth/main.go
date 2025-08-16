@@ -63,6 +63,9 @@ const (
 	GoogleCallbackEndpoint = "/.auth/google/callback"
 	GitHubAuthEndpoint     = "/.auth/github"
 	GitHubCallbackEndpoint = "/.auth/github/callback"
+	
+	PasswordProvider = "password"
+	PasswordUserID   = "password_user"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
@@ -187,8 +190,8 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	}
 
 	session := sessions.Default(c)
-	session.Set("provider", "password")
-	session.Set("user_id", "password_user")
+	session.Set("provider", PasswordProvider)
+	session.Set("user_id", PasswordUserID)
 	session.Save()
 
 	redirectURL := session.Get("redirect_url")
@@ -219,7 +222,7 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 		}
 
 		// Allow password authentication
-		if providerName.(string) == "password" {
+		if providerName.(string) == PasswordProvider {
 			c.Next()
 			return
 		}
