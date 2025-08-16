@@ -203,7 +203,7 @@ func (a *AuthRouter) handleLogout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Clear()
 	session.Save()
-	c.Redirect(http.StatusFound, LoginEndpoint)
+	c.String(http.StatusOK, "Logged out")
 }
 
 func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
