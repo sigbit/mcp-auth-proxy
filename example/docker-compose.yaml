@@ -4,6 +4,8 @@ services:
       context: ..
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - 8081:8081
     environment:
@@ -11,7 +13,6 @@ services:
       # be sure to specify a domain name that can be accessed from outside for EXTERNAL_URL.
       - EXTERNAL_URL=http://localhost:8081
       - PROXY_URL=http://playwright:8931
-      - PASSWORD=changeme
     volumes:
       - ./data:/data
   playwright:

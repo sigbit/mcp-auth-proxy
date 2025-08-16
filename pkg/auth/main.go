@@ -26,7 +26,7 @@ type Provider interface {
 }
 
 type AuthRouter struct {
-	passswordHash        []string
+	passwordHash         []string
 	providers            map[string]Provider
 	template             *template.Template
 	unauthorizedTemplate *template.Template
@@ -49,7 +49,7 @@ func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, e
 	}
 
 	return &AuthRouter{
-		passswordHash:        passwordHash,
+		passwordHash:         passwordHash,
 		providers:            providersMap,
 		template:             tmpl,
 		unauthorizedTemplate: unauthorizedTmpl,
@@ -126,7 +126,7 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 		PasswordError string
 	}{
 		Providers:     providersData,
-		HasPassword:   len(a.passswordHash) > 0,
+		HasPassword:   len(a.passwordHash) > 0,
 		PasswordError: "",
 	}
 
@@ -145,7 +145,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 		errorMessage = "Password is required"
 	} else {
 		var isValid bool
-		for _, hash := range a.passswordHash {
+		for _, hash := range a.passwordHash {
 			err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 			if err == nil {
 				isValid = true
@@ -173,7 +173,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 			PasswordError string
 		}{
 			Providers:     providersData,
-			HasPassword:   len(a.passswordHash) > 0,
+			HasPassword:   len(a.passwordHash) > 0,
 			PasswordError: errorMessage,
 		}
 
