@@ -2,15 +2,13 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
 	"embed"
-	"fmt"
 	"html/template"
 	"net/http"
-	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 )
 
@@ -61,7 +59,6 @@ func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, e
 const (
 	LoginEndpoint          = "/.auth/login"
 	LogoutEndpoint         = "/.auth/logout"
-	PasswordEndpoint       = "/.auth/password"
 	GoogleAuthEndpoint     = "/.auth/google"
 	GoogleCallbackEndpoint = "/.auth/google/callback"
 	GitHubAuthEndpoint     = "/.auth/github"
@@ -70,7 +67,7 @@ const (
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(LoginEndpoint, a.handleLogin)
-	router.POST(PasswordEndpoint, a.handlePasswordAuth)
+	router.POST(LoginEndpoint, a.handleLoginPost)
 	router.GET(LogoutEndpoint, a.handleLogout)
 	for providerName, provider := range a.providers {
 		router.GET(provider.RedirectURL(), func(c *gin.Context) {
@@ -110,22 +107,17 @@ type ProviderData struct {
 }
 
 func (a *AuthRouter) handleLogin(c *gin.Context) {
+	if c.Request.Method == "POST" {
+		a.handleLoginPost(c)
+		return
+	}
+
 	var providersData []ProviderData
 	for name := range a.providers {
 		providersData = append(providersData, ProviderData{
 			Name: name,
 			URL:  a.providers[name].AuthURL(),
 		})
-	}
-
-	session := sessions.Default(c)
-	passwordError := session.Get("password_error")
-	session.Delete("password_error")
-	session.Save()
-
-	var passwordErrorStr string
-	if passwordError != nil {
-		passwordErrorStr = passwordError.(string)
 	}
 
 	data := struct {
@@ -135,7 +127,7 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 	}{
 		Providers:     providersData,
 		HasPassword:   len(a.passswordHash) > 0,
-		PasswordError: passwordErrorStr,
+		PasswordError: "",
 	}
 
 	c.Header("Content-Type", "text/html; charset=utf-8")
@@ -145,31 +137,52 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 	}
 }
 
-func (a *AuthRouter) handlePasswordAuth(c *gin.Context) {
+func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	password := c.PostForm("password")
+	var errorMessage string
+
 	if password == "" {
-		session := sessions.Default(c)
-		session.Set("password_error", "Password is required")
-		session.Save()
-		c.Redirect(http.StatusFound, LoginEndpoint)
-		return
-	}
+		errorMessage = "Password is required"
+	} else {
+		var isValid bool
+		for _, hash := range a.passswordHash {
+			err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+			if err == nil {
+				isValid = true
+				break
+			}
+		}
 
-	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
-
-	var isValid bool
-	for _, hash := range a.passswordHash {
-		if strings.EqualFold(hashedPassword, hash) {
-			isValid = true
-			break
+		if !isValid {
+			errorMessage = "Invalid password"
 		}
 	}
 
-	if !isValid {
-		session := sessions.Default(c)
-		session.Set("password_error", "Invalid password")
-		session.Save()
-		c.Redirect(http.StatusFound, LoginEndpoint)
+	if errorMessage != "" {
+		var providersData []ProviderData
+		for name := range a.providers {
+			providersData = append(providersData, ProviderData{
+				Name: name,
+				URL:  a.providers[name].AuthURL(),
+			})
+		}
+
+		data := struct {
+			Providers     []ProviderData
+			HasPassword   bool
+			PasswordError string
+		}{
+			Providers:     providersData,
+			HasPassword:   len(a.passswordHash) > 0,
+			PasswordError: errorMessage,
+		}
+
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.Status(http.StatusBadRequest)
+		if err := a.template.Execute(c.Writer, data); err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
 		return
 	}
 

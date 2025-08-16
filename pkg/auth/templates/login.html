@@ -7,7 +7,7 @@
     <style>
       body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         margin: 0;
         padding: 0;
         min-height: 100vh;
@@ -30,11 +30,6 @@
         margin-bottom: 2rem;
         font-size: 2rem;
         font-weight: 600;
-      }
-      .password-form {
-        margin-bottom: 2rem;
-        padding-bottom: 2rem;
-        border-bottom: 1px solid #e5e5e5;
       }
       .form-group {
         margin-bottom: 1.5rem;
@@ -85,7 +80,7 @@
         font-size: 0.9rem;
       }
       .divider::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 50%;
         left: 0;
@@ -122,18 +117,18 @@
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
       }
-      .google {
+      .Google {
         background-color: #4285f4;
         color: white;
       }
-      .google:hover {
+      .Google:hover {
         background-color: #357ae8;
       }
-      .github {
+      .GitHub {
         background-color: #333;
         color: white;
       }
-      .github:hover {
+      .GitHub:hover {
         background-color: #24292e;
       }
       .error-message {
@@ -147,28 +142,30 @@
   <body>
     <div class="login-container">
       <h1>MCP Auth Proxy</h1>
-      
+
       {{if .HasPassword}}
-      <form class="password-form" action="/.auth/password" method="POST">
+      <form class="password-form" action="/.auth/login" method="POST">
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input class="form-input" type="password" id="password" name="password" required>
+          <input
+            class="form-input"
+            type="password"
+            id="password"
+            name="password"
+            required
+          />
         </div>
         <button class="password-button" type="submit">Login</button>
         {{if .PasswordError}}
         <div class="error-message">{{.PasswordError}}</div>
         {{end}}
       </form>
-      {{end}}
-      
-      {{if and .HasPassword .Providers}}
+      {{end}} {{if and .HasPassword (gt (len .Providers) 0)}}
       <div class="divider">
         <span>or</span>
       </div>
-      {{end}}
-      
-      {{range .Providers}}
-      <a href="{{.URL}}" class="provider-button {{.Name | lower}}">
+      {{end}} {{range .Providers}}
+      <a href="{{.URL}}" class="provider-button {{.Name }}">
         Login with {{.Name}}
       </a>
       {{end}}
