@@ -2,9 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -25,12 +28,13 @@ type Provider interface {
 }
 
 type AuthRouter struct {
-	providers           map[string]Provider
-	template            *template.Template
+	passswordHash        []string
+	providers            map[string]Provider
+	template             *template.Template
 	unauthorizedTemplate *template.Template
 }
 
-func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
+func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, error) {
 	providersMap := make(map[string]Provider)
 	for _, provider := range providers {
 		providersMap[provider.Name()] = provider
@@ -40,15 +44,16 @@ func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	unauthorizedTmpl, err := template.ParseFS(templateFS, "templates/unauthorized.html")
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthRouter{
-		providers:           providersMap,
-		template:            tmpl,
+		passswordHash:        passwordHash,
+		providers:            providersMap,
+		template:             tmpl,
 		unauthorizedTemplate: unauthorizedTmpl,
 	}, nil
 }
@@ -56,6 +61,7 @@ func NewAuthRouter(providers ...Provider) (*AuthRouter, error) {
 const (
 	LoginEndpoint          = "/.auth/login"
 	LogoutEndpoint         = "/.auth/logout"
+	PasswordEndpoint       = "/.auth/password"
 	GoogleAuthEndpoint     = "/.auth/google"
 	GoogleCallbackEndpoint = "/.auth/google/callback"
 	GitHubAuthEndpoint     = "/.auth/github"
@@ -64,6 +70,7 @@ const (
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(LoginEndpoint, a.handleLogin)
+	router.POST(PasswordEndpoint, a.handlePasswordAuth)
 	router.GET(LogoutEndpoint, a.handleLogout)
 	for providerName, provider := range a.providers {
 		router.GET(provider.RedirectURL(), func(c *gin.Context) {
@@ -111,10 +118,24 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 		})
 	}
 
+	session := sessions.Default(c)
+	passwordError := session.Get("password_error")
+	session.Delete("password_error")
+	session.Save()
+
+	var passwordErrorStr string
+	if passwordError != nil {
+		passwordErrorStr = passwordError.(string)
+	}
+
 	data := struct {
-		Providers []ProviderData
+		Providers     []ProviderData
+		HasPassword   bool
+		PasswordError string
 	}{
-		Providers: providersData,
+		Providers:     providersData,
+		HasPassword:   len(a.passswordHash) > 0,
+		PasswordError: passwordErrorStr,
 	}
 
 	c.Header("Content-Type", "text/html; charset=utf-8")
@@ -122,6 +143,47 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+}
+
+func (a *AuthRouter) handlePasswordAuth(c *gin.Context) {
+	password := c.PostForm("password")
+	if password == "" {
+		session := sessions.Default(c)
+		session.Set("password_error", "Password is required")
+		session.Save()
+		c.Redirect(http.StatusFound, LoginEndpoint)
+		return
+	}
+
+	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
+
+	var isValid bool
+	for _, hash := range a.passswordHash {
+		if strings.EqualFold(hashedPassword, hash) {
+			isValid = true
+			break
+		}
+	}
+
+	if !isValid {
+		session := sessions.Default(c)
+		session.Set("password_error", "Invalid password")
+		session.Save()
+		c.Redirect(http.StatusFound, LoginEndpoint)
+		return
+	}
+
+	session := sessions.Default(c)
+	session.Set("provider", "password")
+	session.Set("user_id", "password_user")
+	session.Save()
+
+	redirectURL := session.Get("redirect_url")
+	if redirectURL == nil {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+	c.Redirect(http.StatusFound, redirectURL.(string))
 }
 
 func (a *AuthRouter) handleLogout(c *gin.Context) {
@@ -142,6 +204,13 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 			c.Redirect(http.StatusFound, LoginEndpoint)
 			return
 		}
+
+		// Allow password authentication
+		if providerName.(string) == "password" {
+			c.Next()
+			return
+		}
+
 		p, ok := a.providers[providerName.(string)]
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unknown provider"})

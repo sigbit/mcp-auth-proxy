@@ -89,7 +89,7 @@ func Run(
 		providers = append(providers, githubProvider)
 	}
 
-	authRouter, err := auth.NewAuthRouter(providers...)
+	authRouter, err := auth.NewAuthRouter([]string{}, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
