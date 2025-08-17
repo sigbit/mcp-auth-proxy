@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.0.0...v1.1.0) (2025-08-17)
+
+
+### Features
+
+* add PROXY_BEARER_TOKEN and PROXY_HEADERS options ([#13](https://github.com/sigbit/mcp-auth-proxy/issues/13)) ([abbbcf6](https://github.com/sigbit/mcp-auth-proxy/commit/abbbcf65a078335caae60b1ad00a5372ebedc3ab))
+
 ## [1.0.0](https://github.com/sigbit/mcp-auth-proxy/compare/v0.2.1...v1.0.0) (2025-08-17)
 
 
