@@ -16,20 +16,20 @@ type ProxyRouter struct {
 	externalURL  string
 	proxy        *httputil.ReverseProxy
 	publicKey    *rsa.PublicKey
-	proxyHeaders map[string]string
+	proxyHeaders http.Header
 }
 
 func NewProxyRouter(
 	externalURL string,
 	proxyURL string,
 	publicKey *rsa.PublicKey,
-	proxyHeaders map[string]string,
+	proxyHeaders http.Header,
 ) (*ProxyRouter, error) {
 	parsedProxyURL, err := url.Parse(proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse proxy URL: %w", err)
 	}
-	
+
 	proxy := httputil.NewSingleHostReverseProxy(parsedProxyURL)
 	return &ProxyRouter{
 		externalURL:  externalURL,
@@ -81,8 +81,10 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	}
 
 	// Add custom headers to the request
-	for name, value := range p.proxyHeaders {
-		c.Request.Header.Set(name, value)
+	for name, values := range p.proxyHeaders {
+		for _, value := range values {
+			c.Request.Header.Add(name, value)
+		}
 	}
 
 	p.proxy.ServeHTTP(c.Writer, c.Request)

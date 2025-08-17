@@ -56,20 +56,6 @@ func Run(
 		return fmt.Errorf("external URL must not have a path, got: %s", parsedExternalURL.Path)
 	}
 
-	// Convert headers slice to map and integrate bearer token
-	proxyHeadersMap := make(map[string]string)
-	for _, header := range proxyHeaders {
-		parts := strings.SplitN(header, ":", 2)
-		if len(parts) == 2 {
-			proxyHeadersMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
-		}
-	}
-
-	// Add bearer token as Authorization header if provided
-	if proxyBearerToken != "" {
-		proxyHeadersMap["Authorization"] = "Bearer " + proxyBearerToken
-	}
-
 	secret, err := utils.LoadOrGenerateSecret(path.Join(dataPath, "secret"))
 	if err != nil {
 		return fmt.Errorf("failed to load or generate secret: %w", err)
@@ -89,6 +75,24 @@ func Run(
 	}
 	if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	// Convert headers slice to map and integrate bearer token
+	proxyHeadersMap := http.Header{}
+	for _, header := range proxyHeaders {
+		parts := strings.SplitN(header, ":", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+			return fmt.Errorf("invalid proxy header format: %s", header)
+		}
+		proxyHeadersMap.Add(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+	}
+
+	// Add bearer token as Authorization header if provided
+	if proxyBearerToken != "" {
+		if proxyHeadersMap.Get("Authorization") != "" {
+			logger.Warn("Authorization header already set, overwriting with bearer token")
+		}
+		proxyHeadersMap.Set("Authorization", "Bearer "+proxyBearerToken)
 	}
 
 	repo, err := repository.NewKVSRepository(path.Join(dataPath, "db"), "mcp-oauth-proxy")

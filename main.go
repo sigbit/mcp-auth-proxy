@@ -69,10 +69,7 @@ func main() {
 			if proxyHeaders != "" {
 				headersList := strings.Split(proxyHeaders, ",")
 				for _, header := range headersList {
-					parts := strings.SplitN(strings.TrimSpace(header), ":", 2)
-					if len(parts) == 2 && strings.TrimSpace(parts[0]) != "" && strings.TrimSpace(parts[1]) != "" {
-						proxyHeadersList = append(proxyHeadersList, strings.TrimSpace(parts[0])+":"+strings.TrimSpace(parts[1]))
-					}
+					proxyHeadersList = append(proxyHeadersList, strings.TrimSpace(header))
 				}
 			}
 
