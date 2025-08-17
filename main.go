@@ -17,6 +17,9 @@ func getEnvWithDefault(key, defaultValue string) string {
 
 func main() {
 	var listen string
+	var listenTLS string
+	var tlsHost string
+	var tlsDirectoryURL string
 	var dataPath string
 	var externalURL string
 	var proxyURL string
@@ -51,6 +54,9 @@ func main() {
 
 			if err := mcpproxy.Run(
 				listen,
+				listenTLS,
+				tlsHost,
+				tlsDirectoryURL,
 				dataPath,
 				externalURL,
 				proxyURL,
@@ -69,9 +75,12 @@ func main() {
 		},
 	}
 
-	rootCmd.Flags().StringVarP(&listen, "listen", "l", getEnvWithDefault("LISTEN", ":8081"), "Address to listen on")
+	rootCmd.Flags().StringVarP(&listen, "listen", "l", getEnvWithDefault("LISTEN", ":80"), "Address to listen on")
+	rootCmd.Flags().StringVarP(&listenTLS, "listen-tls", "t", getEnvWithDefault("TLS_LISTEN", ":443"), "Address to listen on for TLS")
+	rootCmd.Flags().StringVarP(&tlsHost, "tls-host", "H", getEnvWithDefault("TLS_HOST", ""), "Host name for TLS")
+	rootCmd.Flags().StringVarP(&tlsDirectoryURL, "tls-directory-url", "D", getEnvWithDefault("TLS_DIRECTORY_URL", "https://acme-v02.api.letsencrypt.org/directory"), "ACME directory URL for TLS certificates")
 	rootCmd.Flags().StringVarP(&dataPath, "data", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
-	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost:8081"), "External URL for the proxy")
+	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
 	rootCmd.Flags().StringVarP(&proxyURL, "proxy-url", "p", getEnvWithDefault("PROXY_URL", "http://localhost:8080"), "Proxy URL for the proxy")
 	rootCmd.Flags().StringVarP(&globalSecret, "global-secret", "s", getEnvWithDefault("GLOBAL_SECRET", "supersecret"), "Global secret for the proxy")
 
