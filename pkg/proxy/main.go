@@ -80,12 +80,7 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 		return
 	}
 
-	// Add custom headers to the request
-	for name, values := range p.proxyHeaders {
-		for _, value := range values {
-			c.Request.Header.Add(name, value)
-		}
-	}
+	c.Request.Header = p.proxyHeaders
 
 	p.proxy.ServeHTTP(c.Writer, c.Request)
 }
