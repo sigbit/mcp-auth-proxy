@@ -3,6 +3,7 @@ package mcpproxy
 import (
 	"crypto/sha256"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -19,11 +20,16 @@ import (
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
 	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/acme"
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func Run(
 	listen string,
+	listenTLS string,
+	tlsHost string,
+	tlsDirectoryURL string,
 	dataPath string,
 	externalURL string,
 	proxyURL string,
@@ -132,5 +138,45 @@ func Run(
 	proxyRouter.SetupRoutes(router)
 
 	logger.Info("Starting server", zap.String("listen", listen))
-	return router.Run(listen)
+
+	if tlsHost != "" {
+		m := autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(tlsHost),
+			Cache:      autocert.DirCache(path.Join(dataPath, "certs")),
+			Client: &acme.Client{
+				DirectoryURL: tlsDirectoryURL,
+			},
+		}
+
+		errCh := make(chan error)
+
+		go func() {
+			s := &http.Server{
+				Addr: listen,
+				Handler: m.HTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					host := r.Host
+					if host == "" {
+						host = r.URL.Host
+					}
+					target := "https://" + host + r.RequestURI
+					http.Redirect(w, r, target, http.StatusMovedPermanently)
+				})),
+			}
+			errCh <- s.ListenAndServe()
+		}()
+
+		go func() {
+			s := &http.Server{
+				Addr:      listenTLS,
+				Handler:   router,
+				TLSConfig: m.TLSConfig(),
+			}
+			errCh <- s.ListenAndServeTLS("", "")
+		}()
+
+		return <-errCh
+	} else {
+		return router.Run(listen)
+	}
 }

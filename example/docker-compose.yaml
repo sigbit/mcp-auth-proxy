@@ -7,11 +7,11 @@ services:
     env_file:
       - .env
     ports:
-      - 8081:8081
+      - 80:80
     environment:
       # If you are accessing from outside (such as Claude Web),
       # be sure to specify a domain name that can be accessed from outside for EXTERNAL_URL.
-      - EXTERNAL_URL=http://localhost:8081
+      - EXTERNAL_URL=http://localhost
       - PROXY_URL=http://playwright:8931
     volumes:
       - ./data:/data
