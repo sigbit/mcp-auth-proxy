@@ -49,6 +49,7 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | `TLS_LISTEN`           | No       | Address to listen on for TLS                     | `:443`                                           |
 | `TLS_HOST`             | No       | Host name for automatic TLS certificate          | -                                                |
 | `TLS_DIRECTORY_URL`    | No       | ACME directory URL for TLS certificates          | `https://acme-v02.api.letsencrypt.org/directory` |
+| `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                      | `false`                                          |
 | `DATA_PATH`            | No       | Data directory path                              | `./data`                                         |
 | `EXTERNAL_URL`         | No       | External URL for OAuth callbacks                 | `http://localhost`                               |
 | `PROXY_URL`            | No       | Target MCP server URL                            | `http://localhost:8080`                          |
