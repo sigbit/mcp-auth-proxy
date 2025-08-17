@@ -117,16 +117,6 @@ docker run --rm -p 8081:8081 --net=host \
 
 This project follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages. This helps with automated versioning, changelog generation, and makes the commit history more readable.
 
-#### Format
-
-```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
 #### Types
 
 - **feat**: A new feature
