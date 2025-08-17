@@ -10,7 +10,6 @@ If this project saves you time, please give it a star — it really helps visibi
 docker run --rm -p 80:80 --net=host \
   -e EXTERNAL_URL=http://localhost \
   -e PROXY_URL=http://localhost:8080 \
-  -e GLOBAL_SECRET=$(openssl rand -hex 32) \
   -e PASSWORD=changeme \
   -v ./data:/data \
   ghcr.io/sigbit/mcp-auth-proxy:latest
@@ -53,7 +52,6 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | `DATA_PATH`            | No       | Data directory path                              | `./data`                                         |
 | `EXTERNAL_URL`         | No       | External URL for OAuth callbacks                 | `http://localhost`                               |
 | `PROXY_URL`            | No       | Target MCP server URL                            | `http://localhost:8080`                          |
-| `GLOBAL_SECRET`        | No       | Global secret for session encryption             | `supersecret`                                    |
 | `GOOGLE_CLIENT_ID`     | No       | Google OAuth client ID                           | -                                                |
 | `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                       | -                                                |
 | `GOOGLE_ALLOWED_USERS` | No       | Comma-separated list of allowed Google emails    | -                                                |
@@ -87,7 +85,6 @@ Download the latest binary from [releases](https://github.com/sigbit/mcp-auth-pr
 ./mcp-auth-proxy \
   --external-url "http://localhost:8081" \
   --proxy-url "http://localhost:8080" \
-  --global-secret "$(openssl rand -hex 32)" \
   --google-client-id "your-google-client-id" \
   --google-client-secret "your-google-client-secret" \
   --google-allowed-users "user1@example.com,user2@example.com" \
@@ -103,7 +100,6 @@ Download the latest binary from [releases](https://github.com/sigbit/mcp-auth-pr
 docker run --rm -p 8081:8081 --net=host \
   -e EXTERNAL_URL=http://localhost:8081 \
   -e PROXY_URL=http://localhost:8080 \
-  -e GLOBAL_SECRET=$(openssl rand -hex 32) \
   -e GOOGLE_CLIENT_ID="your-google-client-id" \
   -e GOOGLE_CLIENT_SECRET="your-google-client-secret" \
   -e GOOGLE_ALLOWED_USERS="user1@example.com,user2@example.com" \
@@ -113,4 +109,52 @@ docker run --rm -p 8081:8081 --net=host \
   -e PASSWORD=changeme \
   -v ./data:/data \
   ghcr.io/sigbit/mcp-auth-proxy:latest
+```
+
+## 👨‍💻 For Developers
+
+### Commit Message Guidelines
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages. This helps with automated versioning, changelog generation, and makes the commit history more readable.
+
+#### Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+#### Types
+
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation only changes
+- **style**: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- **refactor**: A code change that neither fixes a bug nor adds a feature
+- **perf**: A code change that improves performance
+- **test**: Adding missing tests or correcting existing tests
+- **build**: Changes that affect the build system or external dependencies
+- **ci**: Changes to our CI configuration files and scripts
+- **chore**: Other changes that don't modify src or test files
+- **revert**: Reverts a previous commit
+
+#### Examples
+
+```
+feat: add GitHub OAuth provider support
+fix: resolve token expiration handling
+docs: update OAuth setup instructions
+refactor: simplify authentication middleware
+ci: add automated release workflow
+```
+
+#### Breaking Changes
+
+Breaking changes should be indicated by a `!` after the type/scope:
+
+```
+feat!: change authentication API to support multiple providers
 ```
