@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,8 @@ func Run(
 	githubAllowedUsers []string,
 	password string,
 	passwordHash string,
+	proxyHeaders []string,
+	proxyBearerToken string,
 ) error {
 	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
@@ -72,6 +75,24 @@ func Run(
 	}
 	if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	// Convert headers slice to map and integrate bearer token
+	proxyHeadersMap := http.Header{}
+	for _, header := range proxyHeaders {
+		parts := strings.SplitN(header, ":", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+			return fmt.Errorf("invalid proxy header format: %s", header)
+		}
+		proxyHeadersMap.Add(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+	}
+
+	// Add bearer token as Authorization header if provided
+	if proxyBearerToken != "" {
+		if proxyHeadersMap.Get("Authorization") != "" {
+			logger.Warn("Authorization header already set, overwriting with bearer token")
+		}
+		proxyHeadersMap.Set("Authorization", "Bearer "+proxyBearerToken)
 	}
 
 	repo, err := repository.NewKVSRepository(path.Join(dataPath, "db"), "mcp-oauth-proxy")
@@ -127,7 +148,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey)
+	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey, proxyHeadersMap)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}

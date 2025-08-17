@@ -13,25 +13,29 @@ import (
 )
 
 type ProxyRouter struct {
-	externalURL string
-	proxy       *httputil.ReverseProxy
-	publicKey   *rsa.PublicKey
+	externalURL  string
+	proxy        *httputil.ReverseProxy
+	publicKey    *rsa.PublicKey
+	proxyHeaders http.Header
 }
 
 func NewProxyRouter(
 	externalURL string,
 	proxyURL string,
 	publicKey *rsa.PublicKey,
+	proxyHeaders http.Header,
 ) (*ProxyRouter, error) {
 	parsedProxyURL, err := url.Parse(proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse proxy URL: %w", err)
 	}
+
 	proxy := httputil.NewSingleHostReverseProxy(parsedProxyURL)
 	return &ProxyRouter{
-		externalURL: externalURL,
-		proxy:       proxy,
-		publicKey:   publicKey,
+		externalURL:  externalURL,
+		proxy:        proxy,
+		publicKey:    publicKey,
+		proxyHeaders: proxyHeaders,
 	}, nil
 }
 
@@ -74,6 +78,13 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	if err != nil || !token.Valid {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
+	}
+
+	// Add custom headers to the request
+	for name, values := range p.proxyHeaders {
+		for _, value := range values {
+			c.Request.Header.Add(name, value)
+		}
 	}
 
 	p.proxy.ServeHTTP(c.Writer, c.Request)
