@@ -153,7 +153,7 @@ func Run(
 			},
 		}
 
-		exit := make(chan struct{})
+		exit := make(chan struct{}, 2)
 		var wg sync.WaitGroup
 
 		httpServer := &http.Server{
@@ -179,7 +179,7 @@ func Run(
 		go func() {
 			defer wg.Done()
 			err := httpServer.ListenAndServe()
-			if err != nil {
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
 				errs = append(errs, err)
 				lock.Unlock()
@@ -190,7 +190,7 @@ func Run(
 		go func() {
 			defer wg.Done()
 			err := httpsServer.ListenAndServeTLS("", "")
-			if err != nil {
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
 				errs = append(errs, err)
 				lock.Unlock()
@@ -208,6 +208,7 @@ func Run(
 		if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
 			logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
 		}
+		wg.Wait()
 		return errors.Join(errs...)
 	} else {
 		logger.Info("Starting server", zap.String("listen", listen))
