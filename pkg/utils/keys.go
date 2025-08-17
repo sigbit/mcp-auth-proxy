@@ -9,10 +9,12 @@ import (
 	"os"
 )
 
+const SecretSize = 32
+
 func LoadOrGenerateSecret(secretPath string) ([]byte, error) {
 	_, err := os.Stat(secretPath)
 	if os.IsNotExist(err) {
-		secret := make([]byte, 32)
+		secret := make([]byte, SecretSize)
 		if _, err := rand.Read(secret); err != nil {
 			return nil, fmt.Errorf("failed to generate secret: %w", err)
 		}
