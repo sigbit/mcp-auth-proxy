@@ -24,7 +24,11 @@ func LoadOrGenerateSecret(secretPath string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat secret file: %w", err)
 	}
-	return os.ReadFile(secretPath)
+	secret, err := os.ReadFile(secretPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret file: %w", err)
+	}
+	return secret, nil
 }
 
 func LoadOrGeneratePrivateKey(keyPath string) (*rsa.PrivateKey, error) {
