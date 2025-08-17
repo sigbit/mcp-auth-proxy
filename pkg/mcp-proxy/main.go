@@ -2,7 +2,6 @@ package mcpproxy
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,7 +36,6 @@ func Run(
 	dataPath string,
 	externalURL string,
 	proxyURL string,
-	globalSecret string,
 	googleClientID string,
 	googleClientSecret string,
 	googleAllowedUsers []string,
@@ -54,8 +52,11 @@ func Run(
 	if parsedExternalURL.Path != "" {
 		return fmt.Errorf("external URL must not have a path, got: %s", parsedExternalURL.Path)
 	}
-	sha256Hash := sha256.Sum256([]byte(globalSecret))
-	secret := sha256Hash[:]
+
+	secret, err := utils.LoadOrGenerateSecret(path.Join(dataPath, "secret"))
+	if err != nil {
+		return fmt.Errorf("failed to load or generate secret: %w", err)
+	}
 
 	var config zap.Config
 	if os.Getenv("MODE") == "debug" {

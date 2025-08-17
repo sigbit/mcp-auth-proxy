@@ -34,7 +34,6 @@ func main() {
 	var dataPath string
 	var externalURL string
 	var proxyURL string
-	var globalSecret string
 	var googleClientID string
 	var googleClientSecret string
 	var googleAllowedUsers string
@@ -72,7 +71,6 @@ func main() {
 				dataPath,
 				externalURL,
 				proxyURL,
-				globalSecret,
 				googleClientID,
 				googleClientSecret,
 				googleAllowedUsersList,
@@ -95,7 +93,6 @@ func main() {
 	rootCmd.Flags().StringVarP(&dataPath, "data", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
 	rootCmd.Flags().StringVarP(&proxyURL, "proxy-url", "p", getEnvWithDefault("PROXY_URL", "http://localhost:8080"), "Proxy URL for the proxy")
-	rootCmd.Flags().StringVarP(&globalSecret, "global-secret", "s", getEnvWithDefault("GLOBAL_SECRET", "supersecret"), "Global secret for the proxy")
 
 	// Google OAuth configuration
 	rootCmd.Flags().StringVar(&googleClientID, "google-client-id", getEnvWithDefault("GOOGLE_CLIENT_ID", ""), "Google OAuth client ID")

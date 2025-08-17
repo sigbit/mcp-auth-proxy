@@ -9,6 +9,30 @@ import (
 	"os"
 )
 
+const SecretSize = 32
+
+func LoadOrGenerateSecret(secretPath string) ([]byte, error) {
+	_, err := os.Stat(secretPath)
+	if os.IsNotExist(err) {
+		secret := make([]byte, SecretSize)
+		if _, err := rand.Read(secret); err != nil {
+			return nil, fmt.Errorf("failed to generate secret: %w", err)
+		}
+		if err := os.WriteFile(secretPath, secret, 0600); err != nil {
+			return nil, fmt.Errorf("failed to save secret: %w", err)
+		}
+		return secret, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat secret file: %w", err)
+	}
+	secret, err := os.ReadFile(secretPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret file: %w", err)
+	}
+	return secret, nil
+}
+
 func LoadOrGeneratePrivateKey(keyPath string) (*rsa.PrivateKey, error) {
 	_, err := os.Stat(keyPath)
 	if os.IsNotExist(err) {
