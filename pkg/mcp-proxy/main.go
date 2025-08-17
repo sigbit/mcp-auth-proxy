@@ -1,12 +1,14 @@
 package mcpproxy
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/blendle/zapdriver"
@@ -138,8 +140,6 @@ func Run(
 	idpRouter.SetupRoutes(router)
 	proxyRouter.SetupRoutes(router)
 
-	logger.Info("Starting server", zap.String("listen", listen))
-
 	if tlsHost != "" {
 		m := autocert.Manager{
 			Prompt: func(tosURL string) bool {
@@ -153,33 +153,45 @@ func Run(
 		}
 
 		errCh := make(chan error)
+		var wg sync.WaitGroup
 
+		httpServer := &http.Server{
+			Addr: listen,
+			Handler: m.HTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				host := r.Host
+				if host == "" {
+					host = r.URL.Host
+				}
+				target := "https://" + host + r.RequestURI
+				http.Redirect(w, r, target, http.StatusMovedPermanently)
+			})),
+		}
+		httpsServer := &http.Server{
+			Addr:      listenTLS,
+			Handler:   router,
+			TLSConfig: m.TLSConfig(),
+		}
+
+		wg.Add(2)
 		go func() {
-			s := &http.Server{
-				Addr: listen,
-				Handler: m.HTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					host := r.Host
-					if host == "" {
-						host = r.URL.Host
-					}
-					target := "https://" + host + r.RequestURI
-					http.Redirect(w, r, target, http.StatusMovedPermanently)
-				})),
-			}
-			errCh <- s.ListenAndServe()
+			defer wg.Done()
+			errCh <- httpServer.ListenAndServe()
 		}()
 
 		go func() {
-			s := &http.Server{
-				Addr:      listenTLS,
-				Handler:   router,
-				TLSConfig: m.TLSConfig(),
-			}
-			errCh <- s.ListenAndServeTLS("", "")
+			defer wg.Done()
+			errCh <- httpsServer.ListenAndServeTLS("", "")
 		}()
 
-		return <-errCh
+		logger.Info("Starting server", zap.Strings("listen", []string{listen, listenTLS}))
+		err := <-errCh
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		_ = httpServer.Shutdown(shutdownCtx)
+		_ = httpsServer.Shutdown(shutdownCtx)
+		return err
 	} else {
+		logger.Info("Starting server", zap.String("listen", listen))
 		return router.Run(listen)
 	}
 }
