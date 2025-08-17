@@ -30,6 +30,7 @@ func Run(
 	listenTLS string,
 	tlsHost string,
 	tlsDirectoryURL string,
+	tlsAcceptTOS bool,
 	dataPath string,
 	externalURL string,
 	proxyURL string,
@@ -141,7 +142,9 @@ func Run(
 
 	if tlsHost != "" {
 		m := autocert.Manager{
-			Prompt:     autocert.AcceptTOS,
+			Prompt: func(tosURL string) bool {
+				return tlsAcceptTOS
+			},
 			HostPolicy: autocert.HostWhitelist(tlsHost),
 			Cache:      autocert.DirCache(path.Join(dataPath, "certs")),
 			Client: &acme.Client{
