@@ -6,6 +6,8 @@ If this project saves you time, please give it a star — it really helps visibi
 
 ## Quickstart
 
+### http
+
 ```
 docker run --rm -p 80:80 --net=host \
   -e EXTERNAL_URL=http://localhost \
@@ -22,6 +24,35 @@ docker run --rm -p 80:80 --net=host \
     "mcp": {
       "type": "http",
       "url": "http://localhost/mcp"
+    }
+  }
+}
+```
+
+### Automatic TLS
+
+For production use with a registered domain and external ports 80/443 accessible:
+
+```
+docker run --rm -p 80:80 -p 443:443 --net=host \
+  -e EXTERNAL_URL=https://{your-domain} \
+  -e PROXY_URL=http://localhost:8080 \
+  -e TLS_HOST={your-domain} \
+  -e TLS_ACCEPT_TOS=true \
+  -e PASSWORD=changeme \
+  -v ./data:/data \
+  ghcr.io/sigbit/mcp-auth-proxy:latest
+```
+
+This will automatically obtain and manage Let's Encrypt TLS certificates for your domain.
+
+.mcp.json
+```json
+{
+  "mcpServers": {
+    "mcp": {
+      "type": "http",
+      "url": "https://{your-domain}/mcp"
     }
   }
 }
