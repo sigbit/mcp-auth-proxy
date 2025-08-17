@@ -3,6 +3,7 @@ package mcpproxy
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -152,7 +153,7 @@ func Run(
 			},
 		}
 
-		errCh := make(chan error)
+		exit := make(chan struct{})
 		var wg sync.WaitGroup
 
 		httpServer := &http.Server{
@@ -173,18 +174,32 @@ func Run(
 		}
 
 		wg.Add(2)
+		errs := []error{}
+		lock := sync.Mutex{}
 		go func() {
 			defer wg.Done()
-			errCh <- httpServer.ListenAndServe()
+			err := httpServer.ListenAndServe()
+			if err != nil {
+				lock.Lock()
+				errs = append(errs, err)
+				lock.Unlock()
+			}
+			exit <- struct{}{}
 		}()
 
 		go func() {
 			defer wg.Done()
-			errCh <- httpsServer.ListenAndServeTLS("", "")
+			err := httpsServer.ListenAndServeTLS("", "")
+			if err != nil {
+				lock.Lock()
+				errs = append(errs, err)
+				lock.Unlock()
+			}
+			exit <- struct{}{}
 		}()
 
 		logger.Info("Starting server", zap.Strings("listen", []string{listen, listenTLS}))
-		err := <-errCh
+		<-exit
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
 		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
@@ -193,7 +208,7 @@ func Run(
 		if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
 			logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
 		}
-		return err
+		return errors.Join(errs...)
 	} else {
 		logger.Info("Starting server", zap.String("listen", listen))
 		return router.Run(listen)
