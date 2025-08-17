@@ -187,8 +187,12 @@ func Run(
 		err := <-errCh
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
-		_ = httpServer.Shutdown(shutdownCtx)
-		_ = httpsServer.Shutdown(shutdownCtx)
+		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+			logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
+		}
+		if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
+			logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
+		}
 		return err
 	} else {
 		logger.Info("Starting server", zap.String("listen", listen))
