@@ -1,8 +1,6 @@
 ## Summary
 
-- 
-- 
-- 
+Brief description of what this PR accomplishes
 
 ## Type of Change
 
@@ -16,4 +14,4 @@
 
 ## Related Issues
 
-Closes #(issue number)
+<!-- Example: Closes #123 or Fixes #456. Leave blank if no related issues. -->
