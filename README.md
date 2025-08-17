@@ -73,25 +73,27 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 
 ### Environment Variables
 
-| Variable               | Required | Description                                      | Default                                          |
-| ---------------------- | -------- | ------------------------------------------------ | ------------------------------------------------ |
-| `LISTEN`               | No       | Server listen address                            | `:80`                                            |
-| `TLS_LISTEN`           | No       | Address to listen on for TLS                     | `:443`                                           |
-| `TLS_HOST`             | No       | Host name for automatic TLS certificate          | -                                                |
-| `TLS_DIRECTORY_URL`    | No       | ACME directory URL for TLS certificates          | `https://acme-v02.api.letsencrypt.org/directory` |
-| `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                      | `false`                                          |
-| `DATA_PATH`            | No       | Data directory path                              | `./data`                                         |
-| `EXTERNAL_URL`         | No       | External URL for OAuth callbacks                 | `http://localhost`                               |
-| `PROXY_URL`            | No       | Target MCP server URL                            | `http://localhost:8080`                          |
-| `GOOGLE_CLIENT_ID`     | No       | Google OAuth client ID                           | -                                                |
-| `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                       | -                                                |
-| `GOOGLE_ALLOWED_USERS` | No       | Comma-separated list of allowed Google emails    | -                                                |
-| `GITHUB_CLIENT_ID`     | No       | GitHub OAuth client ID                           | -                                                |
-| `GITHUB_CLIENT_SECRET` | No       | GitHub OAuth client secret                       | -                                                |
-| `GITHUB_ALLOWED_USERS` | No       | Comma-separated list of allowed GitHub usernames | -                                                |
-| `PASSWORD`             | No       | Plain text password (will be hashed with bcrypt) | -                                                |
-| `PASSWORD_HASH`        | No       | Bcrypt hash of password for authentication       | -                                                |
-| `MODE`                 | No       | Set to `debug` for development mode              | `production`                                     |
+| Variable               | Required | Description                                                                                           | Default                                          |
+| ---------------------- | -------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `LISTEN`               | No       | Server listen address                                                                                 | `:80`                                            |
+| `TLS_LISTEN`           | No       | Address to listen on for TLS                                                                          | `:443`                                           |
+| `TLS_HOST`             | No       | Host name for automatic TLS certificate                                                               | -                                                |
+| `TLS_DIRECTORY_URL`    | No       | ACME directory URL for TLS certificates                                                               | `https://acme-v02.api.letsencrypt.org/directory` |
+| `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                                                                           | `false`                                          |
+| `DATA_PATH`            | No       | Data directory path                                                                                   | `./data`                                         |
+| `EXTERNAL_URL`         | No       | External URL for OAuth callbacks                                                                      | `http://localhost`                               |
+| `PROXY_URL`            | No       | Target MCP server URL                                                                                 | `http://localhost:8080`                          |
+| `GOOGLE_CLIENT_ID`     | No       | Google OAuth client ID                                                                                | -                                                |
+| `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                                                                            | -                                                |
+| `GOOGLE_ALLOWED_USERS` | No       | Comma-separated list of allowed Google emails                                                         | -                                                |
+| `GITHUB_CLIENT_ID`     | No       | GitHub OAuth client ID                                                                                | -                                                |
+| `GITHUB_CLIENT_SECRET` | No       | GitHub OAuth client secret                                                                            | -                                                |
+| `GITHUB_ALLOWED_USERS` | No       | Comma-separated list of allowed GitHub usernames                                                      | -                                                |
+| `PASSWORD`             | No       | Plain text password (will be hashed with bcrypt)                                                      | -                                                |
+| `PASSWORD_HASH`        | No       | Bcrypt hash of password for authentication                                                            | -                                                |
+| `PROXY_BEARER_TOKEN`   | No       | Bearer token to add to Authorization header when proxying requests                                    | -                                                |
+| `PROXY_HEADERS`        | No       | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2) | -                                                |
+| `MODE`                 | No       | Set to `debug` for development mode                                                                   | `production`                                     |
 
 ### OAuth Provider Setup
 

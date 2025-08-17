@@ -44,6 +44,7 @@ func Run(
 	githubAllowedUsers []string,
 	password string,
 	passwordHash string,
+	proxyHeaders map[string]string,
 ) error {
 	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
@@ -127,7 +128,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey)
+	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey, proxyHeaders)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}

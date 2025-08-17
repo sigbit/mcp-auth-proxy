@@ -42,6 +42,8 @@ func main() {
 	var githubAllowedUsers string
 	var password string
 	var passwordHash string
+	var proxyBearerToken string
+	var proxyHeaders string
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
@@ -62,6 +64,23 @@ func main() {
 				}
 			}
 
+			// Parse proxy headers into map and integrate bearer token
+			proxyHeadersMap := make(map[string]string)
+			if proxyHeaders != "" {
+				headersList := strings.Split(proxyHeaders, ",")
+				for _, header := range headersList {
+					parts := strings.SplitN(strings.TrimSpace(header), ":", 2)
+					if len(parts) == 2 {
+						proxyHeadersMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+					}
+				}
+			}
+			
+			// Add bearer token as Authorization header if provided
+			if proxyBearerToken != "" {
+				proxyHeadersMap["Authorization"] = "Bearer " + proxyBearerToken
+			}
+
 			if err := mcpproxy.Run(
 				listen,
 				listenTLS,
@@ -79,6 +98,7 @@ func main() {
 				githubAllowedUsersList,
 				password,
 				passwordHash,
+				proxyHeadersMap,
 			); err != nil {
 				panic(err)
 			}
@@ -107,6 +127,10 @@ func main() {
 	// Password authentication
 	rootCmd.Flags().StringVar(&password, "password", getEnvWithDefault("PASSWORD", ""), "Plain text password for authentication (will be hashed with bcrypt)")
 	rootCmd.Flags().StringVar(&passwordHash, "password-hash", getEnvWithDefault("PASSWORD_HASH", ""), "Bcrypt hash of password for authentication")
+
+	// Proxy headers configuration
+	rootCmd.Flags().StringVar(&proxyBearerToken, "proxy-bearer-token", getEnvWithDefault("PROXY_BEARER_TOKEN", ""), "Bearer token to add to Authorization header when proxying requests")
+	rootCmd.Flags().StringVar(&proxyHeaders, "proxy-headers", getEnvWithDefault("PROXY_HEADERS", ""), "Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2)")
 
 	if err := rootCmd.Execute(); err != nil {
 		panic(err)
