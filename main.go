@@ -64,21 +64,16 @@ func main() {
 				}
 			}
 
-			// Parse proxy headers into map and integrate bearer token
-			proxyHeadersMap := make(map[string]string)
+			// Parse proxy headers into slice
+			var proxyHeadersList []string
 			if proxyHeaders != "" {
 				headersList := strings.Split(proxyHeaders, ",")
 				for _, header := range headersList {
 					parts := strings.SplitN(strings.TrimSpace(header), ":", 2)
-					if len(parts) == 2 {
-						proxyHeadersMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+					if len(parts) == 2 && strings.TrimSpace(parts[0]) != "" && strings.TrimSpace(parts[1]) != "" {
+						proxyHeadersList = append(proxyHeadersList, strings.TrimSpace(parts[0])+":"+strings.TrimSpace(parts[1]))
 					}
 				}
-			}
-			
-			// Add bearer token as Authorization header if provided
-			if proxyBearerToken != "" {
-				proxyHeadersMap["Authorization"] = "Bearer " + proxyBearerToken
 			}
 
 			if err := mcpproxy.Run(
@@ -98,7 +93,8 @@ func main() {
 				githubAllowedUsersList,
 				password,
 				passwordHash,
-				proxyHeadersMap,
+				proxyHeadersList,
+				proxyBearerToken,
 			); err != nil {
 				panic(err)
 			}

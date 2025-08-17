@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,7 +45,8 @@ func Run(
 	githubAllowedUsers []string,
 	password string,
 	passwordHash string,
-	proxyHeaders map[string]string,
+	proxyHeaders []string,
+	proxyBearerToken string,
 ) error {
 	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
@@ -52,6 +54,20 @@ func Run(
 	}
 	if parsedExternalURL.Path != "" {
 		return fmt.Errorf("external URL must not have a path, got: %s", parsedExternalURL.Path)
+	}
+
+	// Convert headers slice to map and integrate bearer token
+	proxyHeadersMap := make(map[string]string)
+	for _, header := range proxyHeaders {
+		parts := strings.SplitN(header, ":", 2)
+		if len(parts) == 2 {
+			proxyHeadersMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+
+	// Add bearer token as Authorization header if provided
+	if proxyBearerToken != "" {
+		proxyHeadersMap["Authorization"] = "Bearer " + proxyBearerToken
 	}
 
 	secret, err := utils.LoadOrGenerateSecret(path.Join(dataPath, "secret"))
@@ -128,7 +144,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey, proxyHeaders)
+	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey, proxyHeadersMap)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}
