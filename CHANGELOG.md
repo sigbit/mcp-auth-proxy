@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.1...v1.2.2) (2025-08-18)
+
+
+### Bug Fixes
+
+* implement OAuth CSRF protection with state validation ([#30](https://github.com/sigbit/mcp-auth-proxy/issues/30)) ([e1030ba](https://github.com/sigbit/mcp-auth-proxy/commit/e1030ba0b1e6a704bab415c32633700b46608fba))
+
 ## [1.2.1](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.0...v1.2.1) (2025-08-18)
 
 
