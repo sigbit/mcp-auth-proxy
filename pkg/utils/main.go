@@ -34,7 +34,7 @@ func GenerateClientSecret() (string, error) {
 }
 
 func GenerateState() (string, error) {
-	bytes := make([]byte, 8)
+	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
