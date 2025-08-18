@@ -72,7 +72,12 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 		return
 	}
 
-	c.Request.Header = p.proxyHeaders
+	c.Request.Header.Del("Authorization")
+	for key, values := range p.proxyHeaders {
+		for _, value := range values {
+			c.Request.Header.Add(key, value)
+		}
+	}
 
 	p.proxy.ServeHTTP(c.Writer, c.Request)
 }
