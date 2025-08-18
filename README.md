@@ -9,12 +9,23 @@ If this project saves you time, please give it a star — it really helps visibi
 ### http
 
 ```
-docker run --rm -p 80:80 --net=host \
+docker run --rm --net=host \
   -e EXTERNAL_URL=http://localhost \
-  -e PROXY_URL=http://localhost:8080 \
   -e PASSWORD=changeme \
   -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  http://localhost:8080
+```
+
+For MCP servers that need to be launched as separate processes:
+
+```
+docker run --rm -p 80:80 \
+  -e EXTERNAL_URL=http://localhost \
+  -e PASSWORD=changeme \
+  -v ./data:/data \
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  -- npx -y @modelcontextprotocol/server-filesystem /
 ```
 
 .mcp.json
@@ -34,14 +45,27 @@ docker run --rm -p 80:80 --net=host \
 For production use with a registered domain and external ports 80/443 accessible:
 
 ```
-docker run --rm -p 80:80 -p 443:443 --net=host \
+docker run --rm --net=host \
   -e EXTERNAL_URL=https://{your-domain} \
-  -e PROXY_URL=http://localhost:8080 \
   -e TLS_HOST={your-domain} \
   -e TLS_ACCEPT_TOS=true \
   -e PASSWORD=changeme \
   -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  http://localhost:8080
+```
+
+For MCP servers that need to be launched as separate processes:
+
+```
+docker run --rm -p 80:80 -p 443:443 \
+  -e EXTERNAL_URL=https://{your-domain} \
+  -e TLS_HOST={your-domain} \
+  -e TLS_ACCEPT_TOS=true \
+  -e PASSWORD=changeme \
+  -v ./data:/data \
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  -- npx -y @modelcontextprotocol/server-filesystem /
 ```
 
 This will automatically obtain and manage Let's Encrypt TLS certificates for your domain.
@@ -82,7 +106,6 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                                                                           | `false`                                          |
 | `DATA_PATH`            | No       | Data directory path                                                                                   | `./data`                                         |
 | `EXTERNAL_URL`         | No       | External URL for OAuth callbacks                                                                      | `http://localhost`                               |
-| `PROXY_URL`            | No       | Target MCP server URL                                                                                 | `http://localhost:8080`                          |
 | `GOOGLE_CLIENT_ID`     | No       | Google OAuth client ID                                                                                | -                                                |
 | `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                                                                            | -                                                |
 | `GOOGLE_ALLOWED_USERS` | No       | Comma-separated list of allowed Google emails                                                         | -                                                |
@@ -116,23 +139,31 @@ Download the latest binary from [releases](https://github.com/sigbit/mcp-auth-pr
 
 ```bash
 ./mcp-auth-proxy \
-  --external-url "http://localhost:8081" \
-  --proxy-url "http://localhost:8080" \
+  --external-url "http://localhost" \
   --google-client-id "your-google-client-id" \
   --google-client-secret "your-google-client-secret" \
   --google-allowed-users "user1@example.com,user2@example.com" \
   --github-client-id "your-github-client-id" \
   --github-client-secret "your-github-client-secret" \
   --github-allowed-users "username1,username2" \
-  --password "changeme"
+  --password "changeme" \
+  http://localhost:8080
+```
+
+For MCP servers that need to be launched as separate processes:
+
+```bash
+./mcp-auth-proxy \
+  --external-url "http://localhost" \
+  --password "changeme" \
+  -- npx -y @modelcontextprotocol/server-filesystem ~/
 ```
 
 ### Method 2: Docker
 
 ```bash
-docker run --rm -p 8081:8081 --net=host \
-  -e EXTERNAL_URL=http://localhost:8081 \
-  -e PROXY_URL=http://localhost:8080 \
+docker run --rm --net=host \
+  -e EXTERNAL_URL=http://localhost \
   -e GOOGLE_CLIENT_ID="your-google-client-id" \
   -e GOOGLE_CLIENT_SECRET="your-google-client-secret" \
   -e GOOGLE_ALLOWED_USERS="user1@example.com,user2@example.com" \
@@ -141,7 +172,19 @@ docker run --rm -p 8081:8081 --net=host \
   -e GITHUB_ALLOWED_USERS="username1,username2" \
   -e PASSWORD=changeme \
   -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  http://localhost:8080
+```
+
+For MCP servers that need to be launched as separate processes:
+
+```bash
+docker run --rm -p 80:80 \
+  -e EXTERNAL_URL=http://localhost \
+  -e PASSWORD=changeme \
+  -v ./data:/data \
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  -- npx -y @modelcontextprotocol/server-filesystem /
 ```
 
 ## 👨‍💻 For Developers

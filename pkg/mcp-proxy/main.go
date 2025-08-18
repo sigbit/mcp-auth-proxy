@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
 	"sync"
@@ -18,6 +20,7 @@ import (
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/sigbit/mcp-auth-proxy/pkg/auth"
+	"github.com/sigbit/mcp-auth-proxy/pkg/backend"
 	"github.com/sigbit/mcp-auth-proxy/pkg/idp"
 	"github.com/sigbit/mcp-auth-proxy/pkg/proxy"
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
@@ -28,6 +31,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var ServerShutdownTimeout = 5 * time.Second
+
 func Run(
 	listen string,
 	listenTLS string,
@@ -36,7 +41,6 @@ func Run(
 	tlsAcceptTOS bool,
 	dataPath string,
 	externalURL string,
-	proxyURL string,
 	googleClientID string,
 	googleClientSecret string,
 	googleAllowedUsers []string,
@@ -47,7 +51,11 @@ func Run(
 	passwordHash string,
 	proxyHeaders []string,
 	proxyBearerToken string,
+	proxyTarget []string,
 ) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse external URL: %w", err)
@@ -75,6 +83,21 @@ func Run(
 	}
 	if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	if len(proxyTarget) == 0 {
+		return fmt.Errorf("proxy target must be specified")
+	}
+	var be *backend.ProxyBackend
+	var beHandler http.Handler
+	if proxyURL, err := url.Parse(proxyTarget[0]); err == nil && (proxyURL.Scheme == "http" || proxyURL.Scheme == "https") {
+		beHandler = httputil.NewSingleHostReverseProxy(proxyURL)
+	} else {
+		be = backend.NewProxyBackend(logger, proxyTarget)
+		beHandler, err = be.Run(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create proxy backend: %w", err)
+		}
 	}
 
 	// Convert headers slice to map and integrate bearer token
@@ -148,7 +171,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := proxy.NewProxyRouter(externalURL, proxyURL, &privKey.PublicKey, proxyHeadersMap)
+	proxyRouter, err := proxy.NewProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}
@@ -175,7 +198,7 @@ func Run(
 			},
 		}
 
-		exit := make(chan struct{}, 2)
+		exit := make(chan struct{}, 3)
 		var wg sync.WaitGroup
 
 		httpServer := &http.Server{
@@ -194,8 +217,7 @@ func Run(
 			Handler:   router,
 			TLSConfig: m.TLSConfig(),
 		}
-
-		wg.Add(2)
+		wg.Add(3)
 		errs := []error{}
 		lock := sync.Mutex{}
 		go func() {
@@ -208,6 +230,14 @@ func Run(
 			}
 			exit <- struct{}{}
 		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
+			defer shutdownCancel()
+			if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+				logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
+			}
+		}()
 
 		go func() {
 			defer wg.Done()
@@ -219,17 +249,30 @@ func Run(
 			}
 			exit <- struct{}{}
 		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
+			defer shutdownCancel()
+			if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
+				logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			if be != nil {
+				if err := be.Wait(); err != nil && ctx.Err() != context.Canceled {
+					lock.Lock()
+					errs = append(errs, err)
+					lock.Unlock()
+				}
+				exit <- struct{}{}
+			}
+		}()
 
 		logger.Info("Starting server", zap.Strings("listen", []string{listen, listenTLS}))
 		<-exit
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
-		}
-		if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
-		}
+		stop()
 		wg.Wait()
 		return errors.Join(errs...)
 	} else {
