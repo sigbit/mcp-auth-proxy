@@ -104,8 +104,8 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | ---------------------- | -------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `LISTEN`               | No       | Server listen address                                                                                 | `:80`                                            |
 | `TLS_LISTEN`           | No       | Address to listen on for TLS                                                                          | `:443`                                           |
+| `AUTO_TLS`             | No       | Automatically setup TLS certificates from externalURL                                                 | `true`                                           |
 | `TLS_HOST`             | No       | Host name for automatic TLS certificate                                                               | -                                                |
-| `TLS_HOST_AUTO_DETECT` | No       | Automatically detect TLS host from externalURL                                                        | `true`                                           |
 | `TLS_DIRECTORY_URL`    | No       | ACME directory URL for TLS certificates                                                               | `https://acme-v02.api.letsencrypt.org/directory` |
 | `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                                                                           | `false`                                          |
 | `DATA_PATH`            | No       | Data directory path                                                                                   | `./data`                                         |
@@ -210,3 +210,7 @@ Breaking changes should be indicated by a `!` after the type/scope:
 ```
 feat!: change authentication API to support multiple providers
 ```
+
+### PR Template
+
+- [./.github/pull_request_template.md](./.github/pull_request_template.md)

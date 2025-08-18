@@ -36,8 +36,8 @@ var ServerShutdownTimeout = 5 * time.Second
 func Run(
 	listen string,
 	listenTLS string,
+	autoTLS bool,
 	tlsHost string,
-	tlsHostAutoDetect bool,
 	tlsDirectoryURL string,
 	tlsAcceptTOS bool,
 	dataPath string,
@@ -188,7 +188,7 @@ func Run(
 	proxyRouter.SetupRoutes(router)
 
 	var tlsHostDetected bool
-	if tlsHostAutoDetect &&
+	if autoTLS &&
 		tlsHost == "" &&
 		parsedExternalURL.Scheme == "https" &&
 		parsedExternalURL.Host != "localhost" {
@@ -204,7 +204,7 @@ func Run(
 	if tlsHost != "" {
 		if !tlsAcceptTOS {
 			if tlsHostDetected {
-				return errors.New("TLS host is auto-detected, but tlsAcceptTOS is not set to true. Please agree to the TOS or set tlsHostAutoDetect to false")
+				return errors.New("TLS host is auto-detected, but tlsAcceptTOS is not set to true. Please agree to the TOS or set autoTLS to false")
 			} else {
 				return errors.New("TLS is enabled, but tlsAcceptTOS is not set to true. Please explicitly agree to the TOS")
 			}
