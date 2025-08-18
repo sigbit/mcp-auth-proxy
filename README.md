@@ -1,6 +1,6 @@
 # MCP Auth Proxy
 
-![Secure your MCP server with OAuth 2.1 — in a minute](./mcp-auth-proxy.png)
+![Secure your MCP server with OAuth 2.1 — in a minute](./mcp-auth-proxy.svg)
 
 If this project saves you time, please give it a star — it really helps visibility.
 
