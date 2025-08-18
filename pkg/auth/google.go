@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -40,8 +41,8 @@ func (p *googleProvider) RedirectURL() string {
 	return GoogleCallbackEndpoint
 }
 
-func (p *googleProvider) AuthCodeURL(c *gin.Context) (string, error) {
-	authURL := p.oauth2.AuthCodeURL("state", oauth2.AccessTypeOffline)
+func (p *googleProvider) AuthCodeURL(c *gin.Context, state string) (string, error) {
+	authURL := p.oauth2.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	return authURL, nil
 }
 
@@ -49,7 +50,10 @@ func (p *googleProvider) AuthURL() string {
 	return GoogleAuthEndpoint
 }
 
-func (p *googleProvider) Exchange(c *gin.Context) (*oauth2.Token, error) {
+func (p *googleProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, error) {
+	if c.Query("state") != state {
+		return nil, errors.New("invalid OAuth state")
+	}
 	code := c.Query("code")
 	token, err := p.oauth2.Exchange(c, code)
 	if err != nil {
