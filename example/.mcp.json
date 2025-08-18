@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "test": {
-      "type": "http",
-      "url": "http://localhost/mcp"
-    }
-  }
-}
