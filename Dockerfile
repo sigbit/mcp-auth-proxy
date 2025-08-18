@@ -10,6 +10,7 @@ RUN CGO_ENABLED=0 GOARCH=$TARGETARCH go build -trimpath -ldflags '-w -s' -o bin/
 
 FROM docker.io/library/alpine:latest
 
+RUN apk add --no-cache nodejs npm python3 uv
 COPY --from=builder /app/bin/main /usr/local/bin/mcp-auth-proxy
 ENV DATA_PATH=/data
 

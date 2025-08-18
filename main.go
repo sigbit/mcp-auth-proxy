@@ -33,7 +33,6 @@ func main() {
 	var tlsAcceptTOS bool
 	var dataPath string
 	var externalURL string
-	var proxyURL string
 	var googleClientID string
 	var googleClientSecret string
 	var googleAllowedUsers string
@@ -81,7 +80,6 @@ func main() {
 				tlsAcceptTOS,
 				dataPath,
 				externalURL,
-				proxyURL,
 				googleClientID,
 				googleClientSecret,
 				googleAllowedUsersList,
@@ -92,6 +90,7 @@ func main() {
 				passwordHash,
 				proxyHeadersList,
 				proxyBearerToken,
+				args,
 			); err != nil {
 				panic(err)
 			}
@@ -105,7 +104,6 @@ func main() {
 	rootCmd.Flags().BoolVar(&tlsAcceptTOS, "tls-accept-tos", getEnvBoolWithDefault("TLS_ACCEPT_TOS", false), "Accept TLS terms of service")
 	rootCmd.Flags().StringVarP(&dataPath, "data", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
-	rootCmd.Flags().StringVarP(&proxyURL, "proxy-url", "p", getEnvWithDefault("PROXY_URL", "http://localhost:8080"), "Proxy URL for the proxy")
 
 	// Google OAuth configuration
 	rootCmd.Flags().StringVar(&googleClientID, "google-client-id", getEnvWithDefault("GOOGLE_CLIENT_ID", ""), "Google OAuth client ID")
