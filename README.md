@@ -6,71 +6,74 @@ If this project saves you time, please give it a star — it really helps visibi
 
 ## Quickstart
 
-### http
+> Domain binding & 80/443 must be accessible from outside.
 
-```
-docker run --rm --net=host \
-  -e EXTERNAL_URL=http://localhost \
-  -e PASSWORD=changeme \
-  -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest \
-  http://localhost:8080
-```
+### Binary
 
-For MCP servers that need to be launched as separate processes:
+Download binary from [release](https://github.com/sigbit/mcp-auth-proxy/releases) page.
 
-```
-docker run --rm -p 80:80 \
-  -e EXTERNAL_URL=http://localhost \
-  -e PASSWORD=changeme \
-  -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest \
+If you use stdio transport
+
+```sh
+./mcp-auth-proxy \
+  --external-url https://{your-domain} \
+  --tls-accept-tos \
+  --password changeme \
   -- npx -y @modelcontextprotocol/server-filesystem /
 ```
 
-.mcp.json
+If you use sse/http transport
+
+```sh
+./mcp-auth-proxy \
+  --external-url https://{your-domain} \
+  --tls-accept-tos \
+  --password changeme \
+  http://localhost:8080
+```
+
+This will automatically obtain and manage Let's Encrypt TLS certificates for your domain.
+
 ```json
 {
   "mcpServers": {
     "mcp": {
       "type": "http",
-      "url": "http://localhost/mcp"
+      "url": "https://{your-domain}/mcp"
     }
   }
 }
 ```
 
-### Automatic TLS
+### Docker
 
-For production use with a registered domain and external ports 80/443 accessible:
 
-```
-docker run --rm --net=host \
-  -e EXTERNAL_URL=https://{your-domain} \
-  -e TLS_HOST={your-domain} \
-  -e TLS_ACCEPT_TOS=true \
-  -e PASSWORD=changeme \
-  -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest \
-  http://localhost:8080
-```
-
-For MCP servers that need to be launched as separate processes:
+If you use stdio transport
 
 ```
 docker run --rm -p 80:80 -p 443:443 \
   -e EXTERNAL_URL=https://{your-domain} \
-  -e TLS_HOST={your-domain} \
-  -e TLS_ACCEPT_TOS=true \
+  -e TLS_ACCEPT_TOS=1 \
   -e PASSWORD=changeme \
   -v ./data:/data \
   ghcr.io/sigbit/mcp-auth-proxy:latest \
   -- npx -y @modelcontextprotocol/server-filesystem /
 ```
 
+If you use sse/http transport
+
+```
+docker run --rm --net=host \
+  -e EXTERNAL_URL=https://{your-domain} \
+  -e TLS_ACCEPT_TOS=1 \
+  -e PASSWORD=changeme \
+  -v ./data:/data \
+  ghcr.io/sigbit/mcp-auth-proxy:latest \
+  http://localhost:8080
+```
+
 This will automatically obtain and manage Let's Encrypt TLS certificates for your domain.
 
-.mcp.json
 ```json
 {
   "mcpServers": {
@@ -102,6 +105,7 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | `LISTEN`               | No       | Server listen address                                                                                 | `:80`                                            |
 | `TLS_LISTEN`           | No       | Address to listen on for TLS                                                                          | `:443`                                           |
 | `TLS_HOST`             | No       | Host name for automatic TLS certificate                                                               | -                                                |
+| `TLS_HOST_AUTO_DETECT` | No       | Automatically detect TLS host from externalURL                                                        | `true`                                           |
 | `TLS_DIRECTORY_URL`    | No       | ACME directory URL for TLS certificates                                                               | `https://acme-v02.api.letsencrypt.org/directory` |
 | `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                                                                           | `false`                                          |
 | `DATA_PATH`            | No       | Data directory path                                                                                   | `./data`                                         |
@@ -139,52 +143,34 @@ Download the latest binary from [releases](https://github.com/sigbit/mcp-auth-pr
 
 ```bash
 ./mcp-auth-proxy \
-  --external-url "http://localhost" \
+  --external-url "https://{your-domain}" \
+  --tls-accept-tos \
+  --password "changeme" \
   --google-client-id "your-google-client-id" \
   --google-client-secret "your-google-client-secret" \
   --google-allowed-users "user1@example.com,user2@example.com" \
   --github-client-id "your-github-client-id" \
   --github-client-secret "your-github-client-secret" \
   --github-allowed-users "username1,username2" \
-  --password "changeme" \
   http://localhost:8080
-```
-
-For MCP servers that need to be launched as separate processes:
-
-```bash
-./mcp-auth-proxy \
-  --external-url "http://localhost" \
-  --password "changeme" \
-  -- npx -y @modelcontextprotocol/server-filesystem ~/
 ```
 
 ### Method 2: Docker
 
 ```bash
 docker run --rm --net=host \
-  -e EXTERNAL_URL=http://localhost \
+  -e EXTERNAL_URL=https://{your-domain} \
+  -e TLS_ACCEPT_TOS=1 \
+  -e PASSWORD=changeme \
   -e GOOGLE_CLIENT_ID="your-google-client-id" \
   -e GOOGLE_CLIENT_SECRET="your-google-client-secret" \
   -e GOOGLE_ALLOWED_USERS="user1@example.com,user2@example.com" \
   -e GITHUB_CLIENT_ID="your-github-client-id" \
   -e GITHUB_CLIENT_SECRET="your-github-client-secret" \
   -e GITHUB_ALLOWED_USERS="username1,username2" \
-  -e PASSWORD=changeme \
   -v ./data:/data \
   ghcr.io/sigbit/mcp-auth-proxy:latest \
   http://localhost:8080
-```
-
-For MCP servers that need to be launched as separate processes:
-
-```bash
-docker run --rm -p 80:80 \
-  -e EXTERNAL_URL=http://localhost \
-  -e PASSWORD=changeme \
-  -v ./data:/data \
-  ghcr.io/sigbit/mcp-auth-proxy:latest \
-  -- npx -y @modelcontextprotocol/server-filesystem /
 ```
 
 ## 👨‍💻 For Developers
