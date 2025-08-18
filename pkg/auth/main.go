@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"embed"
+	"errors"
 	"html/template"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 )
@@ -19,8 +21,8 @@ type Provider interface {
 	Name() string
 	RedirectURL() string
 	AuthURL() string
-	AuthCodeURL(c *gin.Context) (string, error)
-	Exchange(c *gin.Context) (*oauth2.Token, error)
+	AuthCodeURL(c *gin.Context, state string) (string, error)
+	Exchange(c *gin.Context, state string) (*oauth2.Token, error)
 	GetUserID(ctx context.Context, token *oauth2.Token) (string, error)
 	Authorization(userid string) (bool, error)
 }
@@ -63,9 +65,14 @@ const (
 	GoogleCallbackEndpoint = "/.auth/google/callback"
 	GitHubAuthEndpoint     = "/.auth/github"
 	GitHubCallbackEndpoint = "/.auth/github/callback"
-	
+
 	PasswordProvider = "password"
 	PasswordUserID   = "password_user"
+
+	SessionKeyProvider    = "provider"
+	SessionKeyUserID      = "user_id"
+	SessionKeyRedirectURL = "redirect_url"
+	SessionKeyOAuthState  = "oauth_state"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
@@ -75,8 +82,12 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	for providerName, provider := range a.providers {
 		router.GET(provider.RedirectURL(), func(c *gin.Context) {
 			session := sessions.Default(c)
-
-			token, err := provider.Exchange(c)
+			state := session.Get(SessionKeyOAuthState)
+			if state == nil {
+				c.Error(errors.New("OAuth state is missing"))
+				return
+			}
+			token, err := provider.Exchange(c, state.(string))
 			if err != nil {
 				c.Error(err)
 				return
@@ -86,19 +97,28 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				c.Error(err)
 				return
 			}
-			session.Set("provider", providerName)
-			session.Set("user_id", userID)
+			session.Set(SessionKeyProvider, providerName)
+			session.Set(SessionKeyUserID, userID)
 			session.Save()
-			redirectURL := session.Get("redirect_url")
+			redirectURL := session.Get(SessionKeyRedirectURL)
 			c.Redirect(http.StatusFound, redirectURL.(string))
 		})
 
 		router.GET(provider.AuthURL(), func(c *gin.Context) {
-			url, err := provider.AuthCodeURL(c)
+			session := sessions.Default(c)
+
+			state, err := utils.GenerateState()
 			if err != nil {
 				c.Error(err)
 				return
 			}
+			url, err := provider.AuthCodeURL(c, state)
+			if err != nil {
+				c.Error(err)
+				return
+			}
+			session.Set(SessionKeyOAuthState, state)
+			session.Save()
 			c.Redirect(http.StatusFound, url)
 		})
 	}
@@ -190,11 +210,11 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	}
 
 	session := sessions.Default(c)
-	session.Set("provider", PasswordProvider)
-	session.Set("user_id", PasswordUserID)
+	session.Set(SessionKeyProvider, PasswordProvider)
+	session.Set(SessionKeyUserID, PasswordUserID)
 	session.Save()
 
-	redirectURL := session.Get("redirect_url")
+	redirectURL := session.Get(SessionKeyRedirectURL)
 	if redirectURL == nil {
 		c.Redirect(http.StatusFound, "/")
 		return
@@ -212,10 +232,10 @@ func (a *AuthRouter) handleLogout(c *gin.Context) {
 func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		providerName := session.Get("provider")
-		userID := session.Get("user_id")
+		providerName := session.Get(SessionKeyProvider)
+		userID := session.Get(SessionKeyUserID)
 		if providerName == nil || userID == nil {
-			session.Set("redirect_url", c.Request.URL.String())
+			session.Set(SessionKeyRedirectURL, c.Request.URL.String())
 			session.Save()
 			c.Redirect(http.StatusFound, LoginEndpoint)
 			return
