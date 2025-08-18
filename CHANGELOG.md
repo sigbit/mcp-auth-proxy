@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.0...v1.2.1) (2025-08-18)
+
+
+### Bug Fixes
+
+* improve proxy header handling and remove existing Authorization header ([#25](https://github.com/sigbit/mcp-auth-proxy/issues/25)) ([409b10e](https://github.com/sigbit/mcp-auth-proxy/commit/409b10e231238a332ff2efae828076ca6f8b98a2))
+
 ## [1.2.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.1.1...v1.2.0) (2025-08-18)
 
 
