@@ -173,44 +173,24 @@ docker run --rm --net=host \
   http://localhost:8080
 ```
 
-## 👨‍💻 For Developers
+## 🤝 Contributing
 
-### Commit Message Guidelines
+For developer guidelines, contribution instructions, and commit message conventions, please see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-This project follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages. This helps with automated versioning, changelog generation, and makes the commit history more readable.
+### AI Development Environment Setup
 
-#### Types
+You can link CONTRIBUTING.md to your preferred AI development environment for better integration:
 
-- **feat**: A new feature
-- **fix**: A bug fix
-- **docs**: Documentation only changes
-- **style**: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-- **refactor**: A code change that neither fixes a bug nor adds a feature
-- **perf**: A code change that improves performance
-- **test**: Adding missing tests or correcting existing tests
-- **build**: Changes that affect the build system or external dependencies
-- **ci**: Changes to our CI configuration files and scripts
-- **chore**: Other changes that don't modify src or test files
-- **revert**: Reverts a previous commit
+```bash
+# For Claude Code
+ln -s CONTRIBUTING.md CLAUDE.md
 
-#### Examples
+# For Gemini
+ln -s CONTRIBUTING.md GEMINI.md
 
-```
-feat: add GitHub OAuth provider support
-fix: resolve token expiration handling
-docs: update OAuth setup instructions
-refactor: simplify authentication middleware
-ci: add automated release workflow
+# For GitHub Copilot
+mkdir -p .github
+ln -s CONTRIBUTING.md .github/copilot-instructions.md
 ```
 
-#### Breaking Changes
-
-Breaking changes should be indicated by a `!` after the type/scope:
-
-```
-feat!: change authentication API to support multiple providers
-```
-
-### PR Template
-
-- [./.github/pull_request_template.md](./.github/pull_request_template.md)
+This allows your AI assistant to access the contribution guidelines regardless of which development environment you prefer to use.
