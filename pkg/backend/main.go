@@ -61,7 +61,9 @@ func (p *ProxyBackend) Run(ctx context.Context) (http.Handler, error) {
 	}()
 	var handler http.Handler
 	go func() {
-		_client, _handler, err := setupProxy(ctx, p.logger, transport.NewIO(stdout, stdin, stderr))
+		tr := transport.NewIO(stdout, stdin, stderr)
+		transport.WithCommandLogger(&zapLogger{p.logger})(tr)
+		_client, _handler, err := setupProxy(ctx, p.logger, tr)
 		if err != nil {
 			p.errCh <- err
 			return

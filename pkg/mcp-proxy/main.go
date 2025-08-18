@@ -37,6 +37,7 @@ func Run(
 	listen string,
 	listenTLS string,
 	tlsHost string,
+	tlsHostAutoDetect bool,
 	tlsDirectoryURL string,
 	tlsAcceptTOS bool,
 	dataPath string,
@@ -186,7 +187,29 @@ func Run(
 	idpRouter.SetupRoutes(router)
 	proxyRouter.SetupRoutes(router)
 
+	var tlsHostDetected bool
+	if tlsHostAutoDetect &&
+		tlsHost == "" &&
+		parsedExternalURL.Scheme == "https" &&
+		parsedExternalURL.Host != "localhost" {
+		tlsHost = parsedExternalURL.Host
+		tlsHostDetected = true
+	}
+
+	exit := make(chan struct{}, 3)
+	var wg sync.WaitGroup
+	errs := []error{}
+	lock := sync.Mutex{}
+
 	if tlsHost != "" {
+		if !tlsAcceptTOS {
+			if tlsHostDetected {
+				return errors.New("TLS host is auto-detected, but tlsAcceptTOS is not set to true. Please agree to the TOS or set tlsHostAutoDetect to false")
+			} else {
+				return errors.New("TLS is enabled, but tlsAcceptTOS is not set to true. Please explicitly agree to the TOS")
+			}
+		}
+
 		m := autocert.Manager{
 			Prompt: func(tosURL string) bool {
 				return tlsAcceptTOS
@@ -197,9 +220,6 @@ func Run(
 				DirectoryURL: tlsDirectoryURL,
 			},
 		}
-
-		exit := make(chan struct{}, 3)
-		var wg sync.WaitGroup
 
 		httpServer := &http.Server{
 			Addr: listen,
@@ -217,9 +237,53 @@ func Run(
 			Handler:   router,
 			TLSConfig: m.TLSConfig(),
 		}
-		wg.Add(3)
-		errs := []error{}
-		lock := sync.Mutex{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := httpServer.ListenAndServe()
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				lock.Lock()
+				errs = append(errs, err)
+				lock.Unlock()
+			}
+			logger.Debug("HTTP server closed")
+			exit <- struct{}{}
+		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
+			defer shutdownCancel()
+			if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+				logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := httpsServer.ListenAndServeTLS("", "")
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				lock.Lock()
+				errs = append(errs, err)
+				lock.Unlock()
+			}
+			logger.Debug("HTTPS server closed")
+			exit <- struct{}{}
+		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
+			defer shutdownCancel()
+			if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
+				logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
+			}
+		}()
+	} else {
+		httpServer := &http.Server{
+			Addr:    listen,
+			Handler: router,
+		}
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			err := httpServer.ListenAndServe()
@@ -238,45 +302,29 @@ func Run(
 				logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
 			}
 		}()
+	}
 
-		go func() {
-			defer wg.Done()
-			err := httpsServer.ListenAndServeTLS("", "")
-			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if be != nil {
+			if err := be.Wait(); err != nil && ctx.Err() != context.Canceled {
 				lock.Lock()
 				errs = append(errs, err)
 				lock.Unlock()
 			}
+			logger.Debug("proxy backend closed")
 			exit <- struct{}{}
-		}()
-		go func() {
-			<-ctx.Done()
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
-			defer shutdownCancel()
-			if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
-				logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
-			}
-		}()
+		}
+	}()
 
-		go func() {
-			defer wg.Done()
-			if be != nil {
-				if err := be.Wait(); err != nil && ctx.Err() != context.Canceled {
-					lock.Lock()
-					errs = append(errs, err)
-					lock.Unlock()
-				}
-				exit <- struct{}{}
-			}
-		}()
-
+	if tlsHost != "" {
 		logger.Info("Starting server", zap.Strings("listen", []string{listen, listenTLS}))
-		<-exit
-		stop()
-		wg.Wait()
-		return errors.Join(errs...)
 	} else {
-		logger.Info("Starting server", zap.String("listen", listen))
-		return router.Run(listen)
+		logger.Info("Starting server", zap.Strings("listen", []string{listen}))
 	}
+	<-exit
+	stop()
+	wg.Wait()
+	return errors.Join(errs...)
 }
