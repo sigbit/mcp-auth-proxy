@@ -304,19 +304,19 @@ func Run(
 		}()
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if be != nil {
-			if err := be.Wait(); err != nil && ctx.Err() != context.Canceled {
+	if be != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := be.Wait(); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 				lock.Lock()
 				errs = append(errs, err)
 				lock.Unlock()
 			}
 			logger.Debug("proxy backend closed")
 			exit <- struct{}{}
-		}
-	}()
+		}()
+	}
 
 	if tlsHost != "" {
 		logger.Info("Starting server", zap.Strings("listen", []string{listen, listenTLS}))
