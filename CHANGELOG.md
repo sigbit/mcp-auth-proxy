@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.1.1...v1.2.0) (2025-08-18)
+
+
+### Features
+
+* add automatic TLS host detection and improve server lifecycle management ([#21](https://github.com/sigbit/mcp-auth-proxy/issues/21)) ([dc3c058](https://github.com/sigbit/mcp-auth-proxy/commit/dc3c05846ce3fb4460f0f82d8c8cf572be7f28ab))
+* add support for stdio MCP servers ([#19](https://github.com/sigbit/mcp-auth-proxy/issues/19)) ([b159d26](https://github.com/sigbit/mcp-auth-proxy/commit/b159d26866c1e362dc074f11277e04c12b640a0e))
+
+
+### Bug Fixes
+
+* handle stderr properly in stdio MCP server execution ([#23](https://github.com/sigbit/mcp-auth-proxy/issues/23)) ([f972958](https://github.com/sigbit/mcp-auth-proxy/commit/f972958904cf55e3af637466e3c323e2c799260e))
+* improve backend lifecycle management and error handling ([#24](https://github.com/sigbit/mcp-auth-proxy/issues/24)) ([4b5e828](https://github.com/sigbit/mcp-auth-proxy/commit/4b5e828cc9932fa41def32385d4fc20456ee588f))
+
 ## [1.1.1](https://github.com/sigbit/mcp-auth-proxy/compare/v1.1.0...v1.1.1) (2025-08-17)
 
 
