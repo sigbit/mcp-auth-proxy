@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -45,10 +46,7 @@ func (p *ProxyBackend) Run(ctx context.Context) (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdin pipe: %w", err)
 	}
-	stderr, err := execCmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stderr pipe: %w", err)
-	}
+	execCmd.Stderr = os.Stderr
 	if err := execCmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start exec command: %w", err)
 	}
@@ -61,7 +59,7 @@ func (p *ProxyBackend) Run(ctx context.Context) (http.Handler, error) {
 	}()
 	var handler http.Handler
 	go func() {
-		tr := transport.NewIO(stdout, stdin, stderr)
+		tr := transport.NewIO(stdout, stdin, os.Stderr)
 		transport.WithCommandLogger(&zapLogger{p.logger})(tr)
 		_client, _handler, err := setupProxy(ctx, p.logger, tr)
 		if err != nil {
