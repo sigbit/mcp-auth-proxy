@@ -52,7 +52,7 @@ func (r *kvsRepository) get(ctx context.Context, key string, value any) error {
 		bucket := tx.Bucket([]byte(r.bucketName))
 		data := bucket.Get([]byte(key))
 		if data == nil {
-			return fmt.Errorf("key %q not found", key)
+			return fosite.ErrNotFound
 		}
 		return json.Unmarshal(data, value)
 	})
@@ -61,9 +61,6 @@ func (r *kvsRepository) get(ctx context.Context, key string, value any) error {
 func (r *kvsRepository) delete(ctx context.Context, key string) error {
 	return r.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte(r.bucketName))
-		if bucket == nil {
-			return fmt.Errorf("bucket %q not found", r.bucketName)
-		}
 		return bucket.Delete([]byte(key))
 	})
 }
@@ -71,12 +68,9 @@ func (r *kvsRepository) delete(ctx context.Context, key string) error {
 func (r *kvsRepository) update(ctx context.Context, key string, value any) error {
 	return r.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte(r.bucketName))
-		if bucket == nil {
-			return fmt.Errorf("bucket %q not found", r.bucketName)
-		}
 		data, err := json.Marshal(value)
 		if err != nil {
-			return fmt.Errorf("failed to marshal value: %w", err)
+			return fosite.ErrNotFound
 		}
 		return bucket.Put([]byte(key), data)
 	})
