@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"embed"
 	"errors"
 	"html/template"
@@ -11,21 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/oauth2"
 )
 
 //go:embed templates/*
 var templateFS embed.FS
-
-type Provider interface {
-	Name() string
-	RedirectURL() string
-	AuthURL() string
-	AuthCodeURL(c *gin.Context, state string) (string, error)
-	Exchange(c *gin.Context, state string) (*oauth2.Token, error)
-	GetUserID(ctx context.Context, token *oauth2.Token) (string, error)
-	Authorization(userid string) (bool, error)
-}
 
 type AuthRouter struct {
 	passwordHash         []string
