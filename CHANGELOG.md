@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.3](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.2...v1.2.3) (2025-08-19)
+
+
+### Bug Fixes
+
+* improve KVS repository error handling ([#36](https://github.com/sigbit/mcp-auth-proxy/issues/36)) ([126ff82](https://github.com/sigbit/mcp-auth-proxy/commit/126ff82ee22fc485ae19bcbdf076e7a35f34fd78))
+* improve KVS update method error handling ([#37](https://github.com/sigbit/mcp-auth-proxy/issues/37)) ([92eb5d4](https://github.com/sigbit/mcp-auth-proxy/commit/92eb5d4fa25f89d6d3c7bb1e3ea375b0fa5d8709))
+
 ## [1.2.2](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.1...v1.2.2) (2025-08-18)
 
 
