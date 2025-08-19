@@ -14,7 +14,6 @@ func Err(err error) []zap.Field {
 			zap.Int("code", err.CodeField),
 			zap.String("debug", err.DebugField),
 		}
-	} else {
-		return []zap.Field{zap.Error(err)}
 	}
+	return []zap.Field{zap.Error(err)}
 }

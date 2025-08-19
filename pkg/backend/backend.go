@@ -92,7 +92,7 @@ func (p *ProxyBackend) Close() error {
 	return nil
 }
 
-func setupProxy(ctx context.Context, logger *zap.Logger, tr *transport.Stdio) (*client.Client, http.Handler, error) {
+func setupProxy(ctx context.Context, logger *zap.Logger, tr transport.BidirectionalInterface) (*client.Client, http.Handler, error) {
 	c := client.NewClient(tr)
 	if err := c.Start(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to start MCP client: %w", err)
