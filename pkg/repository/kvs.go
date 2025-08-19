@@ -68,9 +68,12 @@ func (r *kvsRepository) delete(ctx context.Context, key string) error {
 func (r *kvsRepository) update(ctx context.Context, key string, value any) error {
 	return r.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte(r.bucketName))
+		if bucket.Get([]byte(key)) == nil {
+			return fosite.ErrNotFound
+		}
 		data, err := json.Marshal(value)
 		if err != nil {
-			return fosite.ErrNotFound
+			return fmt.Errorf("failed to marshal value: %w", err)
 		}
 		return bucket.Put([]byte(key), data)
 	})
