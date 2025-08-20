@@ -40,6 +40,13 @@ func main() {
 	var githubClientID string
 	var githubClientSecret string
 	var githubAllowedUsers string
+	var oidcConfigurationURL string
+	var oidcClientID string
+	var oidcClientSecret string
+	var oidcScopes string
+	var oidcUserIDField string
+	var oidcProviderName string
+	var oidcAllowedUsers string
 	var password string
 	var passwordHash string
 	var proxyBearerToken string
@@ -62,6 +69,24 @@ func main() {
 				for i := range githubAllowedUsersList {
 					githubAllowedUsersList[i] = strings.TrimSpace(githubAllowedUsersList[i])
 				}
+			}
+
+			var oidcAllowedUsersList []string
+			if oidcAllowedUsers != "" {
+				oidcAllowedUsersList = strings.Split(oidcAllowedUsers, ",")
+				for i := range oidcAllowedUsersList {
+					oidcAllowedUsersList[i] = strings.TrimSpace(oidcAllowedUsersList[i])
+				}
+			}
+
+			var oidcScopesList []string
+			if oidcScopes != "" {
+				oidcScopesList = strings.Split(oidcScopes, ",")
+				for i := range oidcScopesList {
+					oidcScopesList[i] = strings.TrimSpace(oidcScopesList[i])
+				}
+			} else {
+				oidcScopesList = []string{"openid", "profile", "email"}
 			}
 
 			// Parse proxy headers into slice
@@ -88,6 +113,13 @@ func main() {
 				githubClientID,
 				githubClientSecret,
 				githubAllowedUsersList,
+				oidcConfigurationURL,
+				oidcClientID,
+				oidcClientSecret,
+				oidcScopesList,
+				oidcUserIDField,
+				oidcProviderName,
+				oidcAllowedUsersList,
 				password,
 				passwordHash,
 				proxyHeadersList,
@@ -117,6 +149,15 @@ func main() {
 	rootCmd.Flags().StringVar(&githubClientID, "github-client-id", getEnvWithDefault("GITHUB_CLIENT_ID", ""), "GitHub OAuth client ID")
 	rootCmd.Flags().StringVar(&githubClientSecret, "github-client-secret", getEnvWithDefault("GITHUB_CLIENT_SECRET", ""), "GitHub OAuth client secret")
 	rootCmd.Flags().StringVar(&githubAllowedUsers, "github-allowed-users", getEnvWithDefault("GITHUB_ALLOWED_USERS", ""), "Comma-separated list of allowed GitHub users (usernames)")
+
+	// OIDC configuration
+	rootCmd.Flags().StringVar(&oidcConfigurationURL, "oidc-configuration-url", getEnvWithDefault("OIDC_CONFIGURATION_URL", ""), "OIDC configuration URL")
+	rootCmd.Flags().StringVar(&oidcClientID, "oidc-client-id", getEnvWithDefault("OIDC_CLIENT_ID", ""), "OIDC client ID")
+	rootCmd.Flags().StringVar(&oidcClientSecret, "oidc-client-secret", getEnvWithDefault("OIDC_CLIENT_SECRET", ""), "OIDC client secret")
+	rootCmd.Flags().StringVar(&oidcScopes, "oidc-scopes", getEnvWithDefault("OIDC_SCOPES", "openid,profile,email"), "Comma-separated list of OIDC scopes")
+	rootCmd.Flags().StringVar(&oidcUserIDField, "oidc-user-id-field", getEnvWithDefault("OIDC_USER_ID_FIELD", "/email"), "JSON pointer to user ID field in userinfo endpoint response")
+	rootCmd.Flags().StringVar(&oidcProviderName, "oidc-provider-name", getEnvWithDefault("OIDC_PROVIDER_NAME", "OIDC"), "Display name for OIDC provider")
+	rootCmd.Flags().StringVar(&oidcAllowedUsers, "oidc-allowed-users", getEnvWithDefault("OIDC_ALLOWED_USERS", ""), "Comma-separated list of allowed OIDC users")
 
 	// Password authentication
 	rootCmd.Flags().StringVar(&password, "password", getEnvWithDefault("PASSWORD", ""), "Plain text password for authentication (will be hashed with bcrypt)")

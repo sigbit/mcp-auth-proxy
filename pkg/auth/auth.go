@@ -53,6 +53,8 @@ const (
 	GoogleCallbackEndpoint = "/.auth/google/callback"
 	GitHubAuthEndpoint     = "/.auth/github"
 	GitHubCallbackEndpoint = "/.auth/github/callback"
+	OIDCAuthEndpoint       = "/.auth/oidc"
+	OIDCCallbackEndpoint   = "/.auth/oidc/callback"
 
 	PasswordProvider = "password"
 	PasswordUserID   = "password_user"

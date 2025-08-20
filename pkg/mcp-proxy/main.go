@@ -48,6 +48,13 @@ func Run(
 	githubClientID string,
 	githubClientSecret string,
 	githubAllowedUsers []string,
+	oidcConfigurationURL string,
+	oidcClientID string,
+	oidcClientSecret string,
+	oidcScopes []string,
+	oidcUserIDField string,
+	oidcProviderName string,
+	oidcAllowedUsers []string,
 	password string,
 	passwordHash string,
 	proxyHeaders []string,
@@ -146,6 +153,24 @@ func Run(
 			return fmt.Errorf("failed to create GitHub provider: %w", err)
 		}
 		providers = append(providers, githubProvider)
+	}
+
+	// Add OIDC provider if configured
+	if oidcConfigurationURL != "" && oidcClientID != "" && oidcClientSecret != "" {
+		oidcProvider, err := auth.NewOIDCProvider(
+			oidcConfigurationURL,
+			oidcScopes,
+			oidcUserIDField,
+			oidcProviderName,
+			externalURL,
+			oidcClientID,
+			oidcClientSecret,
+			oidcAllowedUsers,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create OIDC provider: %w", err)
+		}
+		providers = append(providers, oidcProvider)
 	}
 
 	var passwordHashes []string

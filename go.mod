@@ -9,6 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/mark3labs/mcp-go v0.37.0
+	github.com/mattn/go-jsonpointer v0.0.1
 	github.com/ory/fosite v0.49.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0

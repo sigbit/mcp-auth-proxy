@@ -116,6 +116,13 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 | `GITHUB_CLIENT_ID`     | No       | GitHub OAuth client ID                                                                                | -                                                |
 | `GITHUB_CLIENT_SECRET` | No       | GitHub OAuth client secret                                                                            | -                                                |
 | `GITHUB_ALLOWED_USERS` | No       | Comma-separated list of allowed GitHub usernames                                                      | -                                                |
+| `OIDC_CONFIGURATION_URL` | No       | OIDC configuration URL                                                                                | -                                                |
+| `OIDC_CLIENT_ID`       | No       | OIDC client ID                                                                                        | -                                                |
+| `OIDC_CLIENT_SECRET`   | No       | OIDC client secret                                                                                    | -                                                |
+| `OIDC_SCOPES`          | No       | Comma-separated list of OIDC scopes                                                                   | `openid,profile,email`                          |
+| `OIDC_USER_ID_FIELD`   | No       | JSON pointer to user ID field in userinfo endpoint response                                           | `/email`                                         |
+| `OIDC_PROVIDER_NAME`   | No       | Display name for OIDC provider                                                                        | `OIDC`                                           |
+| `OIDC_ALLOWED_USERS`   | No       | Comma-separated list of allowed OIDC users                                                            | -                                                |
 | `PASSWORD`             | No       | Plain text password (will be hashed with bcrypt)                                                      | -                                                |
 | `PASSWORD_HASH`        | No       | Bcrypt hash of password for authentication                                                            | -                                                |
 | `PROXY_BEARER_TOKEN`   | No       | Bearer token to add to Authorization header when proxying requests                                    | -                                                |
@@ -135,6 +142,13 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 1. Go to the [Register new GitHub App](https://github.com/settings/apps/new)
 2. Set Authorization callback URL: `{EXTERNAL_URL}/.auth/github/callback`
 
+#### OIDC Provider Setup
+1. Configure your OIDC provider (e.g., Keycloak, Auth0, Azure AD, etc.)
+2. Create a new client application
+3. Set redirect URI: `{EXTERNAL_URL}/.auth/oidc/callback`
+4. Note the configuration URL (usually issuer URL + /.well-known/openid-configuration), client ID, and client secret
+5. Configure the userinfo endpoint to return user identification field (default: email)
+
 ## 🚀 Usage
 
 ### Method 1: Download Binary
@@ -152,6 +166,10 @@ Download the latest binary from [releases](https://github.com/sigbit/mcp-auth-pr
   --github-client-id "your-github-client-id" \
   --github-client-secret "your-github-client-secret" \
   --github-allowed-users "username1,username2" \
+  --oidc-configuration-url "https://your-oidc-provider.com/.well-known/openid-configuration" \
+  --oidc-client-id "your-oidc-client-id" \
+  --oidc-client-secret "your-oidc-client-secret" \
+  --oidc-allowed-users "user1@example.com,user2@example.com" \
   http://localhost:8080
 ```
 
@@ -168,6 +186,10 @@ docker run --rm --net=host \
   -e GITHUB_CLIENT_ID="your-github-client-id" \
   -e GITHUB_CLIENT_SECRET="your-github-client-secret" \
   -e GITHUB_ALLOWED_USERS="username1,username2" \
+  -e OIDC_CONFIGURATION_URL="https://your-oidc-provider.com/.well-known/openid-configuration" \
+  -e OIDC_CLIENT_ID="your-oidc-client-id" \
+  -e OIDC_CLIENT_SECRET="your-oidc-client-secret" \
+  -e OIDC_ALLOWED_USERS="user1@example.com,user2@example.com" \
   -v ./data:/data \
   ghcr.io/sigbit/mcp-auth-proxy:latest \
   http://localhost:8080
