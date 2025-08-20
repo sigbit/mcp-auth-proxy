@@ -64,7 +64,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(LoginEndpoint, a.handleLogin)
 	router.POST(LoginEndpoint, a.handleLoginPost)
 	router.GET(LogoutEndpoint, a.handleLogout)
-	for providerName, provider := range a.providers {
+	for _, provider := range a.providers {
 		router.GET(provider.RedirectURL(), func(c *gin.Context) {
 			session := sessions.Default(c)
 			state := session.Get(SessionKeyOAuthState)
@@ -82,7 +82,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				c.Error(err)
 				return
 			}
-			session.Set(SessionKeyProvider, providerName)
+			session.Set(SessionKeyProvider, provider.Name())
 			session.Set(SessionKeyUserID, userID)
 			session.Save()
 			redirectURL := session.Get(SessionKeyRedirectURL)
