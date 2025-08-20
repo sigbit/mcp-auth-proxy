@@ -42,7 +42,7 @@ func (p *googleProvider) RedirectURL() string {
 }
 
 func (p *googleProvider) AuthCodeURL(c *gin.Context, state string) (string, error) {
-	authURL := p.oauth2.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	authURL := p.oauth2.AuthCodeURL(state)
 	return authURL, nil
 }
 

@@ -46,7 +46,7 @@ func (p *githubProvider) AuthURL() string {
 }
 
 func (p *githubProvider) AuthCodeURL(c *gin.Context, state string) (string, error) {
-	authURL := p.oauth2.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	authURL := p.oauth2.AuthCodeURL(state)
 	return authURL, nil
 }
 
