@@ -207,6 +207,10 @@ func Run(
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
 	store := cookie.NewStore(secret)
+	store.Options(sessions.Options{
+		MaxAge:   3600,
+		HttpOnly: true,
+	})
 	router.Use(sessions.Sessions("session", store))
 	authRouter.SetupRoutes(router)
 	idpRouter.SetupRoutes(router)
