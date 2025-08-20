@@ -18,7 +18,7 @@ var templateFS embed.FS
 type AuthRouter struct {
 	passwordHash         []string
 	providers            []Provider
-	template             *template.Template
+	loginTemplate        *template.Template
 	unauthorizedTemplate *template.Template
 }
 
@@ -36,7 +36,7 @@ func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, e
 	return &AuthRouter{
 		passwordHash:         passwordHash,
 		providers:            providers,
-		template:             tmpl,
+		loginTemplate:        tmpl,
 		unauthorizedTemplate: unauthorizedTmpl,
 	}, nil
 }
@@ -82,11 +82,29 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				c.Error(err)
 				return
 			}
+			ok, err := provider.Authorization(userID)
+			if err != nil {
+				c.Error(err)
+				return
+			}
+			if !ok {
+				a.renderUnauthorized(c, userID, provider.Name())
+				return
+			}
 			session.Set(SessionKeyProvider, provider.Name())
 			session.Set(SessionKeyUserID, userID)
-			session.Save()
 			redirectURL := session.Get(SessionKeyRedirectURL)
-			c.Redirect(http.StatusFound, redirectURL.(string))
+			if redirectURL != nil {
+				session.Delete(SessionKeyRedirectURL)
+			}
+			session.Save()
+
+			if redirectURL == nil {
+				c.Redirect(http.StatusFound, "/")
+			} else {
+				c.Redirect(http.StatusFound, redirectURL.(string))
+			}
+
 		})
 
 		router.GET(provider.AuthURL(), func(c *gin.Context) {
@@ -118,29 +136,12 @@ func (a *AuthRouter) getProvider(name string) Provider {
 	return nil
 }
 
-type templateData struct {
-	Providers     []Provider
-	HasPassword   bool
-	PasswordError string
-}
-
 func (a *AuthRouter) handleLogin(c *gin.Context) {
 	if c.Request.Method == "POST" {
 		a.handleLoginPost(c)
 		return
 	}
-
-	data := templateData{
-		Providers:     a.providers,
-		HasPassword:   len(a.passwordHash) > 0,
-		PasswordError: "",
-	}
-
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := a.template.Execute(c.Writer, data); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
+	a.renderLogin(c, "")
 }
 
 func (a *AuthRouter) handleLoginPost(c *gin.Context) {
@@ -165,39 +166,32 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	}
 
 	if errorMessage != "" {
-		data := templateData{
-			Providers:     a.providers,
-			HasPassword:   len(a.passwordHash) > 0,
-			PasswordError: errorMessage,
-		}
-
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.Status(http.StatusBadRequest)
-		if err := a.template.Execute(c.Writer, data); err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
+		a.renderLogin(c, errorMessage)
 		return
 	}
 
 	session := sessions.Default(c)
 	session.Set(SessionKeyProvider, PasswordProvider)
 	session.Set(SessionKeyUserID, PasswordUserID)
+	redirectURL := session.Get(SessionKeyRedirectURL)
+	if redirectURL != nil {
+		session.Delete(SessionKeyRedirectURL)
+	}
 	session.Save()
 
-	redirectURL := session.Get(SessionKeyRedirectURL)
 	if redirectURL == nil {
 		c.Redirect(http.StatusFound, "/")
-		return
+	} else {
+		c.Redirect(http.StatusFound, redirectURL.(string))
 	}
-	c.Redirect(http.StatusFound, redirectURL.(string))
 }
 
 func (a *AuthRouter) handleLogout(c *gin.Context) {
 	session := sessions.Default(c)
-	session.Clear()
+	session.Delete(SessionKeyProvider)
+	session.Delete(SessionKeyUserID)
 	session.Save()
-	c.String(http.StatusOK, "Logged out")
+	c.Redirect(http.StatusFound, LoginEndpoint)
 }
 
 func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
@@ -229,22 +223,48 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 			return
 		}
 		if !ok {
-			data := struct {
-				UserID   string
-				Provider string
-			}{
-				UserID:   userID.(string),
-				Provider: providerName.(string),
-			}
-			c.Header("Content-Type", "text/html; charset=utf-8")
-			c.Status(http.StatusForbidden)
-			if err := a.unauthorizedTemplate.Execute(c.Writer, data); err != nil {
-				c.AbortWithError(http.StatusInternalServerError, err)
-				return
-			}
+			a.renderUnauthorized(c, userID.(string), providerName.(string))
 			c.Abort()
 			return
 		}
 		c.Next()
+	}
+}
+
+type loginTemplateData struct {
+	Providers     []Provider
+	HasPassword   bool
+	PasswordError string
+}
+
+type unauthorizedTemplateData struct {
+	UserID   string
+	Provider string
+}
+
+func (a *AuthRouter) renderLogin(c *gin.Context, passwordError string) {
+	data := loginTemplateData{
+		Providers:     a.providers,
+		HasPassword:   len(a.passwordHash) > 0,
+		PasswordError: passwordError,
+	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Status(http.StatusBadRequest)
+	if err := a.loginTemplate.Execute(c.Writer, data); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (a *AuthRouter) renderUnauthorized(c *gin.Context, userID, providerName string) {
+	data := unauthorizedTemplateData{
+		UserID:   userID,
+		Provider: providerName,
+	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Status(http.StatusForbidden)
+	if err := a.unauthorizedTemplate.Execute(c.Writer, data); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 }
