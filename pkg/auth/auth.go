@@ -249,7 +249,11 @@ func (a *AuthRouter) renderLogin(c *gin.Context, passwordError string) {
 		PasswordError: passwordError,
 	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Status(http.StatusBadRequest)
+	if passwordError != "" {
+		c.Status(http.StatusBadRequest)
+	} else {
+		c.Status(http.StatusOK)
+	}
 	if err := a.loginTemplate.Execute(c.Writer, data); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
