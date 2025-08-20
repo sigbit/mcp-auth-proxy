@@ -24,7 +24,7 @@ If you use stdio transport
   --external-url https://{your-domain} \
   --tls-accept-tos \
   --password changeme \
-  -- npx -y @modelcontextprotocol/server-filesystem /
+  -- npx -y @modelcontextprotocol/server-filesystem ./
 ```
 
 That's it! Your streamable HTTP endpoint is now available at `https://{your-domain}/mcp`.  
@@ -34,15 +34,15 @@ To proxy SSE/streamable HTTP transport, specify a URL; to use the stdio transpor
 
 ## Verified MCP Client
 
-| MCP Client        | Status | Notes                                             |
-| ----------------- | ------ | ------------------------------------------------- |
-| Claude - Web      | ✅      |                                                   |
-| Claude - Desktop  | ✅      |                                                   |
-| Claude Code       | ✅      |                                                   |
-| ChatGPT - Web     | ✅      | Need to implement `search` and `fetch` tools.(*1) |
-| ChatGPT - Desktop | ✅      | Need to implement `search` and `fetch` tools.(*1) |
-| GitHub Copilot    | ✅      |                                                   |
-| Cursor            | ✅      |                                                   |
+| MCP Client        | Status | Notes                                            |
+| ----------------- | ------ | ------------------------------------------------ |
+| Claude - Web      | ✅      |                                                  |
+| Claude - Desktop  | ✅      |                                                  |
+| Claude Code       | ✅      |                                                  |
+| ChatGPT - Web     | ✅      | Need to implement `search` and `fetch` tools.(1) |
+| ChatGPT - Desktop | ✅      | Need to implement `search` and `fetch` tools.(1) |
+| GitHub Copilot    | ✅      |                                                  |
+| Cursor            | ✅      |                                                  |
 
 - *1: https://platform.openai.com/docs/mcp
 
@@ -100,7 +100,7 @@ docker run --rm --net=host \
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
 3. Create OAuth consent screen
-4. Credentials → Create credentials → OAuth client ID（Web application）
+4. Credentials → Create credentials → OAuth client ID (Web application)
 5. Add authorized redirect URI: `{EXTERNAL_URL}/.auth/google/callback`
 
 #### GitHub OAuth Setup
