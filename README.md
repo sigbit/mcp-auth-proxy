@@ -90,7 +90,7 @@ This will automatically obtain and manage Let's Encrypt TLS certificates for you
 
 MCP Auth Proxy is a secure OAuth 2.1 authentication proxy for Model Context Protocol (MCP) servers. MCP servers are expected to support not only standard OAuth 2.1 flows but also Dynamic Client support (e.g., dynamic client registration) and authentication-related .well-known metadata. On top of that, different MCP clients handle tokens differently, which makes implementation tricky.
 
-MCP Auth Proxy sits in front of your MCP services and enforces sign-in with OAuth providers (such as Google or GitHub) or password before users can access protected MCP resources.
+MCP Auth Proxy sits in front of your MCP services and enforces sign-in with OAuth providers (such as Google or GitHub or OIDC) or password before users can access protected MCP resources.
 
 ## Note
 
@@ -100,34 +100,34 @@ For a simpler approach to publish local MCP servers over OAuth, consider [MCP Wa
 
 ### Environment Variables
 
-| Variable               | Required | Description                                                                                           | Default                                          |
-| ---------------------- | -------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `LISTEN`               | No       | Server listen address                                                                                 | `:80`                                            |
-| `TLS_LISTEN`           | No       | Address to listen on for TLS                                                                          | `:443`                                           |
-| `AUTO_TLS`             | No       | Automatically setup TLS certificates from externalURL                                                 | `true`                                           |
-| `TLS_HOST`             | No       | Host name for automatic TLS certificate                                                               | -                                                |
-| `TLS_DIRECTORY_URL`    | No       | ACME directory URL for TLS certificates                                                               | `https://acme-v02.api.letsencrypt.org/directory` |
-| `TLS_ACCEPT_TOS`       | No       | Accept TLS terms of service                                                                           | `false`                                          |
-| `DATA_PATH`            | No       | Data directory path                                                                                   | `./data`                                         |
-| `EXTERNAL_URL`         | No       | External URL for OAuth callbacks                                                                      | `http://localhost`                               |
-| `GOOGLE_CLIENT_ID`     | No       | Google OAuth client ID                                                                                | -                                                |
-| `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                                                                            | -                                                |
-| `GOOGLE_ALLOWED_USERS` | No       | Comma-separated list of allowed Google emails                                                         | -                                                |
-| `GITHUB_CLIENT_ID`     | No       | GitHub OAuth client ID                                                                                | -                                                |
-| `GITHUB_CLIENT_SECRET` | No       | GitHub OAuth client secret                                                                            | -                                                |
-| `GITHUB_ALLOWED_USERS` | No       | Comma-separated list of allowed GitHub usernames                                                      | -                                                |
+| Variable                 | Required | Description                                                                                           | Default                                          |
+| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `LISTEN`                 | No       | Server listen address                                                                                 | `:80`                                            |
+| `TLS_LISTEN`             | No       | Address to listen on for TLS                                                                          | `:443`                                           |
+| `AUTO_TLS`               | No       | Automatically setup TLS certificates from externalURL                                                 | `true`                                           |
+| `TLS_HOST`               | No       | Host name for automatic TLS certificate                                                               | -                                                |
+| `TLS_DIRECTORY_URL`      | No       | ACME directory URL for TLS certificates                                                               | `https://acme-v02.api.letsencrypt.org/directory` |
+| `TLS_ACCEPT_TOS`         | No       | Accept TLS terms of service                                                                           | `false`                                          |
+| `DATA_PATH`              | No       | Data directory path                                                                                   | `./data`                                         |
+| `EXTERNAL_URL`           | No       | External URL for OAuth callbacks                                                                      | `http://localhost`                               |
+| `GOOGLE_CLIENT_ID`       | No       | Google OAuth client ID                                                                                | -                                                |
+| `GOOGLE_CLIENT_SECRET`   | No       | Google OAuth client secret                                                                            | -                                                |
+| `GOOGLE_ALLOWED_USERS`   | No       | Comma-separated list of allowed Google emails                                                         | -                                                |
+| `GITHUB_CLIENT_ID`       | No       | GitHub OAuth client ID                                                                                | -                                                |
+| `GITHUB_CLIENT_SECRET`   | No       | GitHub OAuth client secret                                                                            | -                                                |
+| `GITHUB_ALLOWED_USERS`   | No       | Comma-separated list of allowed GitHub usernames                                                      | -                                                |
 | `OIDC_CONFIGURATION_URL` | No       | OIDC configuration URL                                                                                | -                                                |
-| `OIDC_CLIENT_ID`       | No       | OIDC client ID                                                                                        | -                                                |
-| `OIDC_CLIENT_SECRET`   | No       | OIDC client secret                                                                                    | -                                                |
-| `OIDC_SCOPES`          | No       | Comma-separated list of OIDC scopes                                                                   | `openid,profile,email`                          |
-| `OIDC_USER_ID_FIELD`   | No       | JSON pointer to user ID field in userinfo endpoint response                                           | `/email`                                         |
-| `OIDC_PROVIDER_NAME`   | No       | Display name for OIDC provider                                                                        | `OIDC`                                           |
-| `OIDC_ALLOWED_USERS`   | No       | Comma-separated list of allowed OIDC users                                                            | -                                                |
-| `PASSWORD`             | No       | Plain text password (will be hashed with bcrypt)                                                      | -                                                |
-| `PASSWORD_HASH`        | No       | Bcrypt hash of password for authentication                                                            | -                                                |
-| `PROXY_BEARER_TOKEN`   | No       | Bearer token to add to Authorization header when proxying requests                                    | -                                                |
-| `PROXY_HEADERS`        | No       | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2) | -                                                |
-| `MODE`                 | No       | Set to `debug` for development mode                                                                   | `production`                                     |
+| `OIDC_CLIENT_ID`         | No       | OIDC client ID                                                                                        | -                                                |
+| `OIDC_CLIENT_SECRET`     | No       | OIDC client secret                                                                                    | -                                                |
+| `OIDC_SCOPES`            | No       | Comma-separated list of OIDC scopes                                                                   | `openid,profile,email`                           |
+| `OIDC_USER_ID_FIELD`     | No       | JSON pointer to user ID field in userinfo endpoint response                                           | `/email`                                         |
+| `OIDC_PROVIDER_NAME`     | No       | Display name for OIDC provider                                                                        | `OIDC`                                           |
+| `OIDC_ALLOWED_USERS`     | No       | Comma-separated list of allowed OIDC users                                                            | -                                                |
+| `PASSWORD`               | No       | Plain text password (will be hashed with bcrypt)                                                      | -                                                |
+| `PASSWORD_HASH`          | No       | Bcrypt hash of password for authentication                                                            | -                                                |
+| `PROXY_BEARER_TOKEN`     | No       | Bearer token to add to Authorization header when proxying requests                                    | -                                                |
+| `PROXY_HEADERS`          | No       | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2) | -                                                |
+| `MODE`                   | No       | Set to `debug` for development mode                                                                   | `production`                                     |
 
 ### OAuth Provider Setup
 
