@@ -8,7 +8,7 @@
 
 - **Drop-in OAuth 2.1/OIDC gateway for MCP servers — put it in front, no code changes.**
 - **Your IdP, your choice**: Google, GitHub, or any OIDC provider — e.g. Okta, Auth0, Azure AD, Keycloak — plus optional password with allow-list.
-- **Publish local stdio MCP servers safely**: bridge to a public streamable HTTP endpoint (/mcp) with automatic TLS (ACME/Let’s Encrypt).
+- **Publish local MCP servers safely**: Supports all stdio, SSE, and HTTP transports. For stdio, traffic is converted to `/mcp`. For SSE/HTTP, it’s proxied as-is. Of course, with authentication.
 - **Verified across major MCP clients**: Claude, Claude Code, ChatGPT, GitHub Copilot, Cursor, etc. — the proxy smooths client-specific quirks for consistent auth.
 
 ## Quickstart
@@ -27,8 +27,8 @@ If you use stdio transport
   -- npx -y @modelcontextprotocol/server-filesystem ./
 ```
 
-That's it! Your streamable HTTP endpoint is now available at `https://{your-domain}/mcp`.  
-To proxy SSE/streamable HTTP transport, specify a URL; to use the stdio transport, specify a command.
+That's it! Your HTTP endpoint is now available at `https://{your-domain}/mcp`.  
+To proxy SSE or HTTP transport, specify a URL; to use the stdio transport, specify a command.
 
 (Listen on 80/443 and automatically set up certificates, but use the no-auto-tls option if not needed.)
 
