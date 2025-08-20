@@ -37,6 +37,10 @@ func (p *githubProvider) Name() string {
 	return "GitHub"
 }
 
+func (p *githubProvider) Type() string {
+	return "github"
+}
+
 func (p *githubProvider) RedirectURL() string {
 	return GitHubCallbackEndpoint
 }

@@ -63,6 +63,10 @@ func (p *oidcProvider) Name() string {
 	return p.providerName
 }
 
+func (p *oidcProvider) Type() string {
+	return "oidc"
+}
+
 func (p *oidcProvider) RedirectURL() string {
 	return OIDCCallbackEndpoint
 }

@@ -17,17 +17,12 @@ var templateFS embed.FS
 
 type AuthRouter struct {
 	passwordHash         []string
-	providers            map[string]Provider
+	providers            []Provider
 	template             *template.Template
 	unauthorizedTemplate *template.Template
 }
 
 func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, error) {
-	providersMap := make(map[string]Provider)
-	for _, provider := range providers {
-		providersMap[provider.Name()] = provider
-	}
-
 	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
 	if err != nil {
 		return nil, err
@@ -40,7 +35,7 @@ func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, e
 
 	return &AuthRouter{
 		passwordHash:         passwordHash,
-		providers:            providersMap,
+		providers:            providers,
 		template:             tmpl,
 		unauthorizedTemplate: unauthorizedTmpl,
 	}, nil
@@ -114,9 +109,19 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	}
 }
 
-type ProviderData struct {
-	Name string
-	URL  string
+func (a *AuthRouter) getProvider(name string) Provider {
+	for _, provider := range a.providers {
+		if provider.Name() == name {
+			return provider
+		}
+	}
+	return nil
+}
+
+type templateData struct {
+	Providers     []Provider
+	HasPassword   bool
+	PasswordError string
 }
 
 func (a *AuthRouter) handleLogin(c *gin.Context) {
@@ -125,20 +130,8 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 		return
 	}
 
-	var providersData []ProviderData
-	for name := range a.providers {
-		providersData = append(providersData, ProviderData{
-			Name: name,
-			URL:  a.providers[name].AuthURL(),
-		})
-	}
-
-	data := struct {
-		Providers     []ProviderData
-		HasPassword   bool
-		PasswordError string
-	}{
-		Providers:     providersData,
+	data := templateData{
+		Providers:     a.providers,
 		HasPassword:   len(a.passwordHash) > 0,
 		PasswordError: "",
 	}
@@ -172,20 +165,8 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	}
 
 	if errorMessage != "" {
-		var providersData []ProviderData
-		for name := range a.providers {
-			providersData = append(providersData, ProviderData{
-				Name: name,
-				URL:  a.providers[name].AuthURL(),
-			})
-		}
-
-		data := struct {
-			Providers     []ProviderData
-			HasPassword   bool
-			PasswordError string
-		}{
-			Providers:     providersData,
+		data := templateData{
+			Providers:     a.providers,
 			HasPassword:   len(a.passwordHash) > 0,
 			PasswordError: errorMessage,
 		}
@@ -237,8 +218,8 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		p, ok := a.providers[providerName.(string)]
-		if !ok {
+		p := a.getProvider(providerName.(string))
+		if p == nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unknown provider"})
 			return
 		}
