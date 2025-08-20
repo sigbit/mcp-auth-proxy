@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Error - MCP Auth Proxy</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .error-container {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        text-align: center;
+        min-width: 350px;
+        max-width: 500px;
+        width: 100%;
+      }
+      .error-icon {
+        font-size: 4rem;
+        color: #e74c3c;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 1.5rem;
+        font-size: 2rem;
+        font-weight: 600;
+      }
+      .error-message {
+        color: #666;
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+        line-height: 1.6;
+      }
+      .error-details {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        font-family: monospace;
+        color: #e74c3c;
+        font-size: 0.9rem;
+        text-align: left;
+        word-wrap: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="error-container">
+      <div class="error-icon">⚠️</div>
+      <h1>Error</h1>
+      <div class="error-message">
+        An error occurred while processing your request.
+      </div>
+      {{if .ErrorMessage}}
+      <div class="error-details">
+        {{.ErrorMessage}}
+      </div>
+      {{end}}
+    </div>
+  </body>
+</html>
