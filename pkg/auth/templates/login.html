@@ -117,19 +117,26 @@
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
       }
-      .Google {
+      .google {
         background-color: #4285f4;
         color: white;
       }
-      .Google:hover {
+      .google:hover {
         background-color: #357ae8;
       }
-      .GitHub {
+      .github {
         background-color: #333;
         color: white;
       }
-      .GitHub:hover {
+      .github:hover {
         background-color: #24292e;
+      }
+      .oidc {
+        background-color: #5c67f2;
+        color: white;
+      }
+      .oidc:hover {
+        background-color: #4e54d4;
       }
       .error-message {
         color: #e74c3c;
@@ -165,7 +172,7 @@
         <span>or</span>
       </div>
       {{end}} {{range .Providers}}
-      <a href="{{.URL}}" class="provider-button {{.Name }}">
+      <a href="{{.AuthURL}}" class="provider-button {{.Type}}">
         Login with {{.Name}}
       </a>
       {{end}}

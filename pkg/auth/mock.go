@@ -143,3 +143,17 @@ func (mr *MockProviderMockRecorder) RedirectURL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedirectURL", reflect.TypeOf((*MockProvider)(nil).RedirectURL))
 }
+
+// Type mocks base method.
+func (m *MockProvider) Type() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Type")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Type indicates an expected call of Type.
+func (mr *MockProviderMockRecorder) Type() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockProvider)(nil).Type))
+}

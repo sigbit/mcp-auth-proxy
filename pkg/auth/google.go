@@ -37,6 +37,10 @@ func (p *googleProvider) Name() string {
 	return "Google"
 }
 
+func (p *googleProvider) Type() string {
+	return "google"
+}
+
 func (p *googleProvider) RedirectURL() string {
 	return GoogleCallbackEndpoint
 }

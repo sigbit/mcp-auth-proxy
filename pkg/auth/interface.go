@@ -10,6 +10,7 @@ import (
 
 type Provider interface {
 	Name() string
+	Type() string
 	RedirectURL() string
 	AuthURL() string
 	AuthCodeURL(c *gin.Context, state string) (string, error)

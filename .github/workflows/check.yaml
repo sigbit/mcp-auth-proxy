@@ -21,7 +21,11 @@ jobs:
         with:
           go-version: "1.23"
 
-      - run: go test ./...
+      - name: Check gofmt
+        run: |
+          files=$(gofmt -s -l .)
+          echo "$files"
+          test -z "$files"
       - run: go vet ./...
       - uses: dominikh/staticcheck-action@v1.4.0
         with:
