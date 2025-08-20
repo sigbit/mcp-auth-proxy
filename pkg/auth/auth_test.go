@@ -79,10 +79,15 @@ func TestAuthenticationFlow(t *testing.T) {
 		defer ctrl.Finish()
 
 		// Create mock provider
+		mockToken := &oauth2.Token{AccessToken: "test-token"}
 		mockProvider := NewMockProvider(ctrl)
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any()).Return("https://example.com/oauth", nil)
+		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
+		mockProvider.EXPECT().GetUserID(gomock.Any(), mockToken).Return("test-user", nil)
+		mockProvider.EXPECT().Authorization("test-user").Return(true, nil).AnyTimes()
 
 		// Create AuthRouter
 		authRouter, err := NewAuthRouter(nil, mockProvider)
@@ -103,8 +108,6 @@ func TestAuthenticationFlow(t *testing.T) {
 		require.Equal(t, http.StatusFound, resp.StatusCode)
 
 		// Step 2: Start authentication
-		mockProvider.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any()).Return("https://example.com/oauth", nil)
-
 		resp, err = client.Get(server.URL + "/.auth/test")
 		require.NoError(t, err)
 		resp.Body.Close()
@@ -115,23 +118,15 @@ func TestAuthenticationFlow(t *testing.T) {
 		require.Equal(t, "https://example.com/oauth", location)
 
 		// Step 3: Handle callback
-		mockToken := &oauth2.Token{AccessToken: "test-token"}
-		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
-		mockProvider.EXPECT().GetUserID(gomock.Any(), mockToken).Return("test-user", nil)
-
 		resp, err = client.Get(server.URL + "/.auth/test/callback")
 		require.NoError(t, err)
 		resp.Body.Close()
 
 		require.Equal(t, http.StatusFound, resp.StatusCode)
-
-		// Verify redirect to root
 		location = resp.Header.Get("Location")
 		require.Equal(t, "/", location)
 
 		// Step 4: Access after authentication
-		mockProvider.EXPECT().Authorization("test-user").Return(true, nil)
-
 		resp, err = client.Get(server.URL + "/")
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
@@ -146,10 +141,15 @@ func TestAuthenticationFlow(t *testing.T) {
 		defer ctrl.Finish()
 
 		// Create mock provider
+		mockToken := &oauth2.Token{AccessToken: "test-token"}
 		mockProvider := NewMockProvider(ctrl)
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any()).Return("https://example.com/oauth", nil)
+		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
+		mockProvider.EXPECT().GetUserID(gomock.Any(), mockToken).Return("unauthorized-user", nil)
+		mockProvider.EXPECT().Authorization("unauthorized-user").Return(false, nil).AnyTimes()
 
 		// Create AuthRouter
 		authRouter, err := NewAuthRouter(nil, mockProvider)
@@ -167,30 +167,26 @@ func TestAuthenticationFlow(t *testing.T) {
 		resp.Body.Close()
 
 		// Step 2: Start authentication
-		mockProvider.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any()).Return("https://example.com/oauth", nil)
-
 		resp, err = client.Get(server.URL + "/.auth/test")
 		require.NoError(t, err)
 		resp.Body.Close()
 
 		// Step 3: Complete authentication
-		mockToken := &oauth2.Token{AccessToken: "test-token"}
-		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
-		mockProvider.EXPECT().GetUserID(gomock.Any(), mockToken).Return("unauthorized-user", nil)
-
 		resp, err = client.Get(server.URL + "/.auth/test/callback")
 		require.NoError(t, err)
 		resp.Body.Close()
 
-		// Step 4: Test access when authorization fails
-		mockProvider.EXPECT().Authorization("unauthorized-user").Return(false, nil)
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
 
+		// Step 4: Test access when authorization fails
 		resp, err = client.Get(server.URL + "/")
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
 		defer resp.Body.Close()
 
-		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+		require.Equal(t, http.StatusFound, resp.StatusCode)
+		location := resp.Header.Get("Location")
+		require.Equal(t, "/.auth/login", location)
 	})
 }

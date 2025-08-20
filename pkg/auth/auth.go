@@ -104,7 +104,6 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			} else {
 				c.Redirect(http.StatusFound, redirectURL.(string))
 			}
-
 		})
 
 		router.GET(provider.AuthURL(), func(c *gin.Context) {
