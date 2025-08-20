@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.3...v1.3.0) (2025-08-20)
+
+
+### Features
+
+* add OIDC provider support ([#40](https://github.com/sigbit/mcp-auth-proxy/issues/40)) ([f8edabe](https://github.com/sigbit/mcp-auth-proxy/commit/f8edabe7692efd1c187885bc60a54bcfd697399d))
+* improve error handling with custom error template ([#47](https://github.com/sigbit/mcp-auth-proxy/issues/47)) ([2ff3804](https://github.com/sigbit/mcp-auth-proxy/commit/2ff380490b31a0ab492b1ded0ecf6e9f30f1c082))
+* improve session security with HttpOnly and MaxAge options ([#46](https://github.com/sigbit/mcp-auth-proxy/issues/46)) ([9038812](https://github.com/sigbit/mcp-auth-proxy/commit/9038812eb3a0c48a1afb7473faeb9533571787a8))
+
+
+### Bug Fixes
+
+* improve authentication flow and session handling ([#45](https://github.com/sigbit/mcp-auth-proxy/issues/45)) ([cd28916](https://github.com/sigbit/mcp-auth-proxy/commit/cd28916bf00e76677a56df77fd0344372a39da81))
+* remove oauth2.AccessTypeOffline from AuthCodeURL calls ([#41](https://github.com/sigbit/mcp-auth-proxy/issues/41)) ([a2d0d88](https://github.com/sigbit/mcp-auth-proxy/commit/a2d0d8831d0d06b0fa49cf79ab4a36526747ed45))
+
 ## [1.2.3](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.2...v1.2.3) (2025-08-19)
 
 
