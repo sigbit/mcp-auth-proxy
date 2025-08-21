@@ -25,16 +25,8 @@ MCP Auth Proxy sits between MCP clients (like Claude, ChatGPT, GitHub Copilot) a
 3. **Authorization**: Access is granted based on configured user allowlists
 4. **Proxying**: Authenticated requests are forwarded to your MCP server
 
-## Quick Start
+## Next Steps
 
-Get started in minutes with a simple command:
-
-```bash
-./mcp-auth-proxy \
-  --external-url https://{your-domain} \
-  --tls-accept-tos \
-  --password changeme \
-  -- npx -y @modelcontextprotocol/server-filesystem ./
-```
-
-Your authenticated MCP endpoint will be available at `https://{your-domain}/mcp`.
+- [Quick Start Guide](./quickstart.md) - Get up and running in minutes
+- [OAuth Setup](./oauth-setup.md) - Configure secure authentication providers
+- [Client Integration](./client-integration.md) - Connect with MCP clients
