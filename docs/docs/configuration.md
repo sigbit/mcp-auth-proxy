@@ -16,12 +16,12 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 ### TLS Options
 
-| Option                | Environment Variable | Default                                          | Description                                    |
-| --------------------- | -------------------- | ------------------------------------------------ | ---------------------------------------------- |
+| Option                | Environment Variable | Default                                          | Description                                           |
+| --------------------- | -------------------- | ------------------------------------------------ | ----------------------------------------------------- |
 | `--no-auto-tls`       | `NO_AUTO_TLS`        | `false`                                          | Disable automatic TLS host detection from externalURL |
-| `--tls-accept-tos`    | `TLS_ACCEPT_TOS`     | `false`                                          | Accept TLS terms of service                    |
-| `--tls-directory-url` | `TLS_DIRECTORY_URL`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME directory URL for TLS certificates        |
-| `--tls-host`          | `TLS_HOST`           | -                                                | Host name for TLS                              |
+| `--tls-accept-tos`    | `TLS_ACCEPT_TOS`     | `false`                                          | Accept TLS terms of service                           |
+| `--tls-directory-url` | `TLS_DIRECTORY_URL`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME directory URL for TLS certificates               |
+| `--tls-host`          | `TLS_HOST`           | -                                                | Host name for TLS                                     |
 
 ### Authentication Options
 
