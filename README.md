@@ -49,7 +49,3 @@ That's it! Your HTTP endpoint is now available at `https://{your-domain}/mcp`.
 | Cursor            | ✅     |                                                  |
 
 - \*1: https://platform.openai.com/docs/mcp
-
-## Note
-
-For a simpler approach to publish local MCP servers over OAuth, consider [MCP Warp](https://github.com/sigbit/mcp-warp), which provides an OAuth Proxy + ngrok-like service. We highly recommend considering this option as well.
