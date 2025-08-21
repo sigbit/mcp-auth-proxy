@@ -99,5 +99,4 @@ Once running, your MCP server will be available at different endpoints depending
 ## Next Steps
 
 - [Configure OAuth providers](./oauth-setup.md) for enhanced security
-- [Set up user allowlists](./user-management.md) to control access
 - [Integrate with MCP clients](./client-integration.md)
