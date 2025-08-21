@@ -336,9 +336,6 @@ function VerifiedClients() {
             </div>
           ))}
         </div>
-        <div className={styles.compatibilityNote}>
-          <p>All clients tested with stdio, SSE, and HTTP transports</p>
-        </div>
       </div>
     </section>
   );
