@@ -18,7 +18,7 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 | Option                | Environment Variable | Default                                          | Description                                    |
 | --------------------- | -------------------- | ------------------------------------------------ | ---------------------------------------------- |
-| `--auto-tls`          | `AUTO_TLS`           | `true`                                           | Automatically detect TLS host from externalURL |
+| `--no-auto-tls`       | `NO_AUTO_TLS`        | `false`                                          | Disable automatic TLS host detection from externalURL |
 | `--tls-accept-tos`    | `TLS_ACCEPT_TOS`     | `false`                                          | Accept TLS terms of service                    |
 | `--tls-directory-url` | `TLS_DIRECTORY_URL`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME directory URL for TLS certificates        |
 | `--tls-host`          | `TLS_HOST`           | -                                                | Host name for TLS                              |
@@ -82,7 +82,7 @@ All configuration options can be set via environment variables:
 ```bash
 # Core settings
 export EXTERNAL_URL="https://{your-domain}"
-export AUTO_TLS="true"
+export NO_AUTO_TLS="false"
 export TLS_ACCEPT_TOS="true"
 export DATA="./data"
 
@@ -158,8 +158,8 @@ spec:
           env:
             - name: EXTERNAL_URL
               value: "https://{your-domain}"
-            - name: AUTO_TLS
-              value: "false"
+            - name: NO_AUTO_TLS
+              value: "true"
             - name: PASSWORD
               valueFrom:
                 secretKeyRef:
