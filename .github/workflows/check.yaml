@@ -30,3 +30,26 @@ jobs:
       - uses: dominikh/staticcheck-action@v1.4.0
         with:
           install-go: false
+
+  docs-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install docs dependencies
+        run: npm ci
+
+      - name: Lint documentation
+        run: npm run lint
