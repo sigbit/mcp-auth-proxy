@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/sigbit/mcp-auth-proxy/compare/v1.3.0...v1.3.1) (2025-08-21)
+
+
+### Miscellaneous Chores
+
+* release 1.3.1 ([e5885f8](https://github.com/sigbit/mcp-auth-proxy/commit/e5885f82df8da5ee7b079cc6fc25d6390b4395ea))
+
 ## [1.3.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.2.3...v1.3.0) (2025-08-20)
 
 
