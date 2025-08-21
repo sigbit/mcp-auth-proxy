@@ -1,4 +1,4 @@
-name: Deploy Docs to GitHub Pages
+name: Docs
 
 on:
   push:
