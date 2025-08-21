@@ -229,7 +229,7 @@ func Run(
 	if tlsHost != "" {
 		if !tlsAcceptTOS {
 			if tlsHostDetected {
-				return errors.New("TLS host is auto-detected, but tlsAcceptTOS is not set to true. Please agree to the TOS or set autoTLS to false")
+				return errors.New("TLS host is auto-detected, but tlsAcceptTOS is not set to true. Please agree to the TOS or set noAutoTLS to true")
 			} else {
 				return errors.New("TLS is enabled, but tlsAcceptTOS is not set to true. Please explicitly agree to the TOS")
 			}
