@@ -102,6 +102,15 @@ const config: Config = {
       darkTheme: prismThemes.dracula,
     },
   } satisfies Preset.ThemeConfig,
+  headTags: [
+    {
+      tagName: "meta",
+      attributes: {
+        name: "google-site-verification",
+        content: "MgNfNOkNsGVgWZiK4YsMyCqj9KFbmD3T2wdkP17juvs",
+      },
+    },
+  ],
 };
 
 export default config;
