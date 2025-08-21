@@ -41,3 +41,19 @@ feat!: change authentication API to support multiple providers
 ## Pull Request Template
 
 This project uses a pull request template to ensure consistency and completeness. Please follow the guidelines in [./.github/pull_request_template.md](./.github/pull_request_template.md) when creating pull requests.
+
+## AI Development Environment Setup
+
+You can link this file to your preferred AI development environment for better integration:
+
+```bash
+# For Claude Code
+ln -s CONTRIBUTING.md CLAUDE.md
+
+# For Gemini
+ln -s CONTRIBUTING.md GEMINI.md
+
+# For GitHub Copilot
+mkdir -p .github
+ln -s CONTRIBUTING.md .github/copilot-instructions.md
+```
