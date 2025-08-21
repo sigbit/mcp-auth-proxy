@@ -35,7 +35,7 @@ var ServerShutdownTimeout = 5 * time.Second
 
 func Run(
 	listen string,
-	listenTLS string,
+	tlsListen string,
 	autoTLS bool,
 	tlsHost string,
 	tlsDirectoryURL string,
@@ -258,7 +258,7 @@ func Run(
 			})),
 		}
 		httpsServer := &http.Server{
-			Addr:      listenTLS,
+			Addr:      tlsListen,
 			Handler:   router,
 			TLSConfig: m.TLSConfig(),
 		}
@@ -344,7 +344,7 @@ func Run(
 	}
 
 	if tlsHost != "" {
-		logger.Info("Starting server", zap.Strings("listen", []string{listen, listenTLS}))
+		logger.Info("Starting server", zap.Strings("listen", []string{listen, tlsListen}))
 	} else {
 		logger.Info("Starting server", zap.Strings("listen", []string{listen}))
 	}

@@ -65,8 +65,8 @@ Complete reference for all MCP Auth Proxy configuration options.
 | Option         | Environment Variable | Default  | Description                  |
 | -------------- | -------------------- | -------- | ---------------------------- |
 | `--listen`     | `LISTEN`             | `:80`    | Address to listen on         |
-| `--listen-tls` | `TLS_LISTEN`         | `:443`   | Address to listen on for TLS |
-| `--data`       | `DATA_PATH`          | `./data` | Path to the data directory   |
+| `--tls-listen` | `TLS_LISTEN`         | `:443`   | Address to listen on for TLS |
+| `--data-path`  | `DATA_PATH`          | `./data` | Path to the data directory   |
 
 ### Proxy Options
 
