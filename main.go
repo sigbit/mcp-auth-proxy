@@ -27,7 +27,7 @@ func getEnvBoolWithDefault(key string, defaultValue bool) bool {
 
 func main() {
 	var listen string
-	var listenTLS string
+	var tlsListen string
 	var noAutoTLS bool
 	var tlsHost string
 	var tlsDirectoryURL string
@@ -100,7 +100,7 @@ func main() {
 
 			if err := mcpproxy.Run(
 				listen,
-				listenTLS,
+				tlsListen,
 				!noAutoTLS,
 				tlsHost,
 				tlsDirectoryURL,
@@ -132,12 +132,12 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVar(&listen, "listen", getEnvWithDefault("LISTEN", ":80"), "Address to listen on")
-	rootCmd.Flags().StringVar(&listenTLS, "listen-tls", getEnvWithDefault("TLS_LISTEN", ":443"), "Address to listen on for TLS")
+	rootCmd.Flags().StringVar(&tlsListen, "tls-listen", getEnvWithDefault("TLS_LISTEN", ":443"), "Address to listen on for TLS")
 	rootCmd.Flags().BoolVar(&noAutoTLS, "no-auto-tls", getEnvBoolWithDefault("NO_AUTO_TLS", false), "Disable automatic TLS host detection from externalURL")
 	rootCmd.Flags().StringVarP(&tlsHost, "tls-host", "H", getEnvWithDefault("TLS_HOST", ""), "Host name for TLS")
 	rootCmd.Flags().StringVar(&tlsDirectoryURL, "tls-directory-url", getEnvWithDefault("TLS_DIRECTORY_URL", "https://acme-v02.api.letsencrypt.org/directory"), "ACME directory URL for TLS certificates")
 	rootCmd.Flags().BoolVar(&tlsAcceptTOS, "tls-accept-tos", getEnvBoolWithDefault("TLS_ACCEPT_TOS", false), "Accept TLS terms of service")
-	rootCmd.Flags().StringVarP(&dataPath, "data", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
+	rootCmd.Flags().StringVarP(&dataPath, "data-path", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
 
 	// Google OAuth configuration
