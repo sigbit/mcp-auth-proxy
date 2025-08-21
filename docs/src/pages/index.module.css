@@ -1,0 +1,732 @@
+.hero {
+  position: relative;
+  padding: 8rem 0 6rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+}
+
+.heroBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(120, 255, 214, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(255, 180, 120, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 40% 60%,
+      rgba(255, 120, 120, 0.1) 0%,
+      transparent 50%
+    );
+}
+
+.heroPattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    linear-gradient(
+      30deg,
+      rgba(255, 255, 255, 0.05) 12%,
+      transparent 12.5%,
+      transparent 87%,
+      rgba(255, 255, 255, 0.05) 87.5%,
+      rgba(255, 255, 255, 0.05)
+    ),
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.05) 12%,
+      transparent 12.5%,
+      transparent 87%,
+      rgba(255, 255, 255, 0.05) 87.5%,
+      rgba(255, 255, 255, 0.05)
+    ),
+    linear-gradient(
+      30deg,
+      rgba(255, 255, 255, 0.05) 12%,
+      transparent 12.5%,
+      transparent 87%,
+      rgba(255, 255, 255, 0.05) 87.5%,
+      rgba(255, 255, 255, 0.05)
+    ),
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.05) 12%,
+      transparent 12.5%,
+      transparent 87%,
+      rgba(255, 255, 255, 0.05) 87.5%,
+      rgba(255, 255, 255, 0.05)
+    );
+  background-size: 80px 140px;
+}
+
+.heroContainer {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.heroContent {
+  max-width: 600px;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 2rem;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.badgeIcon {
+  font-size: 1rem;
+}
+
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+.heroTitleAccent {
+  background: linear-gradient(45deg, #ff6b6b, #feca57);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  opacity: 0.9;
+  margin-bottom: 3rem;
+  animation: fadeInUp 0.8s ease-out 0.4s both;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  animation: fadeInUp 0.8s ease-out 0.6s both;
+}
+
+.primaryButton {
+  background: rgba(255, 255, 255, 0.95);
+  color: #667eea;
+  border: none;
+  font-weight: 600;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.primaryButton:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  color: #667eea;
+  text-decoration: none;
+}
+
+.secondaryButton {
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-weight: 600;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.secondaryButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  color: white;
+  text-decoration: none;
+}
+
+.buttonIcon {
+  font-size: 1rem;
+  transition: transform 0.3s ease;
+}
+
+.primaryButton:hover .buttonIcon {
+  transform: translateX(2px);
+}
+
+.heroStats {
+  display: flex;
+  gap: 2rem;
+  animation: fadeInUp 0.8s ease-out 0.8s both;
+}
+
+.stat {
+  text-align: center;
+}
+
+.statNumber {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #feca57;
+  margin-bottom: 0.25rem;
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.heroVisual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeInUp 0.8s ease-out 1s both;
+}
+
+.terminalWindow {
+  background: #1a1b26;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  width: 100%;
+  max-width: 500px;
+}
+
+.terminalHeader {
+  background: #24283b;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.terminalButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.terminalButton {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+
+.terminalButton:nth-child(2) {
+  background: #ffbd2e;
+}
+
+.terminalButton:nth-child(3) {
+  background: #28ca42;
+}
+
+.terminalTitle {
+  color: #a9b1d6;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.terminalContent {
+  padding: 1.5rem;
+  font-family: "Monaco", "Menlo", monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.terminalLine {
+  margin-bottom: 0.5rem;
+}
+
+.terminalPrompt {
+  color: #7aa2f7;
+  margin-right: 0.5rem;
+}
+
+.terminalCommand {
+  color: #c0caf5;
+}
+
+.terminalOutput {
+  color: #9ece6a;
+}
+
+.terminalComment {
+  color: #64748b;
+}
+
+.terminalFlag {
+  color: #7dd3fc;
+}
+
+.terminalValue {
+  color: #fbbf24;
+}
+
+/* Features Section */
+.features {
+  padding: 8rem 0;
+  background: #f8fafc;
+}
+
+.featuresHeader {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.sectionTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 1rem;
+}
+
+.sectionSubtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+.featureCard {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.featureCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.featureIconWrapper {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.featureIcon {
+  font-size: 1.5rem;
+}
+
+.featureContent {
+  flex: 1;
+}
+
+.featureTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 1rem;
+}
+
+.featureDescription {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* Quick Start Section */
+.quickstart {
+  padding: 8rem 0;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: white;
+}
+
+.quickstartContent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.quickstartText .sectionTitle {
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.quickstartText .sectionSubtitle {
+  color: #cbd5e1;
+  margin-bottom: 3rem;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.stepNumber {
+  background: linear-gradient(45deg, #ff6b6b, #feca57);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.stepContent h4 {
+  color: white;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.stepContent p {
+  color: #cbd5e1;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.quickstartCode {
+  position: relative;
+}
+
+.codeWindow {
+  background: #0f172a;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.codeHeader {
+  background: #1e293b;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.codeButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.codeButton {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #475569;
+}
+
+.codeButton:nth-child(1) {
+  background: #ef4444;
+}
+
+.codeButton:nth-child(2) {
+  background: #f59e0b;
+}
+
+.codeButton:nth-child(3) {
+  background: #10b981;
+}
+
+.codeTitle {
+  color: #cbd5e1;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.codeContent {
+  padding: 2rem;
+  font-family: "Monaco", "Menlo", monospace;
+  font-size: 0.875rem;
+  line-height: 1.8;
+}
+
+.codeLine {
+  margin-bottom: 0.25rem;
+}
+
+.codeComment {
+  color: #64748b;
+}
+
+.codeCommand {
+  color: #e2e8f0;
+}
+
+.codeFlag {
+  color: #7dd3fc;
+}
+
+.codeValue {
+  color: #fbbf24;
+}
+
+.resultBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.resultIcon {
+  color: #10b981;
+}
+
+.resultBadge code {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: "Monaco", "Menlo", monospace;
+}
+
+/* Verified Clients Section */
+.clients {
+  padding: 8rem 0;
+  background: white;
+}
+
+.clientsHeader {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.clientsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.clientCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.clientCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border-color: #667eea;
+}
+
+.clientLogo {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.clientInfo {
+  flex: 1;
+}
+
+.clientName {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.clientCategory {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.clientStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statusIcon {
+  color: #10b981;
+}
+
+.statusText {
+  font-size: 0.875rem;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.compatibilityNote {
+  text-align: center;
+  margin-top: 3rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media screen and (max-width: 1200px) {
+  .heroContainer {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+
+  .quickstartContent {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .hero {
+    padding: 6rem 0 4rem;
+    min-height: 70vh;
+  }
+
+  .heroTitle {
+    font-size: 2.5rem;
+  }
+
+  .heroButtons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .heroStats {
+    justify-content: center;
+  }
+
+  .terminalWindow {
+    max-width: 100%;
+  }
+
+  .terminalContent {
+    padding: 1rem;
+    font-size: 0.7rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .terminalLine {
+    margin-bottom: 0.4rem;
+  }
+
+  .featuresGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .clientsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionTitle {
+    font-size: 2rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .hero {
+    padding: 4rem 0 3rem;
+  }
+
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1rem;
+  }
+
+  .terminalContent {
+    padding: 0.75rem;
+    font-size: 0.65rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .terminalHeader {
+    padding: 0.75rem;
+  }
+
+  .terminalTitle {
+    font-size: 0.75rem;
+  }
+
+  .terminalWindow {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .codeContent {
+    padding: 1rem;
+    font-size: 0.75rem;
+  }
+}

@@ -7,7 +7,7 @@
 ## Overview
 
 - **Drop-in OAuth 2.1/OIDC gateway for MCP servers — put it in front, no code changes.**
-- **Your IdP, your choice**: Google, GitHub, or any OIDC provider — e.g. Okta, Auth0, Azure AD, Keycloak — plus optional password with allow-list.
+- **Your IdP, your choice**: Google, GitHub, or any OIDC provider — e.g. Okta, Auth0, Azure AD, Keycloak — plus optional password.
 - **Publish local MCP servers safely**: Supports all stdio, SSE, and HTTP transports. For stdio, traffic is converted to `/mcp`. For SSE/HTTP, it’s proxied as-is. Of course, with authentication.
 - **Verified across major MCP clients**: Claude, Claude Code, ChatGPT, GitHub Copilot, Cursor, etc. — the proxy smooths client-specific quirks for consistent auth.
 
@@ -36,15 +36,15 @@ To proxy SSE or HTTP transport, specify a URL; to use the stdio transport, speci
 
 | MCP Client        | Status | Notes                                            |
 | ----------------- | ------ | ------------------------------------------------ |
-| Claude - Web      | ✅      |                                                  |
-| Claude - Desktop  | ✅      |                                                  |
-| Claude Code       | ✅      |                                                  |
-| ChatGPT - Web     | ✅      | Need to implement `search` and `fetch` tools.(1) |
-| ChatGPT - Desktop | ✅      | Need to implement `search` and `fetch` tools.(1) |
-| GitHub Copilot    | ✅      |                                                  |
-| Cursor            | ✅      |                                                  |
+| Claude - Web      | ✅     |                                                  |
+| Claude - Desktop  | ✅     |                                                  |
+| Claude Code       | ✅     |                                                  |
+| ChatGPT - Web     | ✅     | Need to implement `search` and `fetch` tools.(1) |
+| ChatGPT - Desktop | ✅     | Need to implement `search` and `fetch` tools.(1) |
+| GitHub Copilot    | ✅     |                                                  |
+| Cursor            | ✅     |                                                  |
 
-- *1: https://platform.openai.com/docs/mcp
+- \*1: https://platform.openai.com/docs/mcp
 
 ## 🚀 Usage
 
@@ -97,6 +97,7 @@ docker run --rm --net=host \
 ### Provider Setup
 
 #### Google OAuth Setup
+
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
 3. Create OAuth consent screen
@@ -104,10 +105,12 @@ docker run --rm --net=host \
 5. Add authorized redirect URI: `{EXTERNAL_URL}/.auth/google/callback`
 
 #### GitHub OAuth Setup
+
 1. Go to the [Register new OAuth App](https://github.com/settings/applications/new)
 2. Set Authorization callback URL: `{EXTERNAL_URL}/.auth/github/callback`
 
 #### OIDC Provider Setup
+
 1. Configure your OIDC provider (e.g., Keycloak, Auth0, Azure AD, etc.)
 2. Create a new client application
 3. Set redirect URI: `{EXTERNAL_URL}/.auth/oidc/callback`
