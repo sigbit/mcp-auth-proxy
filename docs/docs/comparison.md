@@ -10,7 +10,7 @@ MCP Gateway: **A hub to orchestrate multiple MCP servers** (aggregation, catalog
 ## When to choose `mcp-auth-proxy`
 
 - **You just need to add auth to one or a few MCPs** (enforce OAuth/OIDC/password-only)
-- **Catalog integration and aggregation aren’t needed** (either self-hosted or independently managed MCP.)
+- **Catalog integration and aggregation aren’t needed** (e.g., self-hosted or independently managed MCP deployments)
 
 ## When to choose MCP Gateway
 
