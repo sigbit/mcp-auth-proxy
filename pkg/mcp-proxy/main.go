@@ -45,9 +45,11 @@ func Run(
 	googleClientID string,
 	googleClientSecret string,
 	googleAllowedUsers []string,
+	googleAllowedWorkspaces []string,
 	githubClientID string,
 	githubClientSecret string,
 	githubAllowedUsers []string,
+	githubAllowedOrgs []string,
 	oidcConfigurationURL string,
 	oidcClientID string,
 	oidcClientSecret string,
@@ -139,7 +141,7 @@ func Run(
 
 	// Add Google provider if configured
 	if googleClientID != "" && googleClientSecret != "" {
-		googleProvider, err := auth.NewGoogleProvider(externalURL, googleClientID, googleClientSecret, googleAllowedUsers)
+		googleProvider, err := auth.NewGoogleProvider(externalURL, googleClientID, googleClientSecret, googleAllowedUsers, googleAllowedWorkspaces)
 		if err != nil {
 			return fmt.Errorf("failed to create Google provider: %w", err)
 		}
@@ -148,7 +150,7 @@ func Run(
 
 	// Add GitHub provider if configured
 	if githubClientID != "" && githubClientSecret != "" {
-		githubProvider, err := auth.NewGithubProvider(githubClientID, githubClientSecret, externalURL, githubAllowedUsers)
+		githubProvider, err := auth.NewGithubProvider(githubClientID, githubClientSecret, externalURL, githubAllowedUsers, githubAllowedOrgs)
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub provider: %w", err)
 		}
@@ -207,6 +209,13 @@ func Run(
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
 	store := cookie.NewStore(secret)
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
 	router.Use(sessions.Sessions("session", store))
 	authRouter.SetupRoutes(router)
 	idpRouter.SetupRoutes(router)

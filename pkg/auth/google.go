@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/url"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
@@ -12,16 +13,19 @@ import (
 )
 
 type googleProvider struct {
-	oauth2       oauth2.Config
-	allowedUsers []string
+	userinfoEndpoint  string
+	oauth2            oauth2.Config
+	allowedUsers      []string
+	allowedWorkspaces []string
 }
 
-func NewGoogleProvider(externalURL, clientID, clientSecret string, allowedUsers []string) (Provider, error) {
+func NewGoogleProvider(externalURL, clientID, clientSecret string, allowedUsers []string, allowedWorkspaces []string) (Provider, error) {
 	r, err := url.JoinPath(externalURL, GoogleCallbackEndpoint)
 	if err != nil {
 		return nil, err
 	}
 	return &googleProvider{
+		userinfoEndpoint: "https://openidconnect.googleapis.com/v1/userinfo",
 		oauth2: oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
@@ -29,8 +33,17 @@ func NewGoogleProvider(externalURL, clientID, clientSecret string, allowedUsers 
 			Scopes:       []string{"openid profile email"},
 			Endpoint:     google.Endpoint,
 		},
-		allowedUsers: allowedUsers,
+		allowedUsers:      allowedUsers,
+		allowedWorkspaces: allowedWorkspaces,
 	}, nil
+}
+
+func (p *googleProvider) SetUserinfoEndpoint(u string) {
+	p.userinfoEndpoint = u
+}
+
+func (p *googleProvider) SetOAuth2Endpoint(cfg oauth2.Endpoint) {
+	p.oauth2.Endpoint = cfg
 }
 
 func (p *googleProvider) Name() string {
@@ -45,8 +58,12 @@ func (p *googleProvider) RedirectURL() string {
 	return GoogleCallbackEndpoint
 }
 
-func (p *googleProvider) AuthCodeURL(c *gin.Context, state string) (string, error) {
-	authURL := p.oauth2.AuthCodeURL(state)
+func (p *googleProvider) AuthCodeURL(state string) (string, error) {
+	opts := []oauth2.AuthCodeOption{}
+	if len(p.allowedUsers) == 0 && len(p.allowedWorkspaces) == 1 {
+		opts = append(opts, oauth2.SetAuthURLParam("hd", p.allowedWorkspaces[0]))
+	}
+	authURL := p.oauth2.AuthCodeURL(state, opts...)
 	return authURL, nil
 }
 
@@ -66,11 +83,14 @@ func (p *googleProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, 
 	return token, nil
 }
 
-func (p *googleProvider) GetUserID(ctx context.Context, token *oauth2.Token) (string, error) {
+func (p *googleProvider) Authorization(ctx context.Context, token *oauth2.Token) (bool, string, error) {
 	client := p.oauth2.Client(ctx, token)
-	resp, err := client.Get("https://openidconnect.googleapis.com/v1/userinfo")
+	resp, err := client.Get(p.userinfoEndpoint)
 	if err != nil {
-		return "", err
+		return false, "", err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, "", errors.New("failed to get user info from Google API: " + resp.Status)
 	}
 	defer resp.Body.Close()
 
@@ -78,24 +98,23 @@ func (p *googleProvider) GetUserID(ctx context.Context, token *oauth2.Token) (st
 		Sub   string `json:"sub"`
 		Name  string `json:"name"`
 		Email string `json:"email"`
+		HD    string `json:"hd"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-		return "", err
+		return false, "", err
 	}
 
-	return userInfo.Email, nil
-}
-
-func (p *googleProvider) Authorization(userid string) (bool, error) {
-	if len(p.allowedUsers) == 0 {
-		return true, nil
+	if len(p.allowedUsers) == 0 && len(p.allowedWorkspaces) == 0 {
+		return true, userInfo.Email, nil
 	}
 
-	for _, allowedUser := range p.allowedUsers {
-		if allowedUser == userid {
-			return true, nil
-		}
+	if slices.Contains(p.allowedUsers, userInfo.Email) {
+		return true, userInfo.Email, nil
 	}
 
-	return false, nil
+	if slices.Contains(p.allowedWorkspaces, userInfo.HD) {
+		return true, userInfo.Email, nil
+	}
+
+	return false, userInfo.Email, nil
 }

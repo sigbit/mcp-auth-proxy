@@ -43,18 +43,18 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // AuthCodeURL mocks base method.
-func (m *MockProvider) AuthCodeURL(c *gin.Context, state string) (string, error) {
+func (m *MockProvider) AuthCodeURL(state string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthCodeURL", c, state)
+	ret := m.ctrl.Call(m, "AuthCodeURL", state)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AuthCodeURL indicates an expected call of AuthCodeURL.
-func (mr *MockProviderMockRecorder) AuthCodeURL(c, state any) *gomock.Call {
+func (mr *MockProviderMockRecorder) AuthCodeURL(state any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthCodeURL", reflect.TypeOf((*MockProvider)(nil).AuthCodeURL), c, state)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthCodeURL", reflect.TypeOf((*MockProvider)(nil).AuthCodeURL), state)
 }
 
 // AuthURL mocks base method.
@@ -72,18 +72,19 @@ func (mr *MockProviderMockRecorder) AuthURL() *gomock.Call {
 }
 
 // Authorization mocks base method.
-func (m *MockProvider) Authorization(userid string) (bool, error) {
+func (m *MockProvider) Authorization(ctx context.Context, token *oauth2.Token) (bool, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Authorization", userid)
+	ret := m.ctrl.Call(m, "Authorization", ctx, token)
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Authorization indicates an expected call of Authorization.
-func (mr *MockProviderMockRecorder) Authorization(userid any) *gomock.Call {
+func (mr *MockProviderMockRecorder) Authorization(ctx, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorization", reflect.TypeOf((*MockProvider)(nil).Authorization), userid)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorization", reflect.TypeOf((*MockProvider)(nil).Authorization), ctx, token)
 }
 
 // Exchange mocks base method.
@@ -99,21 +100,6 @@ func (m *MockProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, er
 func (mr *MockProviderMockRecorder) Exchange(c, state any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exchange", reflect.TypeOf((*MockProvider)(nil).Exchange), c, state)
-}
-
-// GetUserID mocks base method.
-func (m *MockProvider) GetUserID(ctx context.Context, token *oauth2.Token) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserID", ctx, token)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserID indicates an expected call of GetUserID.
-func (mr *MockProviderMockRecorder) GetUserID(ctx, token any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserID", reflect.TypeOf((*MockProvider)(nil).GetUserID), ctx, token)
 }
 
 // Name mocks base method.

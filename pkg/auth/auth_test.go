@@ -15,7 +15,6 @@ import (
 )
 
 func setupTestRouter(authRouter *AuthRouter) *gin.Engine {
-	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
 	// Setup session middleware
@@ -84,10 +83,9 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
-		mockProvider.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any()).Return("https://example.com/oauth", nil)
+		mockProvider.EXPECT().AuthCodeURL(gomock.Any()).Return("https://example.com/oauth", nil)
 		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
-		mockProvider.EXPECT().GetUserID(gomock.Any(), mockToken).Return("test-user", nil)
-		mockProvider.EXPECT().Authorization("test-user").Return(true, nil).AnyTimes()
+		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "authorized_user", nil)
 
 		// Create AuthRouter
 		authRouter, err := NewAuthRouter(nil, mockProvider)
@@ -146,10 +144,9 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
-		mockProvider.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any()).Return("https://example.com/oauth", nil)
+		mockProvider.EXPECT().AuthCodeURL(gomock.Any()).Return("https://example.com/oauth", nil)
 		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
-		mockProvider.EXPECT().GetUserID(gomock.Any(), mockToken).Return("unauthorized-user", nil)
-		mockProvider.EXPECT().Authorization("unauthorized-user").Return(false, nil).AnyTimes()
+		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(false, "unauthorized_user", nil)
 
 		// Create AuthRouter
 		authRouter, err := NewAuthRouter(nil, mockProvider)

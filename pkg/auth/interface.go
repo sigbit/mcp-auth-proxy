@@ -13,8 +13,7 @@ type Provider interface {
 	Type() string
 	RedirectURL() string
 	AuthURL() string
-	AuthCodeURL(c *gin.Context, state string) (string, error)
+	AuthCodeURL(state string) (string, error)
 	Exchange(c *gin.Context, state string) (*oauth2.Token, error)
-	GetUserID(ctx context.Context, token *oauth2.Token) (string, error)
-	Authorization(userid string) (bool, error)
+	Authorization(ctx context.Context, token *oauth2.Token) (bool, string, error)
 }

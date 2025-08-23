@@ -53,8 +53,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, str
 	// Mock auth middleware that always passes
 	router.Use(func(c *gin.Context) {
 		session := sessions.Default(c)
-		session.Set(auth.SessionKeyProvider, auth.PasswordProvider)
-		session.Set(auth.SessionKeyUserID, auth.PasswordUserID)
+		session.Set(auth.SessionKeyAuthorized, true)
 		err := session.Save()
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Failed to save session"})
