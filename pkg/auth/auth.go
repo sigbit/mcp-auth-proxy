@@ -132,15 +132,6 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	}
 }
 
-func (a *AuthRouter) getProvider(name string) Provider {
-	for _, provider := range a.providers {
-		if provider.Name() == name {
-			return provider
-		}
-	}
-	return nil
-}
-
 func (a *AuthRouter) handleLogin(c *gin.Context) {
 	if c.Request.Method == "POST" {
 		a.handleLoginPost(c)
