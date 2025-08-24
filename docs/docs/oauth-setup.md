@@ -31,6 +31,7 @@ Configure OAuth providers to enable secure authentication for your MCP server.
 ### 3. Configure MCP Auth Proxy
 
 #### Allow specific users:
+
 ```bash
 ./mcp-auth-proxy \
   --external-url https://{your-domain} \
@@ -42,6 +43,7 @@ Configure OAuth providers to enable secure authentication for your MCP server.
 ```
 
 #### Allow entire Google Workspaces:
+
 ```bash
 ./mcp-auth-proxy \
   --external-url https://{your-domain} \
