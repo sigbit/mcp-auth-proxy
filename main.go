@@ -37,9 +37,11 @@ func main() {
 	var googleClientID string
 	var googleClientSecret string
 	var googleAllowedUsers string
+	var googleAllowedWorkspaces string
 	var githubClientID string
 	var githubClientSecret string
 	var githubAllowedUsers string
+	var githubAllowedOrgs string
 	var oidcConfigurationURL string
 	var oidcClientID string
 	var oidcClientSecret string
@@ -63,11 +65,27 @@ func main() {
 				}
 			}
 
+			var googleAllowedWorkspacesList []string
+			if googleAllowedWorkspaces != "" {
+				googleAllowedWorkspacesList = strings.Split(googleAllowedWorkspaces, ",")
+				for i := range googleAllowedWorkspacesList {
+					googleAllowedWorkspacesList[i] = strings.TrimSpace(googleAllowedWorkspacesList[i])
+				}
+			}
+
 			var githubAllowedUsersList []string
 			if githubAllowedUsers != "" {
 				githubAllowedUsersList = strings.Split(githubAllowedUsers, ",")
 				for i := range githubAllowedUsersList {
 					githubAllowedUsersList[i] = strings.TrimSpace(githubAllowedUsersList[i])
+				}
+			}
+
+			var githubAllowedOrgsList []string
+			if githubAllowedOrgs != "" {
+				githubAllowedOrgsList = strings.Split(githubAllowedOrgs, ",")
+				for i := range githubAllowedOrgsList {
+					githubAllowedOrgsList[i] = strings.TrimSpace(githubAllowedOrgsList[i])
 				}
 			}
 
@@ -110,9 +128,11 @@ func main() {
 				googleClientID,
 				googleClientSecret,
 				googleAllowedUsersList,
+				googleAllowedWorkspacesList,
 				githubClientID,
 				githubClientSecret,
 				githubAllowedUsersList,
+				githubAllowedOrgsList,
 				oidcConfigurationURL,
 				oidcClientID,
 				oidcClientSecret,
@@ -144,11 +164,13 @@ func main() {
 	rootCmd.Flags().StringVar(&googleClientID, "google-client-id", getEnvWithDefault("GOOGLE_CLIENT_ID", ""), "Google OAuth client ID")
 	rootCmd.Flags().StringVar(&googleClientSecret, "google-client-secret", getEnvWithDefault("GOOGLE_CLIENT_SECRET", ""), "Google OAuth client secret")
 	rootCmd.Flags().StringVar(&googleAllowedUsers, "google-allowed-users", getEnvWithDefault("GOOGLE_ALLOWED_USERS", ""), "Comma-separated list of allowed Google users (emails)")
+	rootCmd.Flags().StringVar(&googleAllowedWorkspaces, "google-allowed-workspaces", getEnvWithDefault("GOOGLE_ALLOWED_WORKSPACES", ""), "Comma-separated list of allowed Google workspaces")
 
 	// GitHub OAuth configuration
 	rootCmd.Flags().StringVar(&githubClientID, "github-client-id", getEnvWithDefault("GITHUB_CLIENT_ID", ""), "GitHub OAuth client ID")
 	rootCmd.Flags().StringVar(&githubClientSecret, "github-client-secret", getEnvWithDefault("GITHUB_CLIENT_SECRET", ""), "GitHub OAuth client secret")
 	rootCmd.Flags().StringVar(&githubAllowedUsers, "github-allowed-users", getEnvWithDefault("GITHUB_ALLOWED_USERS", ""), "Comma-separated list of allowed GitHub users (usernames)")
+	rootCmd.Flags().StringVar(&githubAllowedOrgs, "github-allowed-orgs", getEnvWithDefault("GITHUB_ALLOWED_ORGS", ""), "Comma-separated list of allowed GitHub organizations. You can also restrict access to specific teams using the format `Org:Team`")
 
 	// OIDC configuration
 	rootCmd.Flags().StringVar(&oidcConfigurationURL, "oidc-configuration-url", getEnvWithDefault("OIDC_CONFIGURATION_URL", ""), "OIDC configuration URL")

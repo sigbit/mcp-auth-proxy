@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mattn/go-jsonpointer"
@@ -75,7 +76,7 @@ func (p *oidcProvider) AuthURL() string {
 	return OIDCAuthEndpoint
 }
 
-func (p *oidcProvider) AuthCodeURL(c *gin.Context, state string) (string, error) {
+func (p *oidcProvider) AuthCodeURL(state string) (string, error) {
 	authURL := p.oauth2.AuthCodeURL(state)
 	return authURL, nil
 }
@@ -92,36 +93,33 @@ func (p *oidcProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, er
 	return token, nil
 }
 
-func (p *oidcProvider) GetUserID(ctx context.Context, token *oauth2.Token) (string, error) {
+func (p *oidcProvider) Authorization(ctx context.Context, token *oauth2.Token) (bool, string, error) {
 	client := p.oauth2.Client(ctx, token)
 	resp, err := client.Get(p.userInfoURL)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 	defer resp.Body.Close()
 	var obj any
 	if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
-		return "", err
+		return false, "", err
 	}
 	v, err := jsonpointer.Get(obj, p.userIDField)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 	userID, ok := v.(string)
 	if !ok {
-		return "", errors.New("user ID field is not a string")
+		return false, "", errors.New("user ID field is not a string")
 	}
-	return userID, nil
-}
 
-func (p *oidcProvider) Authorization(userid string) (bool, error) {
 	if len(p.allowedUsers) == 0 {
-		return true, nil
+		return true, userID, nil
 	}
-	for _, allowedUser := range p.allowedUsers {
-		if allowedUser == userid {
-			return true, nil
-		}
+
+	if slices.Contains(p.allowedUsers, userID) {
+		return true, userID, nil
 	}
-	return false, nil
+
+	return false, userID, nil
 }

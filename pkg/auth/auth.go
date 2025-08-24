@@ -61,8 +61,7 @@ const (
 	PasswordProvider = "password"
 	PasswordUserID   = "password_user"
 
-	SessionKeyProvider    = "provider"
-	SessionKeyUserID      = "user_id"
+	SessionKeyAuthorized  = "authorized"
 	SessionKeyRedirectURL = "redirect_url"
 	SessionKeyOAuthState  = "oauth_state"
 )
@@ -84,22 +83,16 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				a.renderError(c, err)
 				return
 			}
-			userID, err := provider.GetUserID(c, token)
-			if err != nil {
-				a.renderError(c, err)
-				return
-			}
-			ok, err := provider.Authorization(userID)
+			ok, user, err := provider.Authorization(c, token)
 			if err != nil {
 				a.renderError(c, err)
 				return
 			}
 			if !ok {
-				a.renderUnauthorized(c, userID, provider.Name())
+				a.renderUnauthorized(c, user, provider.Name())
 				return
 			}
-			session.Set(SessionKeyProvider, provider.Name())
-			session.Set(SessionKeyUserID, userID)
+			session.Set(SessionKeyAuthorized, true)
 			redirectURL := session.Get(SessionKeyRedirectURL)
 			if redirectURL != nil {
 				session.Delete(SessionKeyRedirectURL)
@@ -124,7 +117,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				a.renderError(c, err)
 				return
 			}
-			url, err := provider.AuthCodeURL(c, state)
+			url, err := provider.AuthCodeURL(state)
 			if err != nil {
 				a.renderError(c, err)
 				return
@@ -137,15 +130,6 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			c.Redirect(http.StatusFound, url)
 		})
 	}
-}
-
-func (a *AuthRouter) getProvider(name string) Provider {
-	for _, provider := range a.providers {
-		if provider.Name() == name {
-			return provider
-		}
-	}
-	return nil
 }
 
 func (a *AuthRouter) handleLogin(c *gin.Context) {
@@ -183,8 +167,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	}
 
 	session := sessions.Default(c)
-	session.Set(SessionKeyProvider, PasswordProvider)
-	session.Set(SessionKeyUserID, PasswordUserID)
+	session.Set(SessionKeyAuthorized, true)
 	redirectURL := session.Get(SessionKeyRedirectURL)
 	if redirectURL != nil {
 		session.Delete(SessionKeyRedirectURL)
@@ -203,8 +186,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 
 func (a *AuthRouter) handleLogout(c *gin.Context) {
 	session := sessions.Default(c)
-	session.Delete(SessionKeyProvider)
-	session.Delete(SessionKeyUserID)
+	session.Delete(SessionKeyAuthorized)
 	if err := session.Save(); err != nil {
 		a.renderError(c, err)
 		return
@@ -215,9 +197,8 @@ func (a *AuthRouter) handleLogout(c *gin.Context) {
 func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		providerName := session.Get(SessionKeyProvider)
-		userID := session.Get(SessionKeyUserID)
-		if providerName == nil || userID == nil {
+		authorized := session.Get(SessionKeyAuthorized)
+		if authorized == nil {
 			session.Set(SessionKeyRedirectURL, c.Request.URL.String())
 			if err := session.Save(); err != nil {
 				a.renderError(c, err)
@@ -227,25 +208,9 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Allow password authentication
-		if providerName.(string) == PasswordProvider {
-			c.Next()
-			return
-		}
-
-		p := a.getProvider(providerName.(string))
-		if p == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unknown provider"})
-			return
-		}
-		ok, err := p.Authorization(userID.(string))
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Authorization failed"})
-			return
-		}
-		if !ok {
-			a.renderUnauthorized(c, userID.(string), providerName.(string))
-			c.Abort()
+		if !authorized.(bool) {
+			// not expected
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
 		c.Next()
