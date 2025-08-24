@@ -78,9 +78,32 @@ func TestProxyBackendRun(t *testing.T) {
 	defer pb.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	handler, err := pb.Run(ctx)
 	require.NoError(t, err, "Run should not return error")
 	require.NotNil(t, handler, "handler should not be nil")
+
+	checkCh := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		close(checkCh)
+	}()
+
+	timeout := time.After(10 * time.Millisecond)
+	select {
+	case <-checkCh:
+		t.Error("Test completed too early")
+	case <-timeout:
+		// Test timed out
+	}
+
+	cancel()
+
+	timeout = time.After(10 * time.Second)
+	select {
+	case <-checkCh:
+		// Test completed successfully
+	case <-timeout:
+		t.Error("Test timed out")
+	}
 }

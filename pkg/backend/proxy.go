@@ -25,7 +25,7 @@ type ProxyBackend struct {
 	client *client.Client
 }
 
-func NewProxyBackend(logger *zap.Logger, cmd []string) *ProxyBackend {
+func NewProxyBackend(logger *zap.Logger, cmd []string) Backend {
 	return &ProxyBackend{
 		logger: logger,
 		cmd:    cmd,

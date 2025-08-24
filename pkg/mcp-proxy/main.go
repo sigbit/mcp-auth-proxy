@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -59,6 +58,7 @@ func Run(
 	oidcAllowedUsers []string,
 	password string,
 	passwordHash string,
+	trustedProxy []string,
 	proxyHeaders []string,
 	proxyBearerToken string,
 	proxyTarget []string,
@@ -98,10 +98,18 @@ func Run(
 	if len(proxyTarget) == 0 {
 		return fmt.Errorf("proxy target must be specified")
 	}
-	var be *backend.ProxyBackend
+	var be backend.Backend
 	var beHandler http.Handler
 	if proxyURL, err := url.Parse(proxyTarget[0]); err == nil && (proxyURL.Scheme == "http" || proxyURL.Scheme == "https") {
-		beHandler = httputil.NewSingleHostReverseProxy(proxyURL)
+		var err error
+		be, err = backend.NewTransparentBackend(logger, proxyURL, trustedProxy)
+		if err != nil {
+			return fmt.Errorf("failed to create transparent backend: %w", err)
+		}
+		beHandler, err = be.Run(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create transparent backend: %w", err)
+		}
 	} else {
 		be = backend.NewProxyBackend(logger, proxyTarget)
 		beHandler, err = be.Run(ctx)
@@ -205,6 +213,7 @@ func Run(
 	}
 
 	router := gin.New()
+	router.SetTrustedProxies(trustedProxy)
 
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
