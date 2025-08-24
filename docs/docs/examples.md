@@ -37,6 +37,12 @@ services:
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GOOGLE_CLIENT_SECRET=your-google-client-secret
       - GOOGLE_ALLOWED_USERS=user1@example.com,user2@example.com
+      - GOOGLE_ALLOWED_WORKSPACES=workspace1.com,workspace2.com
+      - GITHUB_CLIENT_ID=your-github-client-id
+      - GITHUB_CLIENT_SECRET=your-github-client-secret
+      - GITHUB_ALLOWED_USERS=username1,username2
+      - GITHUB_ALLOWED_ORGS=org1,org2:team1
+      - TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     volumes:
       - ./data:/data
     command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "./"]
