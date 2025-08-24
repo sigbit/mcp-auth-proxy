@@ -34,19 +34,21 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 #### Google OAuth
 
-| Option                   | Environment Variable   | Default | Description                                           |
-| ------------------------ | ---------------------- | ------- | ----------------------------------------------------- |
-| `--google-client-id`     | `GOOGLE_CLIENT_ID`     | -       | Google OAuth client ID                                |
-| `--google-client-secret` | `GOOGLE_CLIENT_SECRET` | -       | Google OAuth client secret                            |
-| `--google-allowed-users` | `GOOGLE_ALLOWED_USERS` | -       | Comma-separated list of allowed Google users (emails) |
+| Option                        | Environment Variable        | Default | Description                                           |
+| ----------------------------- | --------------------------- | ------- | ----------------------------------------------------- |
+| `--google-client-id`          | `GOOGLE_CLIENT_ID`          | -       | Google OAuth client ID                                |
+| `--google-client-secret`      | `GOOGLE_CLIENT_SECRET`      | -       | Google OAuth client secret                            |
+| `--google-allowed-users`      | `GOOGLE_ALLOWED_USERS`      | -       | Comma-separated list of allowed Google users (emails) |
+| `--google-allowed-workspaces` | `GOOGLE_ALLOWED_WORKSPACES` | -       | Comma-separated list of allowed Google workspaces     |
 
 #### GitHub OAuth
 
-| Option                   | Environment Variable   | Default | Description                                              |
-| ------------------------ | ---------------------- | ------- | -------------------------------------------------------- |
-| `--github-client-id`     | `GITHUB_CLIENT_ID`     | -       | GitHub OAuth client ID                                   |
-| `--github-client-secret` | `GITHUB_CLIENT_SECRET` | -       | GitHub OAuth client secret                               |
-| `--github-allowed-users` | `GITHUB_ALLOWED_USERS` | -       | Comma-separated list of allowed GitHub users (usernames) |
+| Option                   | Environment Variable   | Default | Description                                                                                                                      |
+| ------------------------ | ---------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--github-client-id`     | `GITHUB_CLIENT_ID`     | -       | GitHub OAuth client ID                                                                                                           |
+| `--github-client-secret` | `GITHUB_CLIENT_SECRET` | -       | GitHub OAuth client secret                                                                                                       |
+| `--github-allowed-users` | `GITHUB_ALLOWED_USERS` | -       | Comma-separated list of allowed GitHub users (usernames)                                                                         |
+| `--github-allowed-orgs`  | `GITHUB_ALLOWED_ORGS`  | -       | Comma-separated list of allowed GitHub organizations. You can also restrict access to specific teams using the format `Org:Team` |
 
 #### Generic OIDC
 
@@ -74,5 +76,6 @@ Complete reference for all MCP Auth Proxy configuration options.
 | ---------------------- | -------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
 | `--proxy-bearer-token` | `PROXY_BEARER_TOKEN` | -       | Bearer token to add to Authorization header when proxying requests                                    |
 | `--proxy-headers`      | `PROXY_HEADERS`      | -       | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2) |
+| `--trusted-proxies`    | `TRUSTED_PROXIES`    | -       | Comma-separated list of trusted proxies (IP addresses or CIDR ranges)                                 |
 
 For practical configuration examples including environment variables, Docker Compose, and Kubernetes deployments, see the [Configuration Examples](./examples.md) page.

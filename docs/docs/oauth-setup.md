@@ -30,6 +30,8 @@ Configure OAuth providers to enable secure authentication for your MCP server.
 
 ### 3. Configure MCP Auth Proxy
 
+#### Allow specific users:
+
 ```bash
 ./mcp-auth-proxy \
   --external-url https://{your-domain} \
@@ -37,6 +39,18 @@ Configure OAuth providers to enable secure authentication for your MCP server.
   --google-client-id "your-google-client-id" \
   --google-client-secret "your-google-client-secret" \
   --google-allowed-users "user1@example.com,user2@example.com" \
+  -- your-mcp-command
+```
+
+#### Allow entire Google Workspaces:
+
+```bash
+./mcp-auth-proxy \
+  --external-url https://{your-domain} \
+  --tls-accept-tos \
+  --google-client-id "your-google-client-id" \
+  --google-client-secret "your-google-client-secret" \
+  --google-allowed-workspaces "workspace1.com,workspace2.com" \
   -- your-mcp-command
 ```
 
@@ -60,6 +74,7 @@ Configure OAuth providers to enable secure authentication for your MCP server.
   --github-client-id "your-github-client-id" \
   --github-client-secret "your-github-client-secret" \
   --github-allowed-users "username1,username2" \
+  --github-allowed-orgs "org1,org2:team1" \
   -- your-mcp-command
 ```
 
@@ -141,10 +156,12 @@ All OAuth settings can be configured using environment variables:
 export GOOGLE_CLIENT_ID="your-google-client-id"
 export GOOGLE_CLIENT_SECRET="your-google-client-secret"
 export GOOGLE_ALLOWED_USERS="user1@example.com,user2@example.com"
+export GOOGLE_ALLOWED_WORKSPACES="workspace1.com,workspace2.com"
 
 export GITHUB_CLIENT_ID="your-github-client-id"
 export GITHUB_CLIENT_SECRET="your-github-client-secret"
 export GITHUB_ALLOWED_USERS="username1,username2"
+export GITHUB_ALLOWED_ORGS="org1,org2:team1"
 
 export OIDC_CONFIGURATION_URL="https://provider.com/.well-known/openid-configuration"
 export OIDC_CLIENT_ID="your-oidc-client-id"
