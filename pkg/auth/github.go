@@ -87,19 +87,19 @@ func (p *githubProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, 
 
 func (p *githubProvider) Authorization(ctx context.Context, token *oauth2.Token) (bool, string, error) {
 	client := p.oauth2.Client(ctx, token)
-	resp, err := client.Get(utils.Must(url.JoinPath(p.endpoint, "/user")))
+	resp1, err := client.Get(utils.Must(url.JoinPath(p.endpoint, "/user")))
 	if err != nil {
 		return false, "", err
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return false, "", errors.New("failed to get user info from GitHub API: " + resp.Status)
+	if resp1.StatusCode < 200 || resp1.StatusCode >= 300 {
+		return false, "", errors.New("failed to get user info from GitHub API: " + resp1.Status)
 	}
-	defer resp.Body.Close()
+	defer resp1.Body.Close()
 
 	var userInfo struct {
 		Login string `json:"login"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+	if err := json.NewDecoder(resp1.Body).Decode(&userInfo); err != nil {
 		return false, "", err
 	}
 
@@ -122,18 +122,18 @@ func (p *githubProvider) Authorization(ctx context.Context, token *oauth2.Token)
 	}
 
 	if len(allowedOrgs) > 0 {
-		resp, err = client.Get(utils.Must(url.JoinPath(p.endpoint, "/user/orgs")))
+		resp2, err := client.Get(utils.Must(url.JoinPath(p.endpoint, "/user/orgs")))
 		if err != nil {
 			return false, "", err
 		}
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return false, "", errors.New("failed to get user info from GitHub API: " + resp.Status)
+		if resp2.StatusCode < 200 || resp2.StatusCode >= 300 {
+			return false, "", errors.New("failed to get user info from GitHub API: " + resp2.Status)
 		}
-		defer resp.Body.Close()
+		defer resp2.Body.Close()
 		var orgInfo []struct {
 			Login string `json:"login"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&orgInfo); err != nil {
+		if err := json.NewDecoder(resp2.Body).Decode(&orgInfo); err != nil {
 			return false, "", err
 		}
 		for _, o := range orgInfo {
@@ -143,21 +143,21 @@ func (p *githubProvider) Authorization(ctx context.Context, token *oauth2.Token)
 		}
 	}
 	if len(allowedOrgTeams) > 0 {
-		resp, err = client.Get(utils.Must(url.JoinPath(p.endpoint, "/user/teams")))
+		resp3, err := client.Get(utils.Must(url.JoinPath(p.endpoint, "/user/teams")))
 		if err != nil {
 			return false, "", err
 		}
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return false, "", errors.New("failed to get user info from GitHub API: " + resp.Status)
+		if resp3.StatusCode < 200 || resp3.StatusCode >= 300 {
+			return false, "", errors.New("failed to get user info from GitHub API: " + resp3.Status)
 		}
-		defer resp.Body.Close()
+		defer resp3.Body.Close()
 		var teamInfo []struct {
 			Organization struct {
 				Login string `json:"login"`
 			} `json:"organization"`
 			Slug string `json:"slug"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&teamInfo); err != nil {
+		if err := json.NewDecoder(resp3.Body).Decode(&teamInfo); err != nil {
 			return false, "", err
 		}
 		for _, team := range teamInfo {
