@@ -114,7 +114,7 @@ func TestTransparentBackendRun(t *testing.T) {
 
 	checkCh := make(chan struct{})
 	go func() {
-		<-ctx.Done()
+		be.Wait()
 		close(checkCh)
 	}()
 
