@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.0.0...v2.1.0) (2025-08-24)
+
+
+### Features
+
+* refactor backend architecture with interface pattern and trusted proxy support ([#72](https://github.com/sigbit/mcp-auth-proxy/issues/72)) ([9d7f9d0](https://github.com/sigbit/mcp-auth-proxy/commit/9d7f9d0ac237a89ba898cabbd4da371a7d4b2be1))
+
 ## [2.0.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.3.2...v2.0.0) (2025-08-24)
 
 
