@@ -53,6 +53,7 @@ func main() {
 	var passwordHash string
 	var proxyBearerToken string
 	var proxyHeaders string
+	var trustedProxies string
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
@@ -107,6 +108,14 @@ func main() {
 				oidcScopesList = []string{"openid", "profile", "email"}
 			}
 
+			var trustedProxiesList []string
+			if trustedProxies != "" {
+				trustedProxiesList = strings.Split(trustedProxies, ",")
+				for i := range trustedProxiesList {
+					trustedProxiesList[i] = strings.TrimSpace(trustedProxiesList[i])
+				}
+			}
+
 			// Parse proxy headers into slice
 			var proxyHeadersList []string
 			if proxyHeaders != "" {
@@ -142,6 +151,7 @@ func main() {
 				oidcAllowedUsersList,
 				password,
 				passwordHash,
+				trustedProxiesList,
 				proxyHeadersList,
 				proxyBearerToken,
 				args,
@@ -187,6 +197,7 @@ func main() {
 
 	// Proxy headers configuration
 	rootCmd.Flags().StringVar(&proxyBearerToken, "proxy-bearer-token", getEnvWithDefault("PROXY_BEARER_TOKEN", ""), "Bearer token to add to Authorization header when proxying requests")
+	rootCmd.Flags().StringVar(&trustedProxies, "trusted-proxies", getEnvWithDefault("TRUSTED_PROXIES", ""), "Comma-separated list of trusted proxies (IP addresses or CIDR ranges)")
 	rootCmd.Flags().StringVar(&proxyHeaders, "proxy-headers", getEnvWithDefault("PROXY_HEADERS", ""), "Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2)")
 
 	if err := rootCmd.Execute(); err != nil {
