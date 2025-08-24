@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.0](https://github.com/sigbit/mcp-auth-proxy/compare/v1.3.2...v2.0.0) (2025-08-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* Authorization interface changed from separate GetUserID/Authorization calls to combined Authorization method
+
+### Features
+
+* enhance OAuth providers with organization and workspace support ([#69](https://github.com/sigbit/mcp-auth-proxy/issues/69)) ([239f2b2](https://github.com/sigbit/mcp-auth-proxy/commit/239f2b26d934c64860fcefc0faf784bdf1aa067d))
+
+
+### Bug Fixes
+
+* improve Docker image tagging strategy for releases ([#70](https://github.com/sigbit/mcp-auth-proxy/issues/70)) ([37bbe8c](https://github.com/sigbit/mcp-auth-proxy/commit/37bbe8c85ff504291ffec9280e8bd504ea154b42))
+
 ## [1.3.2](https://github.com/sigbit/mcp-auth-proxy/compare/v1.3.1...v1.3.2) (2025-08-21)
 
 
