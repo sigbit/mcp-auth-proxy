@@ -85,7 +85,7 @@ func TestProxyBackendRun(t *testing.T) {
 
 	checkCh := make(chan struct{})
 	go func() {
-		<-ctx.Done()
+		pb.Wait()
 		close(checkCh)
 	}()
 
