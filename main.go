@@ -25,6 +25,45 @@ func getEnvBoolWithDefault(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
+// splitWithEscapes splits a string by delimiter, respecting escape sequences
+// e.g., "a,b\,c,d" with delimiter "," returns ["a", "b,c", "d"]
+func splitWithEscapes(s, delimiter string) []string {
+	if s == "" {
+		return []string{}
+	}
+
+	var result []string
+	var current strings.Builder
+	escaped := false
+
+	for i := 0; i < len(s); i++ {
+		if escaped {
+			current.WriteByte(s[i])
+			escaped = false
+		} else if s[i] == '\\' && i+1 < len(s) {
+			// Check if next character is the delimiter
+			if strings.HasPrefix(s[i+1:], delimiter) {
+				// Skip the backslash and add the delimiter character
+				escaped = true
+			} else {
+				// Not escaping delimiter, keep the backslash
+				current.WriteByte(s[i])
+			}
+		} else if strings.HasPrefix(s[i:], delimiter) {
+			// Found unescaped delimiter
+			result = append(result, strings.TrimSpace(current.String()))
+			current.Reset()
+			i += len(delimiter) - 1 // -1 because loop will increment
+		} else {
+			current.WriteByte(s[i])
+		}
+	}
+
+	// Add the last part
+	result = append(result, strings.TrimSpace(current.String()))
+	return result
+}
+
 func main() {
 	var listen string
 	var tlsListen string
@@ -49,6 +88,7 @@ func main() {
 	var oidcUserIDField string
 	var oidcProviderName string
 	var oidcAllowedUsers string
+	var oidcAllowedUsersGlob string
 	var password string
 	var passwordHash string
 	var proxyBearerToken string
@@ -96,6 +136,11 @@ func main() {
 				for i := range oidcAllowedUsersList {
 					oidcAllowedUsersList[i] = strings.TrimSpace(oidcAllowedUsersList[i])
 				}
+			}
+
+			var oidcAllowedUsersGlobList []string
+			if oidcAllowedUsersGlob != "" {
+				oidcAllowedUsersGlobList = splitWithEscapes(oidcAllowedUsersGlob, ",")
 			}
 
 			var oidcScopesList []string
@@ -149,6 +194,7 @@ func main() {
 				oidcUserIDField,
 				oidcProviderName,
 				oidcAllowedUsersList,
+				oidcAllowedUsersGlobList,
 				password,
 				passwordHash,
 				trustedProxiesList,
@@ -190,6 +236,7 @@ func main() {
 	rootCmd.Flags().StringVar(&oidcUserIDField, "oidc-user-id-field", getEnvWithDefault("OIDC_USER_ID_FIELD", "/email"), "JSON pointer to user ID field in userinfo endpoint response")
 	rootCmd.Flags().StringVar(&oidcProviderName, "oidc-provider-name", getEnvWithDefault("OIDC_PROVIDER_NAME", "OIDC"), "Display name for OIDC provider")
 	rootCmd.Flags().StringVar(&oidcAllowedUsers, "oidc-allowed-users", getEnvWithDefault("OIDC_ALLOWED_USERS", ""), "Comma-separated list of allowed OIDC users")
+	rootCmd.Flags().StringVar(&oidcAllowedUsersGlob, "oidc-allowed-users-glob", getEnvWithDefault("OIDC_ALLOWED_USERS_GLOB", ""), "Comma-separated list of glob patterns for allowed OIDC users")
 
 	// Password authentication
 	rootCmd.Flags().StringVar(&password, "password", getEnvWithDefault("PASSWORD", ""), "Plain text password for authentication (will be hashed with bcrypt)")

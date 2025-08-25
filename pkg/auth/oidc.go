@@ -9,21 +9,23 @@ import (
 	"slices"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gobwas/glob"
 	"github.com/mattn/go-jsonpointer"
 	"golang.org/x/oauth2"
 )
 
 type oidcProvider struct {
-	oauth2       oauth2.Config
-	providerName string
-	userInfoURL  string
-	userIDField  string
-	allowedUsers []string
+	oauth2           oauth2.Config
+	providerName     string
+	userInfoURL      string
+	userIDField      string
+	allowedUsers     []string
+	allowedUsersGlob []glob.Glob
 }
 
 func NewOIDCProvider(
 	configurationURL string, scopes []string, userIDField string,
-	providerName, externalURL, clientID, clientSecret string, allowedUsers []string,
+	providerName, externalURL, clientID, clientSecret string, allowedUsers []string, allowedUsersGlob []string,
 ) (Provider, error) {
 	resp, err := http.Get(configurationURL)
 	if err != nil {
@@ -42,6 +44,19 @@ func NewOIDCProvider(
 	if err != nil {
 		return nil, err
 	}
+
+	// Compile glob patterns
+	var compiledGlobs []glob.Glob
+	for _, pattern := range allowedUsersGlob {
+		if pattern != "" {
+			g, err := glob.Compile(pattern)
+			if err != nil {
+				return nil, err
+			}
+			compiledGlobs = append(compiledGlobs, g)
+		}
+	}
+
 	return &oidcProvider{
 		oauth2: oauth2.Config{
 			ClientID:     clientID,
@@ -53,10 +68,11 @@ func NewOIDCProvider(
 				TokenURL: cfg.TokenEndpoint,
 			},
 		},
-		providerName: providerName,
-		userInfoURL:  cfg.UserInfo,
-		userIDField:  userIDField,
-		allowedUsers: allowedUsers,
+		providerName:     providerName,
+		userInfoURL:      cfg.UserInfo,
+		userIDField:      userIDField,
+		allowedUsers:     allowedUsers,
+		allowedUsersGlob: compiledGlobs,
 	}, nil
 }
 
@@ -113,12 +129,21 @@ func (p *oidcProvider) Authorization(ctx context.Context, token *oauth2.Token) (
 		return false, "", errors.New("user ID field is not a string")
 	}
 
-	if len(p.allowedUsers) == 0 {
+	// If no restrictions are set, allow all users
+	if len(p.allowedUsers) == 0 && len(p.allowedUsersGlob) == 0 {
 		return true, userID, nil
 	}
 
+	// Check exact matches first
 	if slices.Contains(p.allowedUsers, userID) {
 		return true, userID, nil
+	}
+
+	// Check glob patterns
+	for _, g := range p.allowedUsersGlob {
+		if g.Match(userID) {
+			return true, userID, nil
+		}
 	}
 
 	return false, userID, nil

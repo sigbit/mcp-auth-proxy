@@ -45,6 +45,7 @@ func setupOIDCTest(allowedUsers []string, userIDField string) (Provider, gin.IRo
 		TestOIDCClientID,
 		TestOIDCClientSecret,
 		allowedUsers,
+		[]string{},
 	)
 	if err != nil {
 		panic(err)
@@ -182,6 +183,7 @@ func TestOIDCProviderErrors(t *testing.T) {
 			TestOIDCClientID,
 			TestOIDCClientSecret,
 			[]string{},
+			[]string{},
 		)
 		require.Error(t, err)
 	})
@@ -202,6 +204,7 @@ func TestOIDCProviderErrors(t *testing.T) {
 			TestOIDCExternalURL,
 			TestOIDCClientID,
 			TestOIDCClientSecret,
+			[]string{},
 			[]string{},
 		)
 		require.Error(t, err)
@@ -245,4 +248,70 @@ func TestOIDCProviderErrors(t *testing.T) {
 		require.Error(t, err)
 		require.False(t, ok)
 	})
+}
+
+func TestOIDCProviderGlobPatterns(t *testing.T) {
+	// Setup test server with OIDC configuration
+	configServer := gin.New()
+	configServer.GET("/.well-known/openid_configuration", func(c *gin.Context) {
+		c.JSON(200, map[string]interface{}{
+			"authorization_endpoint": "http://localhost/auth",
+			"token_endpoint":         "http://localhost/token",
+			"userinfo_endpoint":      "http://localhost/userinfo",
+		})
+	})
+	tsConfig := httptest.NewServer(configServer)
+	defer tsConfig.Close()
+
+	// Create provider with glob patterns
+	p, err := NewOIDCProvider(
+		tsConfig.URL+"/.well-known/openid_configuration",
+		[]string{"openid", "profile"},
+		"/email",
+		"TestOIDC",
+		TestOIDCExternalURL,
+		TestOIDCClientID,
+		TestOIDCClientSecret,
+		[]string{}, // no exact matches
+		[]string{"*@example.com", "admin.*@company.*"},
+	)
+	require.NoError(t, err)
+
+	// Test glob matching
+	testCases := []struct {
+		email    string
+		expected bool
+	}{
+		{"user@example.com", true},      // matches *@example.com
+		{"test@example.com", true},      // matches *@example.com
+		{"admin.user@company.org", true}, // matches admin.*@company.*
+		{"admin.test@company.co.uk", true}, // matches admin.*@company.*
+		{"user@other.com", false},       // no match
+		{"regular@company.org", false},  // no match (not admin.*)
+		{"admin@example.com", true},     // matches *@example.com
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.email, func(t *testing.T) {
+			// Mock userinfo endpoint
+			userServer := gin.New()
+			userServer.GET("/userinfo", func(c *gin.Context) {
+				c.JSON(200, map[string]interface{}{
+					"email": tc.email,
+				})
+			})
+			tsUser := httptest.NewServer(userServer)
+			defer tsUser.Close()
+
+			// Update provider's userinfo URL for this test
+			provider := p.(*oidcProvider)
+			provider.userInfoURL = tsUser.URL + "/userinfo"
+
+			// Test authorization
+			authorized, userID, err := provider.Authorization(context.Background(), &oauth2.Token{AccessToken: "test"})
+			require.NoError(t, err)
+			require.Equal(t, tc.email, userID)
+			require.Equal(t, tc.expected, authorized, "Expected %v for email %s", tc.expected, tc.email)
+		})
+	}
 }

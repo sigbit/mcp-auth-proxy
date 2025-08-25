@@ -99,6 +99,8 @@ Configure OAuth providers to enable secure authentication for your MCP server.
 
 ### 2. Configure MCP Auth Proxy
 
+#### Exact user matching:
+
 ```bash
 ./mcp-auth-proxy \
   --external-url https://{your-domain} \
@@ -107,6 +109,19 @@ Configure OAuth providers to enable secure authentication for your MCP server.
   --oidc-client-id "your-oidc-client-id" \
   --oidc-client-secret "your-oidc-client-secret" \
   --oidc-allowed-users "user1@example.com,user2@example.com" \
+  -- your-mcp-command
+```
+
+#### Glob pattern matching:
+
+```bash
+./mcp-auth-proxy \
+  --external-url https://{your-domain} \
+  --tls-accept-tos \
+  --oidc-configuration-url "https://your-provider.com/.well-known/openid-configuration" \
+  --oidc-client-id "your-oidc-client-id" \
+  --oidc-client-secret "your-oidc-client-secret" \
+  --oidc-allowed-users-glob "*@example.com" \
   -- your-mcp-command
 ```
 
@@ -167,6 +182,7 @@ export OIDC_CONFIGURATION_URL="https://provider.com/.well-known/openid-configura
 export OIDC_CLIENT_ID="your-oidc-client-id"
 export OIDC_CLIENT_SECRET="your-oidc-client-secret"
 export OIDC_ALLOWED_USERS="user1@example.com,user2@example.com"
+export OIDC_ALLOWED_USERS_GLOB="*@example.com"
 
 ./mcp-auth-proxy --external-url https://{your-domain} --tls-accept-tos -- your-mcp-command
 ```

@@ -52,15 +52,37 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 #### Generic OIDC
 
-| Option                     | Environment Variable     | Default                | Description                                                 |
-| -------------------------- | ------------------------ | ---------------------- | ----------------------------------------------------------- |
-| `--oidc-configuration-url` | `OIDC_CONFIGURATION_URL` | -                      | OIDC configuration URL                                      |
-| `--oidc-client-id`         | `OIDC_CLIENT_ID`         | -                      | OIDC client ID                                              |
-| `--oidc-client-secret`     | `OIDC_CLIENT_SECRET`     | -                      | OIDC client secret                                          |
-| `--oidc-allowed-users`     | `OIDC_ALLOWED_USERS`     | -                      | Comma-separated list of allowed OIDC users                  |
-| `--oidc-provider-name`     | `OIDC_PROVIDER_NAME`     | `OIDC`                 | Display name for OIDC provider                              |
-| `--oidc-scopes`            | `OIDC_SCOPES`            | `openid,profile,email` | Comma-separated list of OIDC scopes                         |
-| `--oidc-user-id-field`     | `OIDC_USER_ID_FIELD`     | `/email`               | JSON pointer to user ID field in userinfo endpoint response |
+| Option                      | Environment Variable      | Default                | Description                                                  |
+| --------------------------- | ------------------------- | ---------------------- | ------------------------------------------------------------ |
+| `--oidc-configuration-url`  | `OIDC_CONFIGURATION_URL`  | -                      | OIDC configuration URL                                       |
+| `--oidc-client-id`          | `OIDC_CLIENT_ID`          | -                      | OIDC client ID                                               |
+| `--oidc-client-secret`      | `OIDC_CLIENT_SECRET`      | -                      | OIDC client secret                                           |
+| `--oidc-allowed-users`      | `OIDC_ALLOWED_USERS`      | -                      | Comma-separated list of allowed OIDC users (exact match)     |
+| `--oidc-allowed-users-glob` | `OIDC_ALLOWED_USERS_GLOB` | -                      | Comma-separated list of glob patterns for allowed OIDC users |
+| `--oidc-provider-name`      | `OIDC_PROVIDER_NAME`      | `OIDC`                 | Display name for OIDC provider                               |
+| `--oidc-scopes`             | `OIDC_SCOPES`             | `openid,profile,email` | Comma-separated list of OIDC scopes                          |
+| `--oidc-user-id-field`      | `OIDC_USER_ID_FIELD`      | `/email`               | JSON pointer to user ID field in userinfo endpoint response  |
+
+##### OIDC User Matching
+
+You can use both exact matching and glob patterns for OIDC user authorization:
+
+- **Exact matching** (`--oidc-allowed-users`): Users must match exactly
+- **Glob patterns** (`--oidc-allowed-users-glob`): Users are matched against [glob patterns](https://github.com/gobwas/glob)
+
+**Examples:**
+
+```bash
+# Exact matching
+--oidc-allowed-users "user1@example.com,admin@company.org"
+
+# Glob patterns - allow all users from example.com
+--oidc-allowed-users-glob "*@example.com"
+
+# Combined exact and glob matching
+--oidc-allowed-users "specific@user.com" \
+--oidc-allowed-users-glob "*@example.com"
+```
 
 ### Server Options
 

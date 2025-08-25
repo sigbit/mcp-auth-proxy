@@ -8,7 +8,8 @@
 
 - **Drop-in OAuth 2.1/OIDC gateway for MCP servers — put it in front, no code changes.**
 - **Your IdP, your choice**: Google, GitHub, or any OIDC provider — e.g. Okta, Auth0, Azure AD, Keycloak — plus optional password.
-- **Publish local MCP servers safely**: Supports all stdio, SSE, and HTTP transports. For stdio, traffic is converted to `/mcp`. For SSE/HTTP, it’s proxied as-is. Of course, with authentication.
+- **Flexible user matching**: Support exact matching and glob patterns for user authorization (e.g., `*@company.com`)
+- **Publish local MCP servers safely**: Supports all stdio, SSE, and HTTP transports. For stdio, traffic is converted to `/mcp`. For SSE/HTTP, it's proxied as-is. Of course, with authentication.
 - **Verified across major MCP clients**: Claude, Claude Code, ChatGPT, GitHub Copilot, Cursor, etc. — the proxy smooths client-specific quirks for consistent auth.
 
 ---
