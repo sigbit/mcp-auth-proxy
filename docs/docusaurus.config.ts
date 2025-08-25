@@ -2,6 +2,9 @@ import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
+const url = "https://sigbit.github.io";
+const baseUrl = "/mcp-auth-proxy/";
+
 const config: Config = {
   title: "MCP Auth Proxy",
   tagline: "Secure your MCP server with OAuth 2.1 — in a minute",
@@ -12,8 +15,8 @@ const config: Config = {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
 
-  url: "https://sigbit.github.io",
-  baseUrl: "/mcp-auth-proxy/",
+  url,
+  baseUrl,
 
   organizationName: "sigbit",
   projectName: "mcp-auth-proxy",
@@ -37,6 +40,23 @@ const config: Config = {
         blog: false,
         theme: {
           customCss: "./src/css/custom.css",
+        },
+        sitemap: {
+          lastmod: "date",
+          changefreq: "weekly",
+          priority: 0.5,
+          ignorePatterns: ["/tags/**"],
+          filename: "sitemap.xml",
+          createSitemapItems: async (params) => {
+            const { defaultCreateSitemapItems, ...rest } = params;
+            const items = await defaultCreateSitemapItems(rest);
+            return items.map((item) => {
+              if (item.url === `${url}${baseUrl}`) {
+                return { ...item, priority: 1.0 };
+              }
+              return item;
+            });
+          },
         },
       } satisfies Preset.Options,
     ],
