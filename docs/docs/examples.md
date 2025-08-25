@@ -42,6 +42,11 @@ services:
       - GITHUB_CLIENT_SECRET=your-github-client-secret
       - GITHUB_ALLOWED_USERS=username1,username2
       - GITHUB_ALLOWED_ORGS=org1,org2:team1
+      - OIDC_CONFIGURATION_URL=https://your-oidc-provider/.well-known/openid_configuration
+      - OIDC_CLIENT_ID=your-oidc-client-id
+      - OIDC_CLIENT_SECRET=your-oidc-client-secret
+      - OIDC_ALLOWED_USERS=specific@user.com
+      - OIDC_ALLOWED_USERS_GLOB=*@example.com
       - TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     volumes:
       - ./data:/data
