@@ -282,13 +282,13 @@ func TestOIDCProviderGlobPatterns(t *testing.T) {
 		email    string
 		expected bool
 	}{
-		{"user@example.com", true},      // matches *@example.com
-		{"test@example.com", true},      // matches *@example.com
-		{"admin.user@company.org", true}, // matches admin.*@company.*
+		{"user@example.com", true},         // matches *@example.com
+		{"test@example.com", true},         // matches *@example.com
+		{"admin.user@company.org", true},   // matches admin.*@company.*
 		{"admin.test@company.co.uk", true}, // matches admin.*@company.*
-		{"user@other.com", false},       // no match
-		{"regular@company.org", false},  // no match (not admin.*)
-		{"admin@example.com", true},     // matches *@example.com
+		{"user@other.com", false},          // no match
+		{"regular@company.org", false},     // no match (not admin.*)
+		{"admin@example.com", true},        // matches *@example.com
 	}
 
 	for _, tc := range testCases {
