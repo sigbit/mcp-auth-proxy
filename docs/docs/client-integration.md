@@ -10,15 +10,15 @@ Learn how to connect various MCP clients to your authenticated MCP server.
 
 MCP Auth Proxy has been verified to work with all major MCP clients:
 
-| MCP Client        | Status | Notes                                           |
-| ----------------- | ------ | ----------------------------------------------- |
-| Claude (Web)      | ✅     | Full compatibility                              |
-| Claude (Desktop)  | ✅     | Full compatibility                              |
-| Claude Code       | ✅     | Full compatibility                              |
-| ChatGPT (Web)     | ✅     | Requires `search` and `fetch` tools [¹](#notes) |
-| ChatGPT (Desktop) | ✅     | Requires `search` and `fetch` tools [¹](#notes) |
-| GitHub Copilot    | ✅     | Full compatibility                              |
-| Cursor            | ✅     | Full compatibility                              |
+| MCP Client        | Status | Notes                               |
+| ----------------- | ------ | ----------------------------------- |
+| Claude (Web)      | ✅     | Full compatibility                  |
+| Claude (Desktop)  | ✅     | Full compatibility                  |
+| Claude Code       | ✅     | Full compatibility                  |
+| ChatGPT (Web)     | ✅     | Requires `search` and `fetch` tools |
+| ChatGPT (Desktop) | ✅     | Requires `search` and `fetch` tools |
+| GitHub Copilot    | ✅     | Full compatibility                  |
+| Cursor            | ✅     | Full compatibility                  |
 
 ## Claude Integration
 
