@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.1.0...v2.2.0) (2025-08-25)
+
+
+### Features
+
+* support glob patterns for OIDC allowed users ([#77](https://github.com/sigbit/mcp-auth-proxy/issues/77)) ([fe65156](https://github.com/sigbit/mcp-auth-proxy/commit/fe65156fa691199db1fa4c22684a5bbb229986f3))
+
+
+### Bug Fixes
+
+* replace context.Done() with Wait() in backend tests ([#75](https://github.com/sigbit/mcp-auth-proxy/issues/75)) ([47ed79f](https://github.com/sigbit/mcp-auth-proxy/commit/47ed79f5ccdbc14d3872f2ea3279a36b9e0ac698))
+
 ## [2.1.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.0.0...v2.1.0) (2025-08-24)
 
 
