@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.2.0...v2.3.0) (2025-08-28)
+
+
+### Features
+
+* **auth:** add no-provider-auto-select flag to disable auto-redirect ([#80](https://github.com/sigbit/mcp-auth-proxy/issues/80)) ([128e1cc](https://github.com/sigbit/mcp-auth-proxy/commit/128e1ccabd7d64d50241e4746df5cc539f7e8c55))
+
 ## [2.2.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.1.0...v2.2.0) (2025-08-25)
 
 
