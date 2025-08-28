@@ -21,9 +21,12 @@ type AuthRouter struct {
 	loginTemplate        *template.Template
 	unauthorizedTemplate *template.Template
 	errorTemplate        *template.Template
+	// When true, do not auto-redirect to the sole provider even if
+	// there is only one provider and no password is set.
+	noProviderAutoSelect bool
 }
 
-func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, error) {
+func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, providers ...Provider) (*AuthRouter, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
 	if err != nil {
 		return nil, err
@@ -45,6 +48,7 @@ func NewAuthRouter(passwordHash []string, providers ...Provider) (*AuthRouter, e
 		loginTemplate:        tmpl,
 		unauthorizedTemplate: unauthorizedTmpl,
 		errorTemplate:        errorTmpl,
+		noProviderAutoSelect: noProviderAutoSelect,
 	}, nil
 }
 
@@ -135,6 +139,11 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 func (a *AuthRouter) handleLogin(c *gin.Context) {
 	if c.Request.Method == "POST" {
 		a.handleLoginPost(c)
+		return
+	}
+	// Auto-redirect to the sole provider if enabled and no password is set
+	if !a.noProviderAutoSelect && len(a.passwordHash) == 0 && len(a.providers) == 1 {
+		c.Redirect(http.StatusFound, a.providers[0].AuthURL())
 		return
 	}
 	a.renderLogin(c, "")

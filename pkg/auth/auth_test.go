@@ -53,8 +53,8 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
-		// Create AuthRouter
-		authRouter, err := NewAuthRouter(nil, mockProvider)
+		// Create AuthRouter (auto-select enabled by default)
+		authRouter, err := NewAuthRouter(nil, false, mockProvider)
 		require.NoError(t, err)
 
 		router := setupTestRouter(authRouter)
@@ -88,7 +88,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "authorized_user", nil)
 
 		// Create AuthRouter
-		authRouter, err := NewAuthRouter(nil, mockProvider)
+		authRouter, err := NewAuthRouter(nil, false, mockProvider)
 		require.NoError(t, err)
 
 		router := setupTestRouter(authRouter)
@@ -149,7 +149,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(false, "unauthorized_user", nil)
 
 		// Create AuthRouter
-		authRouter, err := NewAuthRouter(nil, mockProvider)
+		authRouter, err := NewAuthRouter(nil, false, mockProvider)
 		require.NoError(t, err)
 
 		router := setupTestRouter(authRouter)
@@ -185,5 +185,97 @@ func TestAuthenticationFlow(t *testing.T) {
 		require.Equal(t, http.StatusFound, resp.StatusCode)
 		location := resp.Header.Get("Location")
 		require.Equal(t, "/.auth/login", location)
+	})
+}
+
+func TestLoginAutoRedirect(t *testing.T) {
+	t.Run("Auto-redirects when single provider and no password", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockProvider := NewMockProvider(ctrl)
+		mockProvider.EXPECT().Name().Return("test").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
+		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
+		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+
+		authRouter, err := NewAuthRouter(nil, false, mockProvider)
+		require.NoError(t, err)
+
+		router := gin.New()
+		store := memstore.NewStore([]byte("test-secret"))
+		router.Use(sessions.Sessions("session", store))
+		authRouter.SetupRoutes(router)
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		client := setupClient()
+		resp, err := client.Get(server.URL + LoginEndpoint)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusFound, resp.StatusCode)
+		location := resp.Header.Get("Location")
+		require.Equal(t, "/.auth/test", location)
+	})
+
+	t.Run("Does not redirect when disabled", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockProvider := NewMockProvider(ctrl)
+		mockProvider.EXPECT().Name().Return("test").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
+		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
+		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+
+		authRouter, err := NewAuthRouter(nil, true, mockProvider)
+		require.NoError(t, err)
+
+		router := gin.New()
+		store := memstore.NewStore([]byte("test-secret"))
+		router.Use(sessions.Sessions("session", store))
+		authRouter.SetupRoutes(router)
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		client := setupClient()
+		resp, err := client.Get(server.URL + LoginEndpoint)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("Does not redirect when password configured", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockProvider := NewMockProvider(ctrl)
+		mockProvider.EXPECT().Name().Return("test").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
+		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
+		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+
+		// Non-empty passwordHash slice disables auto-select
+		authRouter, err := NewAuthRouter([]string{"dummy"}, false, mockProvider)
+		require.NoError(t, err)
+
+		router := gin.New()
+		store := memstore.NewStore([]byte("test-secret"))
+		router.Use(sessions.Sessions("session", store))
+		authRouter.SetupRoutes(router)
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		client := setupClient()
+		resp, err := client.Get(server.URL + LoginEndpoint)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }

@@ -27,10 +27,11 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 #### Password Authentication
 
-| Option            | Environment Variable | Default | Description                                                         |
-| ----------------- | -------------------- | ------- | ------------------------------------------------------------------- |
-| `--password`      | `PASSWORD`           | -       | Plain text password for authentication (will be hashed with bcrypt) |
-| `--password-hash` | `PASSWORD_HASH`      | -       | Bcrypt hash of password for authentication                          |
+| Option                      | Environment Variable      | Default | Description                                                                                  |
+| --------------------------- | ------------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `--no-provider-auto-select` | `NO_PROVIDER_AUTO_SELECT` | `false` | Disable auto-redirect when only one OAuth/OIDC provider is configured and no password is set |
+| `--password`                | `PASSWORD`                | -       | Plain text password for authentication (will be hashed with bcrypt)                          |
+| `--password-hash`           | `PASSWORD_HASH`           | -       | Bcrypt hash of password for authentication                                                   |
 
 #### Google OAuth
 

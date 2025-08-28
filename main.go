@@ -89,6 +89,7 @@ func main() {
 	var oidcProviderName string
 	var oidcAllowedUsers string
 	var oidcAllowedUsersGlob string
+	var noProviderAutoSelect bool
 	var password string
 	var passwordHash string
 	var proxyBearerToken string
@@ -195,6 +196,7 @@ func main() {
 				oidcProviderName,
 				oidcAllowedUsersList,
 				oidcAllowedUsersGlobList,
+				noProviderAutoSelect,
 				password,
 				passwordHash,
 				trustedProxiesList,
@@ -239,6 +241,7 @@ func main() {
 	rootCmd.Flags().StringVar(&oidcAllowedUsersGlob, "oidc-allowed-users-glob", getEnvWithDefault("OIDC_ALLOWED_USERS_GLOB", ""), "Comma-separated list of glob patterns for allowed OIDC users")
 
 	// Password authentication
+	rootCmd.Flags().BoolVar(&noProviderAutoSelect, "no-provider-auto-select", getEnvBoolWithDefault("NO_PROVIDER_AUTO_SELECT", false), "Disable auto-redirect when only one OAuth/OIDC provider is configured and no password is set")
 	rootCmd.Flags().StringVar(&password, "password", getEnvWithDefault("PASSWORD", ""), "Plain text password for authentication (will be hashed with bcrypt)")
 	rootCmd.Flags().StringVar(&passwordHash, "password-hash", getEnvWithDefault("PASSWORD_HASH", ""), "Bcrypt hash of password for authentication")
 

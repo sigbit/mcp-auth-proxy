@@ -57,6 +57,7 @@ func Run(
 	oidcProviderName string,
 	oidcAllowedUsers []string,
 	oidcAllowedUsersGlob []string,
+	noProviderAutoSelect bool,
 	password string,
 	passwordHash string,
 	trustedProxy []string,
@@ -201,7 +202,7 @@ func Run(
 		passwordHashes = append(passwordHashes, passwordHash)
 	}
 
-	authRouter, err := auth.NewAuthRouter(passwordHashes, providers...)
+	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
