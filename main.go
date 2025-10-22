@@ -72,6 +72,8 @@ func main() {
 	var tlsDirectoryURL string
 	var tlsAcceptTOS bool
 	var dataPath string
+	var repositoryBackend string
+	var repositoryDSN string
 	var externalURL string
 	var googleClientID string
 	var googleClientSecret string
@@ -179,6 +181,8 @@ func main() {
 				tlsDirectoryURL,
 				tlsAcceptTOS,
 				dataPath,
+				repositoryBackend,
+				repositoryDSN,
 				externalURL,
 				googleClientID,
 				googleClientSecret,
@@ -216,6 +220,8 @@ func main() {
 	rootCmd.Flags().StringVar(&tlsDirectoryURL, "tls-directory-url", getEnvWithDefault("TLS_DIRECTORY_URL", "https://acme-v02.api.letsencrypt.org/directory"), "ACME directory URL for TLS certificates")
 	rootCmd.Flags().BoolVar(&tlsAcceptTOS, "tls-accept-tos", getEnvBoolWithDefault("TLS_ACCEPT_TOS", false), "Accept TLS terms of service")
 	rootCmd.Flags().StringVarP(&dataPath, "data-path", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
+	rootCmd.Flags().StringVar(&repositoryBackend, "repository-backend", getEnvWithDefault("REPOSITORY_BACKEND", "local"), "Repository backend to use: local, sqlite, postgres, or mysql")
+	rootCmd.Flags().StringVar(&repositoryDSN, "repository-dsn", getEnvWithDefault("REPOSITORY_DSN", ""), "DSN passed directly to the SQL driver (required when repository-backend is sqlite/postgres/mysql)")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
 
 	// Google OAuth configuration
