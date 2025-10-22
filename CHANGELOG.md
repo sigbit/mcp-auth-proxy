@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.4.0...v2.5.0) (2025-10-22)
+
+
+### Features
+
+* **tls:** add support for manual TLS certificate management and auto-reloading ([#90](https://github.com/sigbit/mcp-auth-proxy/issues/90)) ([f888826](https://github.com/sigbit/mcp-auth-proxy/commit/f888826c10c37b1eec698ce71a492fc2aadb96e9))
+
 ## [2.4.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.3.0...v2.4.0) (2025-10-22)
 
 
