@@ -34,8 +34,6 @@ If you use stdio transport
 
 That's it! Your HTTP endpoint is now available at `https://{your-domain}/mcp`.
 
-- Don't want the proxy to manage TLS? Add `--no-auto-tls` so you can terminate TLS elsewhere or keep the backend on plain HTTP.
-
 - stdio (when a command is specified): MCP endpoint is https://{your-domain}/mcp.
 - SSE/HTTP (when a URL is specified): MCP endpoint uses the backend’s original path (no conversion).
 
