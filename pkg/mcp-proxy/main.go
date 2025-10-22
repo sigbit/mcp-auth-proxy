@@ -171,8 +171,6 @@ func Run(
 		if err != nil {
 			return fmt.Errorf("failed to create repository: %w", err)
 		}
-	case "sql":
-		return fmt.Errorf("repository backend 'sql' is deprecated; use sqlite, postgres, or mysql")
 	default:
 		return fmt.Errorf("unsupported repository backend: %s", repositoryBackend)
 	}
