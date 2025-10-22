@@ -95,10 +95,10 @@ You can use both exact matching and glob patterns for OIDC user authorization:
 
 ### Repository Options
 
-| Option                  | Environment Variable  | Default | Description                                                                                                           |
-| ----------------------- | --------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
-| `--repository-backend`  | `REPOSITORY_BACKEND`  | `local` | Storage backend for OAuth state. Supported values: `local` (embedded BoltDB), `sqlite`, `postgres`, or `mysql`.       |
-| `--repository-dsn`      | `REPOSITORY_DSN`      | -       | Connection string passed directly to the SQL driver. Required when `--repository-backend` is `sqlite/postgres/mysql`. |
+| Option                 | Environment Variable | Default | Description                                                                                                           |
+| ---------------------- | -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--repository-backend` | `REPOSITORY_BACKEND` | `local` | Storage backend for OAuth state. Supported values: `local` (embedded BoltDB), `sqlite`, `postgres`, or `mysql`.       |
+| `--repository-dsn`     | `REPOSITORY_DSN`     | -       | Connection string passed directly to the SQL driver. Required when `--repository-backend` is `sqlite/postgres/mysql`. |
 
 `local` uses an embedded BoltDB file under `--data-path`. SQL backends run migrations automatically via GORM; the DSN must be valid for the chosen driver (examples below). The deprecated value `sql` is no longer accepted—select the concrete driver instead.
 
