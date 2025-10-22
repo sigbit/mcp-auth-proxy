@@ -40,6 +40,8 @@ func Run(
 	tlsDirectoryURL string,
 	tlsAcceptTOS bool,
 	dataPath string,
+	repositoryBackend string,
+	repositoryDSN string,
 	externalURL string,
 	googleClientID string,
 	googleClientSecret string,
@@ -138,10 +140,45 @@ func Run(
 		proxyHeadersMap.Set("Authorization", "Bearer "+proxyBearerToken)
 	}
 
-	repo, err := repository.NewKVSRepository(path.Join(dataPath, "db"), "mcp-oauth-proxy")
-	if err != nil {
-		return fmt.Errorf("failed to create repository: %w", err)
+	var repo repository.Repository
+	switch backend := strings.ToLower(repositoryBackend); backend {
+	case "", "local":
+		repo, err = repository.NewKVSRepository(path.Join(dataPath, "db"), "mcp-oauth-proxy")
+		if err != nil {
+			return fmt.Errorf("failed to create repository: %w", err)
+		}
+	case "sqlite":
+		if repositoryDSN == "" {
+			return fmt.Errorf("repository DSN must be provided for sqlite backend")
+		}
+		repo, err = repository.NewSQLRepository("sqlite", repositoryDSN)
+		if err != nil {
+			return fmt.Errorf("failed to create repository: %w", err)
+		}
+	case "postgres", "postgresql":
+		if repositoryDSN == "" {
+			return fmt.Errorf("repository DSN must be provided for postgres backend")
+		}
+		repo, err = repository.NewSQLRepository("postgres", repositoryDSN)
+		if err != nil {
+			return fmt.Errorf("failed to create repository: %w", err)
+		}
+	case "mysql":
+		if repositoryDSN == "" {
+			return fmt.Errorf("repository DSN must be provided for mysql backend")
+		}
+		repo, err = repository.NewSQLRepository("mysql", repositoryDSN)
+		if err != nil {
+			return fmt.Errorf("failed to create repository: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported repository backend: %s", repositoryBackend)
 	}
+	defer func() {
+		if err := repo.Close(); err != nil {
+			logger.Warn("failed to close repository", zap.Error(err))
+		}
+	}()
 
 	privKey, err := utils.LoadOrGeneratePrivateKey(path.Join(dataPath, "private_key.pem"))
 	if err != nil {
