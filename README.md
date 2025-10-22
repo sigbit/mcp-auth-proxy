@@ -37,7 +37,7 @@ That's it! Your HTTP endpoint is now available at `https://{your-domain}/mcp`.
 - stdio (when a command is specified): MCP endpoint is https://{your-domain}/mcp.
 - SSE/HTTP (when a URL is specified): MCP endpoint uses the backend’s original path (no conversion).
 
-> Don't want the proxy to manage TLS? Add `--no-auto-tls` so you can terminate TLS elsewhere or keep the backend on plain HTTP.
+> Already have certificates? Pass `--tls-cert-file` and `--tls-key-file` instead of `--tls-accept-tos`.
 
 ## Why not MCP Gateway?
 

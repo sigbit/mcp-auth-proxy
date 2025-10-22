@@ -2,6 +2,7 @@ package mcpproxy
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"github.com/sigbit/mcp-auth-proxy/pkg/idp"
 	"github.com/sigbit/mcp-auth-proxy/pkg/proxy"
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
+	"github.com/sigbit/mcp-auth-proxy/pkg/tlsreload"
 	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme"
@@ -39,6 +41,8 @@ func Run(
 	tlsHost string,
 	tlsDirectoryURL string,
 	tlsAcceptTOS bool,
+	tlsCertFile string,
+	tlsKeyFile string,
 	dataPath string,
 	repositoryBackend string,
 	repositoryDSN string,
@@ -76,6 +80,20 @@ func Run(
 	}
 	if parsedExternalURL.Path != "" {
 		return fmt.Errorf("external URL must not have a path, got: %s", parsedExternalURL.Path)
+	}
+
+	if (tlsCertFile == "") != (tlsKeyFile == "") {
+		return fmt.Errorf("both TLS certificate and key files must be provided together")
+	}
+	var manualTLS bool
+	if tlsCertFile != "" && tlsKeyFile != "" {
+		manualTLS = true
+	}
+	if manualTLS && tlsHost != "" {
+		return fmt.Errorf("tlsHost cannot be used when TLS certificate and key files are provided")
+	}
+	if !manualTLS && !autoTLS && tlsHost != "" {
+		return fmt.Errorf("tlsHost requires automatic TLS; remove noAutoTLS or provide certificate files instead")
 	}
 
 	secret, err := utils.LoadOrGenerateSecret(path.Join(dataPath, "secret"))
@@ -271,7 +289,7 @@ func Run(
 	proxyRouter.SetupRoutes(router)
 
 	var tlsHostDetected bool
-	if autoTLS &&
+	if autoTLS && !manualTLS &&
 		tlsHost == "" &&
 		parsedExternalURL.Scheme == "https" &&
 		parsedExternalURL.Host != "localhost" {
@@ -284,13 +302,75 @@ func Run(
 	errs := []error{}
 	lock := sync.Mutex{}
 
-	if tlsHost != "" {
+	if manualTLS {
+		certReloader, err := tlsreload.NewFileReloader(tlsCertFile, tlsKeyFile, logger)
+		if err != nil {
+			return fmt.Errorf("failed to prepare TLS certificate reloader: %w", err)
+		}
+
+		logger.Info("Starting server with provided TLS certificate")
+		httpServer := &http.Server{
+			Addr: listen,
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				host := r.Host
+				if host == "" {
+					host = r.URL.Host
+				}
+				target := "https://" + host + r.RequestURI
+				http.Redirect(w, r, target, http.StatusMovedPermanently)
+			}),
+		}
+		httpsServer := &http.Server{
+			Addr:      tlsListen,
+			Handler:   router,
+			TLSConfig: &tls.Config{GetCertificate: certReloader.GetCertificate},
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := httpServer.ListenAndServe()
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				lock.Lock()
+				errs = append(errs, err)
+				lock.Unlock()
+			}
+			logger.Debug("HTTP server closed")
+			exit <- struct{}{}
+		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
+			defer shutdownCancel()
+			if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+				logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := httpsServer.ListenAndServeTLS("", "")
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				lock.Lock()
+				errs = append(errs, err)
+				lock.Unlock()
+			}
+			logger.Debug("HTTPS server closed")
+			exit <- struct{}{}
+		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
+			defer shutdownCancel()
+			if shutdownErr := httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
+				logger.Warn("HTTPS server shutdown error", zap.Error(shutdownErr))
+			}
+		}()
+	} else if tlsHost != "" {
 		if !tlsAcceptTOS {
 			if tlsHostDetected {
 				return errors.New("TLS host is auto-detected, but tlsAcceptTOS is not set to true. Please agree to the TOS or set noAutoTLS to true")
-			} else {
-				return errors.New("TLS is enabled, but tlsAcceptTOS is not set to true. Please explicitly agree to the TOS")
 			}
+			return errors.New("TLS is enabled, but tlsAcceptTOS is not set to true. Please explicitly agree to the TOS")
 		}
 
 		m := autocert.Manager{
@@ -401,7 +481,7 @@ func Run(
 		}()
 	}
 
-	if tlsHost != "" {
+	if manualTLS || tlsHost != "" {
 		logger.Info("Starting server", zap.Strings("listen", []string{listen, tlsListen}))
 	} else {
 		logger.Info("Starting server", zap.Strings("listen", []string{listen}))
