@@ -79,10 +79,11 @@ For URL-based MCP servers:
 
 ### TLS Configuration
 
-MCP Auth Proxy automatically handles HTTPS certificates:
+MCP Auth Proxy can automatically issue certificates or serve an existing pair:
 
 - `--tls-accept-tos`: Accept Let's Encrypt terms of service
-- `--no-auto-tls`: Disable automatic TLS (use with TLS reverse proxy)
+- `--tls-cert-file` / `--tls-key-file`: Serve the provided PEM certificate and key with automatic reload when files change (overrides `--no-auto-tls`)
+- `--no-auto-tls`: Disable automatic TLS (use with TLS reverse proxy or custom certificate)
 
 ## Accessing Your Server
 

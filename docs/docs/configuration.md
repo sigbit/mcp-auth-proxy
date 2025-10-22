@@ -16,12 +16,14 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 ### TLS Options
 
-| Option                | Environment Variable | Default                                          | Description                                           |
-| --------------------- | -------------------- | ------------------------------------------------ | ----------------------------------------------------- |
-| `--no-auto-tls`       | `NO_AUTO_TLS`        | `false`                                          | Disable automatic TLS host detection from externalURL |
-| `--tls-accept-tos`    | `TLS_ACCEPT_TOS`     | `false`                                          | Accept TLS terms of service                           |
-| `--tls-directory-url` | `TLS_DIRECTORY_URL`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME directory URL for TLS certificates               |
-| `--tls-host`          | `TLS_HOST`           | -                                                | Host name for TLS                                     |
+| Option                | Environment Variable | Default                                          | Description                                                                                        |
+| --------------------- | -------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `--no-auto-tls`       | `NO_AUTO_TLS`        | `false`                                          | Disable automatic TLS host detection from externalURL (ignored when `--tls-cert-file` is provided) |
+| `--tls-accept-tos`    | `TLS_ACCEPT_TOS`     | `false`                                          | Accept TLS terms of service                                                                        |
+| `--tls-directory-url` | `TLS_DIRECTORY_URL`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME directory URL for TLS certificates                                                            |
+| `--tls-host`          | `TLS_HOST`           | -                                                | Host name used for automatic TLS certificate provisioning                                          |
+| `--tls-cert-file`     | `TLS_CERT_FILE`      | -                                                | Path to PEM-encoded TLS certificate served directly by the proxy (auto-reloads on file changes)    |
+| `--tls-key-file`      | `TLS_KEY_FILE`       | -                                                | Path to PEM-encoded TLS private key (requires `--tls-cert-file`, auto-reloads on file changes)     |
 
 ### Authentication Options
 

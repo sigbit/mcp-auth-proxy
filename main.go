@@ -71,6 +71,8 @@ func main() {
 	var tlsHost string
 	var tlsDirectoryURL string
 	var tlsAcceptTOS bool
+	var tlsCertFile string
+	var tlsKeyFile string
 	var dataPath string
 	var repositoryBackend string
 	var repositoryDSN string
@@ -176,10 +178,12 @@ func main() {
 			if err := mcpproxy.Run(
 				listen,
 				tlsListen,
-				!noAutoTLS,
+				(!noAutoTLS) || tlsCertFile != "" || tlsKeyFile != "",
 				tlsHost,
 				tlsDirectoryURL,
 				tlsAcceptTOS,
+				tlsCertFile,
+				tlsKeyFile,
 				dataPath,
 				repositoryBackend,
 				repositoryDSN,
@@ -216,9 +220,11 @@ func main() {
 	rootCmd.Flags().StringVar(&listen, "listen", getEnvWithDefault("LISTEN", ":80"), "Address to listen on")
 	rootCmd.Flags().StringVar(&tlsListen, "tls-listen", getEnvWithDefault("TLS_LISTEN", ":443"), "Address to listen on for TLS")
 	rootCmd.Flags().BoolVar(&noAutoTLS, "no-auto-tls", getEnvBoolWithDefault("NO_AUTO_TLS", false), "Disable automatic TLS host detection from externalURL")
-	rootCmd.Flags().StringVarP(&tlsHost, "tls-host", "H", getEnvWithDefault("TLS_HOST", ""), "Host name for TLS")
+	rootCmd.Flags().StringVarP(&tlsHost, "tls-host", "H", getEnvWithDefault("TLS_HOST", ""), "Host name for automatic TLS certificate provisioning")
 	rootCmd.Flags().StringVar(&tlsDirectoryURL, "tls-directory-url", getEnvWithDefault("TLS_DIRECTORY_URL", "https://acme-v02.api.letsencrypt.org/directory"), "ACME directory URL for TLS certificates")
 	rootCmd.Flags().BoolVar(&tlsAcceptTOS, "tls-accept-tos", getEnvBoolWithDefault("TLS_ACCEPT_TOS", false), "Accept TLS terms of service")
+	rootCmd.Flags().StringVar(&tlsCertFile, "tls-cert-file", getEnvWithDefault("TLS_CERT_FILE", ""), "Path to TLS certificate file (PEM). Requires --tls-key-file")
+	rootCmd.Flags().StringVar(&tlsKeyFile, "tls-key-file", getEnvWithDefault("TLS_KEY_FILE", ""), "Path to TLS private key file (PEM). Requires --tls-cert-file")
 	rootCmd.Flags().StringVarP(&dataPath, "data-path", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
 	rootCmd.Flags().StringVar(&repositoryBackend, "repository-backend", getEnvWithDefault("REPOSITORY_BACKEND", "local"), "Repository backend to use: local, sqlite, postgres, or mysql")
 	rootCmd.Flags().StringVar(&repositoryDSN, "repository-dsn", getEnvWithDefault("REPOSITORY_DSN", ""), "DSN passed directly to the SQL driver (required when repository-backend is sqlite/postgres/mysql)")
