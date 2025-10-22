@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.3.0...v2.4.0) (2025-10-22)
+
+
+### Features
+
+* **repository:** add SQL repository support with multiple backends ([#88](https://github.com/sigbit/mcp-auth-proxy/issues/88)) ([e3699bd](https://github.com/sigbit/mcp-auth-proxy/commit/e3699bdd93f190173b420b3851a2d3cf1c670742))
+
 ## [2.3.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.2.0...v2.3.0) (2025-08-28)
 
 
