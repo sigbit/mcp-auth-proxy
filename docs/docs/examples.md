@@ -129,3 +129,55 @@ spec:
                 port:
                   number: 80
 ```
+
+#### Sidecar Pattern
+
+The sidecar pattern allows you to add authentication to any SSE-based MCP server. The auth proxy runs as a sidecar container in the same pod, authenticating requests before forwarding them to your MCP server.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+        # Auth proxy sidecar
+        - name: mcp-auth-proxy
+          image: ghcr.io/sigbit/mcp-auth-proxy:latest
+          args:
+            - --external-url=https://mcp.example.com
+            - --no-auto-tls
+            - "http://localhost:8000" # Your MCP server port
+          ports:
+            - containerPort: 80
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-proxy-secrets
+                  key: password
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+        # Your MCP server
+        - name: mcp-server
+          image: your-mcp-server:latest
+          ports:
+            - containerPort: 8000
+          # Your MCP server configuration here
+          # ...
+
+      volumes:
+        - name: data
+          emptyDir: {}
+```
