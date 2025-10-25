@@ -156,7 +156,7 @@ spec:
           args:
             - --external-url=https://mcp.example.com
             - --no-auto-tls
-            - "http://localhost:8000"  # Your MCP server port
+            - "http://localhost:8000" # Your MCP server port
           ports:
             - containerPort: 80
           env:
