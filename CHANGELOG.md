@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.5.2](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.1...v2.5.2) (2025-12-04)
+
+
+### Bug Fixes
+
+* **docker:** update base image to golang:1.22-bookworm and switch to debian:bookworm-slim ([#98](https://github.com/sigbit/mcp-auth-proxy/issues/98)) ([dbeabda](https://github.com/sigbit/mcp-auth-proxy/commit/dbeabda6dfaa133e509ccacab6cb66ae10a44f2b))
+* upgrade dependencies ([#100](https://github.com/sigbit/mcp-auth-proxy/issues/100)) ([8c1c8fd](https://github.com/sigbit/mcp-auth-proxy/commit/8c1c8fdc7dc36cc72087b7b06a8c1f2424607a2b))
+* upgrade Go version to 1.25 in workflow files ([#101](https://github.com/sigbit/mcp-auth-proxy/issues/101)) ([3b869e9](https://github.com/sigbit/mcp-auth-proxy/commit/3b869e9136d2a67a8251b0e7b6fb611cc74241d9))
+
 ## [2.5.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.0...v2.5.1) (2025-12-04)
 
 
