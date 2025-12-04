@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.0...v2.5.1) (2025-12-04)
+
+
+### Bug Fixes
+
+* **idp:** replace hardcoded issuer with external URL in IDP router ([#96](https://github.com/sigbit/mcp-auth-proxy/issues/96)) ([a7dbccb](https://github.com/sigbit/mcp-auth-proxy/commit/a7dbccb687e4fb428320b0eae1111b902f749ffb))
+
 ## [2.5.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.4.0...v2.5.0) (2025-10-22)
 
 
