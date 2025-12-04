@@ -31,8 +31,6 @@ type IDPRouter struct {
 	authRouter  *auth.AuthRouter
 }
 
-const Issuer = "mcp-oauth-proxy"
-
 func NewIDPRouter(
 	repo repository.Repository,
 	privKey *rsa.PrivateKey,
@@ -51,7 +49,7 @@ func NewIDPRouter(
 		AccessTokenLifespan:            24 * time.Hour,
 		RefreshTokenLifespan:           30 * 24 * time.Hour,
 		RefreshTokenScopes:             []string{},
-		AccessTokenIssuer:              Issuer,
+		AccessTokenIssuer:              externalURL,
 		EnforcePKCE:                    false,
 		EnforcePKCEForPublicClients:    false,
 		EnablePKCEPlainChallengeMethod: true,
@@ -144,7 +142,7 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
-	jwtSession, err := NewJWTSessionWithKey(Issuer, "user", a.privKey)
+	jwtSession, err := NewJWTSessionWithKey(a.externalURL, "user", a.privKey)
 	if err != nil {
 		a.logger.With(utils.Err(err)...).Error("Failed to create JWT session", zap.Error(err))
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, err)
@@ -337,7 +335,7 @@ func (a *IDPRouter) handleOauthAuthorizationServer(c *gin.Context) {
 	}
 
 	res := &authorizationServerResponse{
-		Issuer:                            Issuer,
+		Issuer:                            a.externalURL,
 		AuthorizationEndpoint:             authorizationEndpoint,
 		TokenEndpoint:                     tokenEndpoint,
 		RegistrationEndpoint:              registrationEndpoint,
