@@ -1,5 +1,7 @@
 FROM --platform=$BUILDPLATFORM golang:1.22-bookworm AS builder
 
+ENV GOTOOLCHAIN=auto
+
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
