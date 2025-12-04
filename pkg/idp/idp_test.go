@@ -68,7 +68,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, str
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()
-	idpRouter, err := NewIDPRouter(repo, privKey, logger, "", secret[:], authRouter)
+	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter)
 	require.NoError(t, err)
 
 	idpRouter.SetupRoutes(router)
@@ -94,7 +94,7 @@ func TestOAuthServerMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify OAuth server metadata
-	require.Equal(t, Issuer, metadata["issuer"])
+	require.Equal(t, "http://localhost:8080", metadata["issuer"])
 	authEndpoint, ok := metadata["authorization_endpoint"].(string)
 	require.True(t, ok)
 	require.Contains(t, authEndpoint, ".idp/auth")
