@@ -11,10 +11,11 @@ import (
 )
 
 type ProxyRouter struct {
-	externalURL  string
-	proxy        http.Handler
-	publicKey    *rsa.PublicKey
-	proxyHeaders http.Header
+	externalURL       string
+	proxy             http.Handler
+	publicKey         *rsa.PublicKey
+	proxyHeaders      http.Header
+	httpStreamingOnly bool
 }
 
 func NewProxyRouter(
@@ -22,12 +23,14 @@ func NewProxyRouter(
 	proxy http.Handler,
 	publicKey *rsa.PublicKey,
 	proxyHeaders http.Header,
+	httpStreamingOnly bool,
 ) (*ProxyRouter, error) {
 	return &ProxyRouter{
-		externalURL:  externalURL,
-		proxy:        proxy,
-		publicKey:    publicKey,
-		proxyHeaders: proxyHeaders,
+		externalURL:       externalURL,
+		proxy:             proxy,
+		publicKey:         publicKey,
+		proxyHeaders:      proxyHeaders,
+		httpStreamingOnly: httpStreamingOnly,
 	}, nil
 }
 
@@ -72,6 +75,11 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 		return
 	}
 
+	if p.httpStreamingOnly && isSSEGetRequest(c.Request) {
+		c.AbortWithStatusJSON(http.StatusMethodNotAllowed, gin.H{"error": "SSE streaming is disabled"})
+		return
+	}
+
 	c.Request.Header.Del("Authorization")
 	for key, values := range p.proxyHeaders {
 		for _, value := range values {
@@ -80,4 +88,20 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	}
 
 	p.proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func isSSEGetRequest(r *http.Request) bool {
+	if r.Method != http.MethodGet {
+		return false
+	}
+	accept := r.Header.Get("Accept")
+	if accept == "" {
+		return false
+	}
+	for _, value := range strings.Split(accept, ",") {
+		if strings.TrimSpace(strings.ToLower(value)) == "text/event-stream" {
+			return true
+		}
+	}
+	return false
 }

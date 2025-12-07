@@ -121,6 +121,7 @@ You can use both exact matching and glob patterns for OIDC user authorization:
 | ---------------------- | -------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
 | `--proxy-bearer-token` | `PROXY_BEARER_TOKEN` | -       | Bearer token to add to Authorization header when proxying requests                                    |
 | `--proxy-headers`      | `PROXY_HEADERS`      | -       | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2) |
+| `--http-streaming-only` | `HTTP_STREAMING_ONLY` | `false` | Reject SSE (GET) requests and keep the backend operating in HTTP streaming-only mode                  |
 | `--trusted-proxies`    | `TRUSTED_PROXIES`    | -       | Comma-separated list of trusted proxies (IP addresses or CIDR ranges)                                 |
 
 For practical configuration examples including environment variables, Docker Compose, and Kubernetes deployments, see the [Configuration Examples](./examples.md) page.

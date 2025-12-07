@@ -69,7 +69,7 @@ func TestProxyRouter_HandleProxy_ValidToken(t *testing.T) {
 	proxyHeaders := make(http.Header)
 	proxyHeaders.Set("X-Forwarded-By", "mcp-auth-proxy")
 
-	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, proxyHeaders)
+	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, proxyHeaders, false)
 	require.NoError(t, err)
 
 	gin.SetMode(gin.TestMode)
@@ -101,4 +101,40 @@ func TestProxyRouter_HandleProxy_ValidToken(t *testing.T) {
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
+	privateKey, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+
+	var backendCalled bool
+	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		backendCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, true)
+	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	proxyRouter.SetupRoutes(router)
+
+	token, err := createJWT(privateKey, jwt.MapClaims{
+		"sub": "user",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"iat": time.Now().Unix(),
+	})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, "/mcp", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "text/event-stream")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	assert.False(t, backendCalled, "backend should not be called for SSE requests when streaming-only mode is enabled")
 }
