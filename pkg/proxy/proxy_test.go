@@ -113,30 +113,35 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 		acceptHeader  string
 		wantStatus    int
 		expectBackend bool
+		streamingOnly bool
 	}{
 		{
-			name:         "plain text/event-stream",
-			method:       http.MethodGet,
-			acceptHeader: "text/event-stream",
-			wantStatus:   http.StatusMethodNotAllowed,
+			name:          "plain text/event-stream",
+			method:        http.MethodGet,
+			acceptHeader:  "text/event-stream",
+			wantStatus:    http.StatusMethodNotAllowed,
+			streamingOnly: true,
 		},
 		{
-			name:         "event-stream with params",
-			method:       http.MethodGet,
-			acceptHeader: "text/event-stream; charset=utf-8",
-			wantStatus:   http.StatusMethodNotAllowed,
+			name:          "event-stream with params",
+			method:        http.MethodGet,
+			acceptHeader:  "text/event-stream; charset=utf-8",
+			wantStatus:    http.StatusMethodNotAllowed,
+			streamingOnly: true,
 		},
 		{
-			name:         "multiple values",
-			method:       http.MethodGet,
-			acceptHeader: "application/json, text/event-stream",
-			wantStatus:   http.StatusMethodNotAllowed,
+			name:          "multiple values",
+			method:        http.MethodGet,
+			acceptHeader:  "application/json, text/event-stream",
+			wantStatus:    http.StatusMethodNotAllowed,
+			streamingOnly: true,
 		},
 		{
-			name:         "quality value",
-			method:       http.MethodGet,
-			acceptHeader: "text/event-stream;q=0.9",
-			wantStatus:   http.StatusMethodNotAllowed,
+			name:          "quality value",
+			method:        http.MethodGet,
+			acceptHeader:  "text/event-stream;q=0.9",
+			wantStatus:    http.StatusMethodNotAllowed,
+			streamingOnly: true,
 		},
 		{
 			name:          "post should pass through",
@@ -144,6 +149,31 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 			acceptHeader:  "text/event-stream",
 			wantStatus:    http.StatusOK,
 			expectBackend: true,
+			streamingOnly: true,
+		},
+		{
+			name:          "get without accept header",
+			method:        http.MethodGet,
+			acceptHeader:  "",
+			wantStatus:    http.StatusOK,
+			expectBackend: true,
+			streamingOnly: true,
+		},
+		{
+			name:          "get with non-sse accept",
+			method:        http.MethodGet,
+			acceptHeader:  "application/json",
+			wantStatus:    http.StatusOK,
+			expectBackend: true,
+			streamingOnly: true,
+		},
+		{
+			name:          "sse allowed when streamingOnly disabled",
+			method:        http.MethodGet,
+			acceptHeader:  "text/event-stream",
+			wantStatus:    http.StatusOK,
+			expectBackend: true,
+			streamingOnly: false,
 		},
 	}
 
@@ -155,7 +185,7 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, true)
+			proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, tt.streamingOnly)
 			require.NoError(t, err)
 
 			gin.SetMode(gin.TestMode)

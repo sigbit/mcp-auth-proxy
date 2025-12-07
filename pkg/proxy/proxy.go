@@ -76,7 +76,7 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	}
 
 	if p.httpStreamingOnly && isSSEGetRequest(c.Request) {
-		c.AbortWithStatusJSON(http.StatusMethodNotAllowed, gin.H{"error": "SSE streaming is disabled"})
+		c.AbortWithStatusJSON(http.StatusMethodNotAllowed, gin.H{"error": "SSE (GET) streaming is not supported by this backend; use POST-based HTTP streaming instead"})
 		return
 	}
 
