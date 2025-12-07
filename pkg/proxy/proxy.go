@@ -99,7 +99,11 @@ func isSSEGetRequest(r *http.Request) bool {
 		return false
 	}
 	for _, value := range strings.Split(accept, ",") {
-		if strings.TrimSpace(strings.ToLower(value)) == "text/event-stream" {
+		mediaType := strings.TrimSpace(strings.ToLower(value))
+		if idx := strings.Index(mediaType, ";"); idx != -1 {
+			mediaType = strings.TrimSpace(mediaType[:idx])
+		}
+		if mediaType == "text/event-stream" {
 			return true
 		}
 	}

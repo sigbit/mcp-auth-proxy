@@ -107,34 +107,78 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 	privateKey, publicKey, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	var backendCalled bool
-	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		backendCalled = true
-		w.WriteHeader(http.StatusOK)
-	})
+	cases := []struct {
+		name          string
+		method        string
+		acceptHeader  string
+		wantStatus    int
+		expectBackend bool
+	}{
+		{
+			name:         "plain text/event-stream",
+			method:       http.MethodGet,
+			acceptHeader: "text/event-stream",
+			wantStatus:   http.StatusMethodNotAllowed,
+		},
+		{
+			name:         "event-stream with params",
+			method:       http.MethodGet,
+			acceptHeader: "text/event-stream; charset=utf-8",
+			wantStatus:   http.StatusMethodNotAllowed,
+		},
+		{
+			name:         "multiple values",
+			method:       http.MethodGet,
+			acceptHeader: "application/json, text/event-stream",
+			wantStatus:   http.StatusMethodNotAllowed,
+		},
+		{
+			name:         "quality value",
+			method:       http.MethodGet,
+			acceptHeader: "text/event-stream;q=0.9",
+			wantStatus:   http.StatusMethodNotAllowed,
+		},
+		{
+			name:          "post should pass through",
+			method:        http.MethodPost,
+			acceptHeader:  "text/event-stream",
+			wantStatus:    http.StatusOK,
+			expectBackend: true,
+		},
+	}
 
-	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, true)
-	require.NoError(t, err)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			backendCalled := false
+			proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				backendCalled = true
+				w.WriteHeader(http.StatusOK)
+			})
 
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	proxyRouter.SetupRoutes(router)
+			proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, true)
+			require.NoError(t, err)
 
-	token, err := createJWT(privateKey, jwt.MapClaims{
-		"sub": "user",
-		"exp": time.Now().Add(time.Hour).Unix(),
-		"iat": time.Now().Unix(),
-	})
-	require.NoError(t, err)
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			proxyRouter.SetupRoutes(router)
 
-	req, err := http.NewRequest(http.MethodGet, "/mcp", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "text/event-stream")
+			token, err := createJWT(privateKey, jwt.MapClaims{
+				"sub": "user",
+				"exp": time.Now().Add(time.Hour).Unix(),
+				"iat": time.Now().Unix(),
+			})
+			require.NoError(t, err)
 
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+			req, err := http.NewRequest(tt.method, "/mcp", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Accept", tt.acceptHeader)
 
-	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
-	assert.False(t, backendCalled, "backend should not be called for SSE requests when streaming-only mode is enabled")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Equal(t, tt.expectBackend, backendCalled, "backend call mismatch")
+		})
+	}
 }
