@@ -34,6 +34,8 @@ import (
 
 var ServerShutdownTimeout = 5 * time.Second
 
+var newProxyRouter = proxy.NewProxyRouter
+
 func Run(
 	listen string,
 	tlsListen string,
@@ -266,7 +268,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := proxy.NewProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly)
+	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}

@@ -64,7 +64,52 @@ func splitWithEscapes(s, delimiter string) []string {
 	return result
 }
 
+type proxyRunnerFunc func(
+	listen string,
+	tlsListen string,
+	autoTLS bool,
+	tlsHost string,
+	tlsDirectoryURL string,
+	tlsAcceptTOS bool,
+	tlsCertFile string,
+	tlsKeyFile string,
+	dataPath string,
+	repositoryBackend string,
+	repositoryDSN string,
+	externalURL string,
+	googleClientID string,
+	googleClientSecret string,
+	googleAllowedUsers []string,
+	googleAllowedWorkspaces []string,
+	githubClientID string,
+	githubClientSecret string,
+	githubAllowedUsers []string,
+	githubAllowedOrgs []string,
+	oidcConfigurationURL string,
+	oidcClientID string,
+	oidcClientSecret string,
+	oidcScopes []string,
+	oidcUserIDField string,
+	oidcProviderName string,
+	oidcAllowedUsers []string,
+	oidcAllowedUsersGlob []string,
+	noProviderAutoSelect bool,
+	password string,
+	passwordHash string,
+	trustedProxy []string,
+	proxyHeaders []string,
+	proxyBearerToken string,
+	proxyTarget []string,
+	httpStreamingOnly bool,
+) error
+
 func main() {
+	if err := newRootCommand(mcpproxy.Run).Execute(); err != nil {
+		panic(err)
+	}
+}
+
+func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var listen string
 	var tlsListen string
 	var noAutoTLS bool
@@ -176,7 +221,7 @@ func main() {
 				}
 			}
 
-			if err := mcpproxy.Run(
+			if err := run(
 				listen,
 				tlsListen,
 				(!noAutoTLS) || tlsCertFile != "" || tlsKeyFile != "",
@@ -265,7 +310,5 @@ func main() {
 	rootCmd.Flags().StringVar(&proxyHeaders, "proxy-headers", getEnvWithDefault("PROXY_HEADERS", ""), "Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2)")
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")
 
-	if err := rootCmd.Execute(); err != nil {
-		panic(err)
-	}
+	return rootCmd
 }

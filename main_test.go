@@ -217,3 +217,122 @@ func TestGetEnvBoolWithDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
+	t.Setenv("HTTP_STREAMING_ONLY", "")
+
+	var streamingOnly bool
+	var receivedTargets []string
+	runner := proxyRunnerFunc(func(listen string,
+		tlsListen string,
+		autoTLS bool,
+		tlsHost string,
+		tlsDirectoryURL string,
+		tlsAcceptTOS bool,
+		tlsCertFile string,
+		tlsKeyFile string,
+		dataPath string,
+		repositoryBackend string,
+		repositoryDSN string,
+		externalURL string,
+		googleClientID string,
+		googleClientSecret string,
+		googleAllowedUsers []string,
+		googleAllowedWorkspaces []string,
+		githubClientID string,
+		githubClientSecret string,
+		githubAllowedUsers []string,
+		githubAllowedOrgs []string,
+		oidcConfigurationURL string,
+		oidcClientID string,
+		oidcClientSecret string,
+		oidcScopes []string,
+		oidcUserIDField string,
+		oidcProviderName string,
+		oidcAllowedUsers []string,
+		oidcAllowedUsersGlob []string,
+		noProviderAutoSelect bool,
+		password string,
+		passwordHash string,
+		trustedProxy []string,
+		proxyHeaders []string,
+		proxyBearerToken string,
+		proxyTarget []string,
+		httpStreamingOnly bool,
+	) error {
+		streamingOnly = httpStreamingOnly
+		receivedTargets = proxyTarget
+		return nil
+	})
+
+	cmd := newRootCommand(runner)
+	cmd.SetArgs([]string{"--http-streaming-only", "http://backend"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected command to succeed, got error: %v", err)
+	}
+
+	if !streamingOnly {
+		t.Fatalf("expected httpStreamingOnly to be true when flag is set")
+	}
+	if len(receivedTargets) != 1 || receivedTargets[0] != "http://backend" {
+		t.Fatalf("expected proxyTarget to receive CLI args, got %v", receivedTargets)
+	}
+}
+
+func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
+	t.Setenv("HTTP_STREAMING_ONLY", "true")
+
+	var streamingOnly bool
+	runner := proxyRunnerFunc(func(listen string,
+		tlsListen string,
+		autoTLS bool,
+		tlsHost string,
+		tlsDirectoryURL string,
+		tlsAcceptTOS bool,
+		tlsCertFile string,
+		tlsKeyFile string,
+		dataPath string,
+		repositoryBackend string,
+		repositoryDSN string,
+		externalURL string,
+		googleClientID string,
+		googleClientSecret string,
+		googleAllowedUsers []string,
+		googleAllowedWorkspaces []string,
+		githubClientID string,
+		githubClientSecret string,
+		githubAllowedUsers []string,
+		githubAllowedOrgs []string,
+		oidcConfigurationURL string,
+		oidcClientID string,
+		oidcClientSecret string,
+		oidcScopes []string,
+		oidcUserIDField string,
+		oidcProviderName string,
+		oidcAllowedUsers []string,
+		oidcAllowedUsersGlob []string,
+		noProviderAutoSelect bool,
+		password string,
+		passwordHash string,
+		trustedProxy []string,
+		proxyHeaders []string,
+		proxyBearerToken string,
+		proxyTarget []string,
+		httpStreamingOnly bool,
+	) error {
+		streamingOnly = httpStreamingOnly
+		return nil
+	})
+
+	cmd := newRootCommand(runner)
+	cmd.SetArgs([]string{"http://backend"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected command to succeed, got error: %v", err)
+	}
+
+	if !streamingOnly {
+		t.Fatalf("expected httpStreamingOnly to default to true from env var")
+	}
+}
