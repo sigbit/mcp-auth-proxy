@@ -87,6 +87,15 @@ You can use both exact matching and glob patterns for OIDC user authorization:
 --oidc-allowed-users-glob "*@example.com"
 ```
 
+### Cryptographic Key Options
+
+| Environment Variable | Default        | Description                                                            |
+| -------------------- | -------------- | ---------------------------------------------------------------------- |
+| `AUTH_HMAC_SECRET`   | auto-generated | Base64-encoded 32-byte secret for HMAC/cookie signing                  |
+| `JWT_PRIVATE_KEY`    | auto-generated | PEM-encoded RSA private key (PKCS8) for JWT signing                    |
+
+When set, these environment variables take precedence over the file-based keys in `{data-path}/secret` and `{data-path}/private_key.pem`. This is useful for deployments without persistent volumes (e.g., Kubernetes) where pod restarts would otherwise regenerate keys and invalidate all existing OAuth tokens.
+
 ### Server Options
 
 | Option         | Environment Variable | Default  | Description                  |
