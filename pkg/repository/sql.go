@@ -22,43 +22,43 @@ type sqlRepository struct {
 }
 
 type authorizeCodeSession struct {
-	Code      string `gorm:"primaryKey;size:255"`
+	Code      string `gorm:"primaryKey;size:512"`
 	Request   []byte `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 type accessTokenSession struct {
-	Signature string `gorm:"primaryKey;size:255"`
+	Signature string `gorm:"primaryKey;size:512"`
 	Request   []byte `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 type refreshTokenSession struct {
-	Signature       string `gorm:"primaryKey;size:255"`
-	AccessSignature string `gorm:"size:255"`
+	Signature       string `gorm:"primaryKey;size:512"`
+	AccessSignature string `gorm:"size:512"`
 	Request         []byte `gorm:"not null"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
 
 type clientRecord struct {
-	ID        string `gorm:"primaryKey;size:255"`
+	ID        string `gorm:"primaryKey;size:512"`
 	Client    []byte `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 type pkceRequestSession struct {
-	Signature string `gorm:"primaryKey;size:255"`
+	Signature string `gorm:"primaryKey;size:512"`
 	Request   []byte `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 type authorizeRequestRecord struct {
-	RequestID string `gorm:"primaryKey;size:255"`
+	RequestID string `gorm:"primaryKey;size:512"`
 	Request   []byte `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
