@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.4](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.3...v2.5.4) (2026-03-03)
+
+
+### Bug Fixes
+
+* follow backend 307/308 redirects in transparent proxy ([#116](https://github.com/sigbit/mcp-auth-proxy/issues/116)) ([4546f40](https://github.com/sigbit/mcp-auth-proxy/commit/4546f407bba9e191bf6ffc08dac14d7baf8bbd9f))
+* widen OAuth signature columns from VARCHAR(255) to VARCHAR(512) ([#117](https://github.com/sigbit/mcp-auth-proxy/issues/117)) ([68437b1](https://github.com/sigbit/mcp-auth-proxy/commit/68437b104fb7befd2671e92cf065ec40b3eba514)), closes [#111](https://github.com/sigbit/mcp-auth-proxy/issues/111)
+
 ## [2.5.3](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.2...v2.5.3) (2026-01-03)
 
 
