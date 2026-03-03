@@ -3,9 +3,11 @@ package backend
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,6 +98,62 @@ func TestTransparentBackendWithInvalidProxy(t *testing.T) {
 	require.Equal(t, "192.0.2.1", header.Get(("X-Forwarded-For")))
 	require.Equal(t, "example.com", header.Get(("X-Forwarded-Host")))
 	require.Equal(t, "http", header.Get(("X-Forwarded-Proto")))
+}
+
+func TestTransparentBackendFollows307Redirect(t *testing.T) {
+	r := gin.New()
+	// Simulate Starlette's redirect_slashes: /mcp → 307 → /mcp/
+	r.POST("/mcp", func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "/mcp/")
+	})
+	r.POST("/mcp/", func(c *gin.Context) {
+		body, _ := io.ReadAll(c.Request.Body)
+		c.JSON(http.StatusOK, gin.H{
+			"received": string(body),
+			"method":   c.Request.Method,
+		})
+	})
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	u, _ := url.Parse(ts.URL)
+
+	be, err := NewTransparentBackend(zap.NewNop(), u, []string{})
+	require.NoError(t, err)
+	handler, err := be.Run(context.Background())
+	require.NoError(t, err)
+
+	body := `{"jsonrpc":"2.0","method":"initialize"}`
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code, "should follow 307 internally")
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	require.Equal(t, body, resp["received"], "body must be preserved across redirect")
+	require.Equal(t, "POST", resp["method"], "method must be preserved")
+}
+
+func TestTransparentBackendRedirectLoopProtection(t *testing.T) {
+	r := gin.New()
+	r.POST("/loop", func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "/loop")
+	})
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	u, _ := url.Parse(ts.URL)
+
+	be, err := NewTransparentBackend(zap.NewNop(), u, []string{})
+	require.NoError(t, err)
+	handler, err := be.Run(context.Background())
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/loop", strings.NewReader("{}"))
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusBadGateway, rr.Code, "should fail on redirect loop")
 }
 
 func TestTransparentBackendRun(t *testing.T) {
