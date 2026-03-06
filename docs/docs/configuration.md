@@ -55,16 +55,18 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 #### Generic OIDC
 
-| Option                      | Environment Variable      | Default                | Description                                                  |
-| --------------------------- | ------------------------- | ---------------------- | ------------------------------------------------------------ |
-| `--oidc-configuration-url`  | `OIDC_CONFIGURATION_URL`  | -                      | OIDC configuration URL                                       |
-| `--oidc-client-id`          | `OIDC_CLIENT_ID`          | -                      | OIDC client ID                                               |
-| `--oidc-client-secret`      | `OIDC_CLIENT_SECRET`      | -                      | OIDC client secret                                           |
-| `--oidc-allowed-users`      | `OIDC_ALLOWED_USERS`      | -                      | Comma-separated list of allowed OIDC users (exact match)     |
-| `--oidc-allowed-users-glob` | `OIDC_ALLOWED_USERS_GLOB` | -                      | Comma-separated list of glob patterns for allowed OIDC users |
-| `--oidc-provider-name`      | `OIDC_PROVIDER_NAME`      | `OIDC`                 | Display name for OIDC provider                               |
-| `--oidc-scopes`             | `OIDC_SCOPES`             | `openid,profile,email` | Comma-separated list of OIDC scopes                          |
-| `--oidc-user-id-field`      | `OIDC_USER_ID_FIELD`      | `/email`               | JSON pointer to user ID field in userinfo endpoint response  |
+| Option                           | Environment Variable           | Default                | Description                                                                       |
+| -------------------------------- | ------------------------------ | ---------------------- | --------------------------------------------------------------------------------- |
+| `--oidc-configuration-url`       | `OIDC_CONFIGURATION_URL`       | -                      | OIDC configuration URL                                                            |
+| `--oidc-client-id`               | `OIDC_CLIENT_ID`               | -                      | OIDC client ID                                                                    |
+| `--oidc-client-secret`           | `OIDC_CLIENT_SECRET`           | -                      | OIDC client secret                                                                |
+| `--oidc-allowed-users`           | `OIDC_ALLOWED_USERS`           | -                      | Comma-separated list of allowed OIDC users (exact match)                          |
+| `--oidc-allowed-users-glob`      | `OIDC_ALLOWED_USERS_GLOB`      | -                      | Comma-separated list of glob patterns for allowed OIDC users                      |
+| `--oidc-allowed-attributes`      | `OIDC_ALLOWED_ATTRIBUTES`      | -                      | Comma-separated list of allowed attribute key=value pairs (e.g., `/groups=admin`) |
+| `--oidc-allowed-attributes-glob` | `OIDC_ALLOWED_ATTRIBUTES_GLOB` | -                      | Comma-separated list of attribute key=pattern pairs for glob matching             |
+| `--oidc-provider-name`           | `OIDC_PROVIDER_NAME`           | `OIDC`                 | Display name for OIDC provider                                                    |
+| `--oidc-scopes`                  | `OIDC_SCOPES`                  | `openid,profile,email` | Comma-separated list of OIDC scopes                                               |
+| `--oidc-user-id-field`           | `OIDC_USER_ID_FIELD`           | `/email`               | JSON pointer to user ID field in userinfo endpoint response                       |
 
 ##### OIDC User Matching
 
@@ -86,6 +88,46 @@ You can use both exact matching and glob patterns for OIDC user authorization:
 --oidc-allowed-users "specific@user.com" \
 --oidc-allowed-users-glob "*@example.com"
 ```
+
+##### OIDC Attribute-Based Authorization
+
+You can also authorize users based on attributes from the userinfo endpoint (e.g., group memberships, roles, departments). This is useful when you need to restrict access based on IdP-provided claims beyond just the user ID.
+
+- **Exact attribute matching** (`--oidc-allowed-attributes`): Attribute values must match exactly
+- **Glob attribute patterns** (`--oidc-allowed-attributes-glob`): Attribute values are matched against glob patterns
+
+Attribute keys use [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) syntax to reference fields in the userinfo response. Both string and array attribute values are supported.
+
+**Examples:**
+
+```bash
+# Allow users in the "engineering" department
+--oidc-allowed-attributes "/department=engineering"
+
+# Allow users in the "admin" group (works with array values)
+--oidc-allowed-attributes "/groups=admin"
+
+# Allow users whose group matches a pattern
+--oidc-allowed-attributes-glob "/groups=*-admins"
+
+# Nested attribute (e.g., {"org": {"team": "platform"}})
+--oidc-allowed-attributes "/org/team=platform"
+
+# Multiple allowed values for the same attribute
+--oidc-allowed-attributes "/groups=admin,/groups=developers"
+
+# Combined with user matching
+--oidc-allowed-users "admin@example.com" \
+--oidc-allowed-attributes "/groups=data-science" \
+--oidc-allowed-attributes-glob "/groups=*-admins"
+```
+
+:::tip Okta Configuration
+For Okta, you typically need to:
+
+1. Add the `groups` scope: `--oidc-scopes "openid,profile,email,groups"`
+2. Configure a groups claim in Okta Admin (Security → API → Authorization Servers → Claims)
+   :::
 
 ### Cryptographic Key Options
 
