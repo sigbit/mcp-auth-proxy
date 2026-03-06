@@ -127,7 +127,7 @@ For Okta, you typically need to:
 
 1. Add the `groups` scope: `--oidc-scopes "openid,profile,email,groups"`
 2. Configure a groups claim in Okta Admin (Security → API → Authorization Servers → Claims)
-   :::
+:::
 
 ### Cryptographic Key Options
 
