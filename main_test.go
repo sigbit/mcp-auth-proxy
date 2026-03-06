@@ -85,6 +85,89 @@ func TestSplitWithEscapes(t *testing.T) {
 	}
 }
 
+func TestParseAttributeMap(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected map[string][]string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: map[string][]string{},
+		},
+		{
+			name:  "single key-value pair",
+			input: "/groups=admin",
+			expected: map[string][]string{
+				"/groups": {"admin"},
+			},
+		},
+		{
+			name:  "multiple values for same key",
+			input: "/groups=admin,/groups=users",
+			expected: map[string][]string{
+				"/groups": {"admin", "users"},
+			},
+		},
+		{
+			name:  "multiple keys",
+			input: "/groups=admin,/department=engineering",
+			expected: map[string][]string{
+				"/groups":     {"admin"},
+				"/department": {"engineering"},
+			},
+		},
+		{
+			name:  "nested key with JSON pointer",
+			input: "/org/team=platform",
+			expected: map[string][]string{
+				"/org/team": {"platform"},
+			},
+		},
+		{
+			name:  "glob pattern value",
+			input: "/groups=*-admins,/email=*@example.com",
+			expected: map[string][]string{
+				"/groups": {"*-admins"},
+				"/email":  {"*@example.com"},
+			},
+		},
+		{
+			name:  "whitespace trimming",
+			input: " /groups = admin , /role = editor ",
+			expected: map[string][]string{
+				"/groups": {"admin"},
+				"/role":   {"editor"},
+			},
+		},
+		{
+			name:     "invalid format - no equals sign",
+			input:    "invalid",
+			expected: map[string][]string{},
+		},
+		{
+			name:     "invalid format - empty key",
+			input:    "=value",
+			expected: map[string][]string{},
+		},
+		{
+			name:     "invalid format - empty value",
+			input:    "/key=",
+			expected: map[string][]string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseAttributeMap(tc.input)
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
 func TestGetEnvWithDefault(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -251,6 +334,8 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		oidcProviderName string,
 		oidcAllowedUsers []string,
 		oidcAllowedUsersGlob []string,
+		oidcAllowedAttributes map[string][]string,
+		oidcAllowedAttributesGlob map[string][]string,
 		noProviderAutoSelect bool,
 		password string,
 		passwordHash string,
@@ -312,6 +397,8 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		oidcProviderName string,
 		oidcAllowedUsers []string,
 		oidcAllowedUsersGlob []string,
+		oidcAllowedAttributes map[string][]string,
+		oidcAllowedAttributesGlob map[string][]string,
 		noProviderAutoSelect bool,
 		password string,
 		passwordHash string,

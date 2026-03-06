@@ -125,6 +125,36 @@ Configure OAuth providers to enable secure authentication for your MCP server.
   -- your-mcp-command
 ```
 
+#### Attribute-based authorization:
+
+Authorize users based on attributes like group memberships or roles from the userinfo endpoint:
+
+```bash
+./mcp-auth-proxy \
+  --external-url https://{your-domain} \
+  --tls-accept-tos \
+  --oidc-configuration-url "https://your-provider.com/.well-known/openid-configuration" \
+  --oidc-client-id "your-oidc-client-id" \
+  --oidc-client-secret "your-oidc-client-secret" \
+  --oidc-scopes "openid,profile,email,groups" \
+  --oidc-allowed-attributes "/groups=engineering" \
+  -- your-mcp-command
+```
+
+#### Attribute glob patterns:
+
+```bash
+./mcp-auth-proxy \
+  --external-url https://{your-domain} \
+  --tls-accept-tos \
+  --oidc-configuration-url "https://your-provider.com/.well-known/openid-configuration" \
+  --oidc-client-id "your-oidc-client-id" \
+  --oidc-client-secret "your-oidc-client-secret" \
+  --oidc-scopes "openid,profile,email,groups" \
+  --oidc-allowed-attributes-glob "/groups=*-admins" \
+  -- your-mcp-command
+```
+
 ### Provider-Specific Examples
 
 #### Okta
@@ -132,6 +162,27 @@ Configure OAuth providers to enable secure authentication for your MCP server.
 ```bash
 --oidc-configuration-url "https://your-domain.okta.com/.well-known/openid-configuration"
 ```
+
+For group-based authorization with Okta:
+
+1. Add the `groups` scope to your request:
+
+   ```bash
+   --oidc-scopes "openid,profile,email,groups"
+   ```
+
+2. Configure a groups claim in Okta Admin:
+
+   - Go to Security → API → Authorization Servers
+   - Select your authorization server → Claims tab
+   - Add a claim named "groups" with value type "Groups" and filter as needed
+
+3. Use attribute-based authorization:
+   ```bash
+   --oidc-allowed-attributes "/groups=data-science"
+   # or with glob patterns:
+   --oidc-allowed-attributes-glob "/groups=*-admins"
+   ```
 
 #### Auth0
 
@@ -181,8 +232,11 @@ export GITHUB_ALLOWED_ORGS="org1,org2:team1"
 export OIDC_CONFIGURATION_URL="https://provider.com/.well-known/openid-configuration"
 export OIDC_CLIENT_ID="your-oidc-client-id"
 export OIDC_CLIENT_SECRET="your-oidc-client-secret"
+export OIDC_SCOPES="openid,profile,email,groups"
 export OIDC_ALLOWED_USERS="user1@example.com,user2@example.com"
 export OIDC_ALLOWED_USERS_GLOB="*@example.com"
+export OIDC_ALLOWED_ATTRIBUTES="/groups=admin,/department=engineering"
+export OIDC_ALLOWED_ATTRIBUTES_GLOB="/groups=*-admins"
 
 ./mcp-auth-proxy --external-url https://{your-domain} --tls-accept-tos -- your-mcp-command
 ```
