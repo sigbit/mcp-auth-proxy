@@ -46,6 +46,8 @@ func setupOIDCTest(allowedUsers []string, userIDField string) (Provider, gin.IRo
 		TestOIDCClientSecret,
 		allowedUsers,
 		[]string{},
+		nil,
+		nil,
 	)
 	if err != nil {
 		panic(err)
@@ -184,6 +186,8 @@ func TestOIDCProviderErrors(t *testing.T) {
 			TestOIDCClientSecret,
 			[]string{},
 			[]string{},
+			nil,
+			nil,
 		)
 		require.Error(t, err)
 	})
@@ -206,6 +210,8 @@ func TestOIDCProviderErrors(t *testing.T) {
 			TestOIDCClientSecret,
 			[]string{},
 			[]string{},
+			nil,
+			nil,
 		)
 		require.Error(t, err)
 	})
@@ -274,6 +280,8 @@ func TestOIDCProviderGlobPatterns(t *testing.T) {
 		TestOIDCClientSecret,
 		[]string{}, // no exact matches
 		[]string{"*@example.com", "admin.*@company.*"},
+		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -312,6 +320,138 @@ func TestOIDCProviderGlobPatterns(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.email, userID)
 			require.Equal(t, tc.expected, authorized, "Expected %v for email %s", tc.expected, tc.email)
+		})
+	}
+}
+
+func TestOIDCProviderAttributeMatching(t *testing.T) {
+	// Setup test server with OIDC configuration
+	configServer := gin.New()
+	configServer.GET("/.well-known/openid_configuration", func(c *gin.Context) {
+		c.JSON(200, map[string]interface{}{
+			"authorization_endpoint": "http://localhost/auth",
+			"token_endpoint":         "http://localhost/token",
+			"userinfo_endpoint":      "http://localhost/userinfo",
+		})
+	})
+	tsConfig := httptest.NewServer(configServer)
+	defer tsConfig.Close()
+
+	testCases := []struct {
+		name                  string
+		allowedAttributes     map[string][]string
+		allowedAttributesGlob map[string][]string
+		userInfo              map[string]interface{}
+		expected              bool
+	}{
+		{
+			name:              "allow all when no restrictions",
+			allowedAttributes: nil,
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com"},
+			expected:          true,
+		},
+		{
+			name:              "exact match on string attribute",
+			allowedAttributes: map[string][]string{"/department": {"engineering"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "engineering"},
+			expected:          true,
+		},
+		{
+			name:              "no match on string attribute",
+			allowedAttributes: map[string][]string{"/department": {"engineering"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "marketing"},
+			expected:          false,
+		},
+		{
+			name:              "match on array attribute",
+			allowedAttributes: map[string][]string{"/groups": {"admin"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "admin"}},
+			expected:          true,
+		},
+		{
+			name:              "no match on array attribute",
+			allowedAttributes: map[string][]string{"/groups": {"admin"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "developers"}},
+			expected:          false,
+		},
+		{
+			name:              "multiple allowed values - match",
+			allowedAttributes: map[string][]string{"/role": {"admin", "moderator"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "role": "moderator"},
+			expected:          true,
+		},
+		{
+			name:              "nested attribute match",
+			allowedAttributes: map[string][]string{"/org/team": {"platform"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "org": map[string]interface{}{"team": "platform"}},
+			expected:          true,
+		},
+		{
+			name:                  "glob pattern match on string",
+			allowedAttributesGlob: map[string][]string{"/department": {"eng*"}},
+			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "engineering"},
+			expected:              true,
+		},
+		{
+			name:                  "glob pattern no match on string",
+			allowedAttributesGlob: map[string][]string{"/department": {"eng*"}},
+			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "marketing"},
+			expected:              false,
+		},
+		{
+			name:                  "glob pattern match on array",
+			allowedAttributesGlob: map[string][]string{"/groups": {"*-admins"}},
+			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "platform-admins"}},
+			expected:              true,
+		},
+		{
+			name:                  "glob pattern no match on array",
+			allowedAttributesGlob: map[string][]string{"/groups": {"*-admins"}},
+			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "developers"}},
+			expected:              false,
+		},
+		{
+			name:              "missing attribute - no match",
+			allowedAttributes: map[string][]string{"/department": {"engineering"}},
+			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com"},
+			expected:          false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create provider with attribute restrictions
+			p, err := NewOIDCProvider(
+				tsConfig.URL+"/.well-known/openid_configuration",
+				[]string{"openid", "profile"},
+				"/sub",
+				"TestOIDC",
+				TestOIDCExternalURL,
+				TestOIDCClientID,
+				TestOIDCClientSecret,
+				[]string{}, // no user restrictions
+				[]string{}, // no user glob restrictions
+				tc.allowedAttributes,
+				tc.allowedAttributesGlob,
+			)
+			require.NoError(t, err)
+
+			// Mock userinfo endpoint
+			userServer := gin.New()
+			userServer.GET("/userinfo", func(c *gin.Context) {
+				c.JSON(200, tc.userInfo)
+			})
+			tsUser := httptest.NewServer(userServer)
+			defer tsUser.Close()
+
+			// Update provider's userinfo URL for this test
+			provider := p.(*oidcProvider)
+			provider.userInfoURL = tsUser.URL + "/userinfo"
+
+			// Test authorization
+			authorized, _, err := provider.Authorization(context.Background(), &oauth2.Token{AccessToken: "test"})
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, authorized, "Expected %v for test case %s", tc.expected, tc.name)
 		})
 	}
 }

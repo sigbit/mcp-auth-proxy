@@ -45,8 +45,11 @@ services:
       - OIDC_CONFIGURATION_URL=https://your-oidc-provider/.well-known/openid_configuration
       - OIDC_CLIENT_ID=your-oidc-client-id
       - OIDC_CLIENT_SECRET=your-oidc-client-secret
+      - OIDC_SCOPES=openid,profile,email,groups
       - OIDC_ALLOWED_USERS=specific@user.com
       - OIDC_ALLOWED_USERS_GLOB=*@example.com
+      - OIDC_ALLOWED_ATTRIBUTES=/groups=admin,/department=engineering
+      - OIDC_ALLOWED_ATTRIBUTES_GLOB=/groups=*-admins
       - TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     volumes:
       - ./data:/data
