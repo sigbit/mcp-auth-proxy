@@ -86,14 +86,17 @@ spec:
                 secretKeyRef:
                   name: mcp-auth-proxy-secrets
                   key: password
-          volumeMounts:
-            - name: data
-              mountPath: /data
+            - name: AUTH_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-proxy-keys
+                  key: auth-hmac-secret
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-proxy-keys
+                  key: jwt-private-key
           args: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "./"]
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: mcp-auth-proxy-data
 ---
 apiVersion: v1
 kind: Service
@@ -165,9 +168,16 @@ spec:
                 secretKeyRef:
                   name: mcp-auth-proxy-secrets
                   key: password
-          volumeMounts:
-            - name: data
-              mountPath: /data
+            - name: AUTH_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-proxy-keys
+                  key: auth-hmac-secret
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-proxy-keys
+                  key: jwt-private-key
 
         # Your MCP server
         - name: mcp-server
@@ -176,8 +186,4 @@ spec:
             - containerPort: 8000
           # Your MCP server configuration here
           # ...
-
-      volumes:
-        - name: data
-          emptyDir: {}
 ```

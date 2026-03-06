@@ -2,6 +2,7 @@ package mcpproxy
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -99,9 +100,21 @@ func Run(
 		return fmt.Errorf("tlsHost requires automatic TLS; remove noAutoTLS or provide certificate files instead")
 	}
 
-	secret, err := utils.LoadOrGenerateSecret(path.Join(dataPath, "secret"))
-	if err != nil {
-		return fmt.Errorf("failed to load or generate secret: %w", err)
+	if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create data directory: %w", err)
+	}
+
+	var secret []byte
+	if envSecret := os.Getenv("AUTH_HMAC_SECRET"); envSecret != "" {
+		secret, err = utils.SecretFromBase64(envSecret)
+		if err != nil {
+			return fmt.Errorf("failed to parse AUTH_HMAC_SECRET environment variable: %w", err)
+		}
+	} else {
+		secret, err = utils.LoadOrGenerateSecret(path.Join(dataPath, "secret"))
+		if err != nil {
+			return fmt.Errorf("failed to load or generate secret: %w", err)
+		}
 	}
 
 	var config zap.Config
@@ -115,9 +128,6 @@ func Run(
 	logger, err := config.Build()
 	if err != nil {
 		return fmt.Errorf("failed to build logger: %w", err)
-	}
-	if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create database directory: %w", err)
 	}
 
 	if len(proxyTarget) == 0 {
@@ -201,9 +211,17 @@ func Run(
 		}
 	}()
 
-	privKey, err := utils.LoadOrGeneratePrivateKey(path.Join(dataPath, "private_key.pem"))
-	if err != nil {
-		return fmt.Errorf("failed to load or generate private key: %w", err)
+	var privKey *rsa.PrivateKey
+	if envKey := os.Getenv("JWT_PRIVATE_KEY"); envKey != "" {
+		privKey, err = utils.PrivateKeyFromPEM(envKey)
+		if err != nil {
+			return fmt.Errorf("failed to parse JWT_PRIVATE_KEY environment variable: %w", err)
+		}
+	} else {
+		privKey, err = utils.LoadOrGeneratePrivateKey(path.Join(dataPath, "private_key.pem"))
+		if err != nil {
+			return fmt.Errorf("failed to load or generate private key: %w", err)
+		}
 	}
 	var providers []auth.Provider
 
