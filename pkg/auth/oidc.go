@@ -15,13 +15,13 @@ import (
 )
 
 type oidcProvider struct {
-	oauth2               oauth2.Config
-	providerName         string
-	userInfoURL          string
-	userIDField          string
-	allowedUsers         []string
-	allowedUsersGlob     []glob.Glob
-	allowedAttributes    map[string][]string
+	oauth2                oauth2.Config
+	providerName          string
+	userInfoURL           string
+	userIDField           string
+	allowedUsers          []string
+	allowedUsersGlob      []glob.Glob
+	allowedAttributes     map[string][]string
 	allowedAttributesGlob map[string][]glob.Glob
 }
 
