@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.4...v2.6.0) (2026-03-10)
+
+
+### Features
+
+* support injecting cryptographic keys via env vars ([#119](https://github.com/sigbit/mcp-auth-proxy/issues/119)) ([ec9e857](https://github.com/sigbit/mcp-auth-proxy/commit/ec9e857c821e5b7cd1538f473427a366eefbc01f))
+
 ## [2.5.4](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.3...v2.5.4) (2026-03-03)
 
 
