@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -81,4 +82,31 @@ func LoadPrivateKey(keyPath string) (*rsa.PrivateKey, error) {
 	}
 
 	return privateKey.(*rsa.PrivateKey), nil
+}
+
+func SecretFromBase64(encoded string) ([]byte, error) {
+	secret, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64 secret: %w", err)
+	}
+	if len(secret) != SecretSize {
+		return nil, fmt.Errorf("decoded secret must be exactly %d bytes, got %d", SecretSize, len(secret))
+	}
+	return secret, nil
+}
+
+func PrivateKeyFromPEM(pemStr string) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block")
+	}
+	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	}
+	rsaKey, ok := privateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("private key is not RSA")
+	}
+	return rsaKey, nil
 }
