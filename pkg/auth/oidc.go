@@ -15,17 +15,20 @@ import (
 )
 
 type oidcProvider struct {
-	oauth2           oauth2.Config
-	providerName     string
-	userInfoURL      string
-	userIDField      string
-	allowedUsers     []string
-	allowedUsersGlob []glob.Glob
+	oauth2                oauth2.Config
+	providerName          string
+	userInfoURL           string
+	userIDField           string
+	allowedUsers          []string
+	allowedUsersGlob      []glob.Glob
+	allowedAttributes     map[string][]string
+	allowedAttributesGlob map[string][]glob.Glob
 }
 
 func NewOIDCProvider(
 	configurationURL string, scopes []string, userIDField string,
 	providerName, externalURL, clientID, clientSecret string, allowedUsers []string, allowedUsersGlob []string,
+	allowedAttributes map[string][]string, allowedAttributesGlob map[string][]string,
 ) (Provider, error) {
 	resp, err := http.Get(configurationURL)
 	if err != nil {
@@ -57,6 +60,20 @@ func NewOIDCProvider(
 		}
 	}
 
+	// Compile attribute glob patterns
+	compiledAttributeGlobs := make(map[string][]glob.Glob)
+	for key, patterns := range allowedAttributesGlob {
+		for _, pattern := range patterns {
+			if pattern != "" {
+				g, err := glob.Compile(pattern)
+				if err != nil {
+					return nil, err
+				}
+				compiledAttributeGlobs[key] = append(compiledAttributeGlobs[key], g)
+			}
+		}
+	}
+
 	return &oidcProvider{
 		oauth2: oauth2.Config{
 			ClientID:     clientID,
@@ -68,11 +85,13 @@ func NewOIDCProvider(
 				TokenURL: cfg.TokenEndpoint,
 			},
 		},
-		providerName:     providerName,
-		userInfoURL:      cfg.UserInfo,
-		userIDField:      userIDField,
-		allowedUsers:     allowedUsers,
-		allowedUsersGlob: compiledGlobs,
+		providerName:          providerName,
+		userInfoURL:           cfg.UserInfo,
+		userIDField:           userIDField,
+		allowedUsers:          allowedUsers,
+		allowedUsersGlob:      compiledGlobs,
+		allowedAttributes:     allowedAttributes,
+		allowedAttributesGlob: compiledAttributeGlobs,
 	}, nil
 }
 
@@ -130,21 +149,85 @@ func (p *oidcProvider) Authorization(ctx context.Context, token *oauth2.Token) (
 	}
 
 	// If no restrictions are set, allow all users
-	if len(p.allowedUsers) == 0 && len(p.allowedUsersGlob) == 0 {
+	if len(p.allowedUsers) == 0 && len(p.allowedUsersGlob) == 0 && len(p.allowedAttributes) == 0 && len(p.allowedAttributesGlob) == 0 {
 		return true, userID, nil
 	}
 
-	// Check exact matches first
+	// Check exact user matches first
 	if slices.Contains(p.allowedUsers, userID) {
 		return true, userID, nil
 	}
 
-	// Check glob patterns
+	// Check user glob patterns
 	for _, g := range p.allowedUsersGlob {
 		if g.Match(userID) {
 			return true, userID, nil
 		}
 	}
 
+	// Check exact attribute matches
+	for key, allowedValues := range p.allowedAttributes {
+		attrValue, err := jsonpointer.Get(obj, key)
+		if err != nil {
+			continue // Attribute not found, skip
+		}
+		if matchAttributeValue(attrValue, allowedValues) {
+			return true, userID, nil
+		}
+	}
+
+	// Check attribute glob patterns
+	for key, globs := range p.allowedAttributesGlob {
+		attrValue, err := jsonpointer.Get(obj, key)
+		if err != nil {
+			continue // Attribute not found, skip
+		}
+		if matchAttributeGlob(attrValue, globs) {
+			return true, userID, nil
+		}
+	}
+
 	return false, userID, nil
+}
+
+// matchAttributeValue checks if an attribute value matches any of the allowed values.
+// Supports string values and arrays of strings.
+func matchAttributeValue(attrValue any, allowedValues []string) bool {
+	switch v := attrValue.(type) {
+	case string:
+		return slices.Contains(allowedValues, v)
+	case []any:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				if slices.Contains(allowedValues, s) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// matchAttributeGlob checks if an attribute value matches any of the glob patterns.
+// Supports string values and arrays of strings.
+func matchAttributeGlob(attrValue any, globs []glob.Glob) bool {
+	switch v := attrValue.(type) {
+	case string:
+		for _, g := range globs {
+			if g.Match(v) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				for _, g := range globs {
+					if g.Match(s) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

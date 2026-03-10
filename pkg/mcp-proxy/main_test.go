@@ -51,6 +51,8 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
+		nil,
 		false,
 		"",
 		"",

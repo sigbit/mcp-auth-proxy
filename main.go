@@ -64,6 +64,33 @@ func splitWithEscapes(s, delimiter string) []string {
 	return result
 }
 
+// parseAttributeMap parses a comma-separated string of key=value pairs into a map
+// where each key can have multiple values. Format: /key1=value1,/key1=value2,/key2=value3
+// Keys are JSON pointers to attributes in the userinfo response.
+func parseAttributeMap(s string) map[string][]string {
+	result := make(map[string][]string)
+	if s == "" {
+		return result
+	}
+	parts := splitWithEscapes(s, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		eqIdx := strings.Index(part, "=")
+		if eqIdx == -1 {
+			continue
+		}
+		key := strings.TrimSpace(part[:eqIdx])
+		value := strings.TrimSpace(part[eqIdx+1:])
+		if key != "" && value != "" {
+			result[key] = append(result[key], value)
+		}
+	}
+	return result
+}
+
 type proxyRunnerFunc func(
 	listen string,
 	tlsListen string,
@@ -93,6 +120,8 @@ type proxyRunnerFunc func(
 	oidcProviderName string,
 	oidcAllowedUsers []string,
 	oidcAllowedUsersGlob []string,
+	oidcAllowedAttributes map[string][]string,
+	oidcAllowedAttributesGlob map[string][]string,
 	noProviderAutoSelect bool,
 	password string,
 	passwordHash string,
@@ -138,6 +167,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var oidcProviderName string
 	var oidcAllowedUsers string
 	var oidcAllowedUsersGlob string
+	var oidcAllowedAttributes string
+	var oidcAllowedAttributesGlob string
 	var noProviderAutoSelect bool
 	var password string
 	var passwordHash string
@@ -193,6 +224,9 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 			if oidcAllowedUsersGlob != "" {
 				oidcAllowedUsersGlobList = splitWithEscapes(oidcAllowedUsersGlob, ",")
 			}
+
+			oidcAllowedAttributesMap := parseAttributeMap(oidcAllowedAttributes)
+			oidcAllowedAttributesGlobMap := parseAttributeMap(oidcAllowedAttributesGlob)
 
 			var oidcScopesList []string
 			if oidcScopes != "" {
@@ -250,6 +284,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				oidcProviderName,
 				oidcAllowedUsersList,
 				oidcAllowedUsersGlobList,
+				oidcAllowedAttributesMap,
+				oidcAllowedAttributesGlobMap,
 				noProviderAutoSelect,
 				password,
 				passwordHash,
@@ -298,6 +334,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&oidcProviderName, "oidc-provider-name", getEnvWithDefault("OIDC_PROVIDER_NAME", "OIDC"), "Display name for OIDC provider")
 	rootCmd.Flags().StringVar(&oidcAllowedUsers, "oidc-allowed-users", getEnvWithDefault("OIDC_ALLOWED_USERS", ""), "Comma-separated list of allowed OIDC users")
 	rootCmd.Flags().StringVar(&oidcAllowedUsersGlob, "oidc-allowed-users-glob", getEnvWithDefault("OIDC_ALLOWED_USERS_GLOB", ""), "Comma-separated list of glob patterns for allowed OIDC users")
+	rootCmd.Flags().StringVar(&oidcAllowedAttributes, "oidc-allowed-attributes", getEnvWithDefault("OIDC_ALLOWED_ATTRIBUTES", ""), "Comma-separated list of allowed attribute key=value pairs (e.g., /groups=admin,/roles=editor). Keys are JSON pointers.")
+	rootCmd.Flags().StringVar(&oidcAllowedAttributesGlob, "oidc-allowed-attributes-glob", getEnvWithDefault("OIDC_ALLOWED_ATTRIBUTES_GLOB", ""), "Comma-separated list of attribute key=pattern pairs for glob matching (e.g., /groups=*-admins,/email=*@example.com). Keys are JSON pointers.")
 
 	// Password authentication
 	rootCmd.Flags().BoolVar(&noProviderAutoSelect, "no-provider-auto-select", getEnvBoolWithDefault("NO_PROVIDER_AUTO_SELECT", false), "Disable auto-redirect when only one OAuth/OIDC provider is configured and no password is set")
