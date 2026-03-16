@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.4...v2.6.0) (2026-03-16)
+
+
+### Features
+
+* Add OIDC Attribute-Based Authorization ([#120](https://github.com/sigbit/mcp-auth-proxy/issues/120)) ([51b6e85](https://github.com/sigbit/mcp-auth-proxy/commit/51b6e85ff100a621e28720822908781b2561452d))
+* support injecting cryptographic keys via env vars ([#119](https://github.com/sigbit/mcp-auth-proxy/issues/119)) ([ec9e857](https://github.com/sigbit/mcp-auth-proxy/commit/ec9e857c821e5b7cd1538f473427a366eefbc01f))
+
+
+### Bug Fixes
+
+* fix prettier formatting in oauth-setup.md ([#124](https://github.com/sigbit/mcp-auth-proxy/issues/124)) ([ef5731d](https://github.com/sigbit/mcp-auth-proxy/commit/ef5731dc8be1c2294b39f3eaabeb9f92df094689))
+* normalize external URL with trailing slash per RFC 3986 ([#125](https://github.com/sigbit/mcp-auth-proxy/issues/125)) ([e377aa9](https://github.com/sigbit/mcp-auth-proxy/commit/e377aa9ed27b14a8f5d557512b1b9ad521e3fe35))
+
 ## [2.5.4](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.3...v2.5.4) (2026-03-03)
 
 
