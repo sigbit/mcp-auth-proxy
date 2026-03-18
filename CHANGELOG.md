@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.6.0...v2.6.1) (2026-03-18)
+
+
+### Bug Fixes
+
+* generate server-side OAuth state when client omits it ([#126](https://github.com/sigbit/mcp-auth-proxy/issues/126)) ([940e91e](https://github.com/sigbit/mcp-auth-proxy/commit/940e91e5979e3441cb590f2d706661bd7fdccf99))
+
 ## [2.6.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.5.4...v2.6.0) (2026-03-16)
 
 
