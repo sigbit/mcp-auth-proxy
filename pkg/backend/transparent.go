@@ -125,6 +125,27 @@ func (p *TransparentBackend) Run(ctx context.Context) (http.Handler, error) {
 			base:       http.DefaultTransport,
 			targetHost: p.url.Host,
 		},
+		// FlushInterval -1 enables immediate flushing for SSE streams.
+		// Without this the proxy buffers the response, breaking
+		// Server-Sent Events used by MCP Streamable HTTP.
+		FlushInterval: -1,
+		// ErrorHandler prevents the default ReverseProxy behavior of
+		// panicking when the backend closes the connection (e.g. when
+		// an SSE stream ends or the client disconnects). Instead we
+		// log the error and return a 502 to the client.
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			p.logger.Warn("reverse proxy error",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+				zap.Error(err),
+			)
+			// Only write an error response if headers haven't been sent yet
+			// (i.e. the stream hasn't started). For in-flight SSE streams
+			// the ResponseWriter is already flushed, so just return.
+			if !isHeadersSent(w) {
+				http.Error(w, "Bad Gateway", http.StatusBadGateway)
+			}
+		},
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(p.url)
 			if p.isTrusted(pr.In.RemoteAddr) {
@@ -145,6 +166,17 @@ func (p *TransparentBackend) Run(ctx context.Context) (http.Handler, error) {
 		},
 	}
 	return &rp, nil
+}
+
+// isHeadersSent checks whether the ResponseWriter has already started sending
+// the response (status + headers). Once flushed we can no longer write an
+// error status, so callers should just close the connection instead.
+func isHeadersSent(w http.ResponseWriter) bool {
+	// A non-zero status in the header map means WriteHeader was called.
+	// The standard http.response tracks this internally; the only reliable
+	// external signal is whether Content-Type (or any header set by the
+	// backend) is already present in the response.
+	return w.Header().Get("Content-Type") != ""
 }
 
 func (p *TransparentBackend) isTrusted(hostport string) bool {
