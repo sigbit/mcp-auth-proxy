@@ -87,6 +87,22 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 		}
 	}
 
+	// Recover from http.ErrAbortHandler panics that occur when SSE
+	// streams end (backend closes connection, client disconnects).
+	// The default ReverseProxy panics with ErrAbortHandler on flush
+	// errors — this is expected for SSE and should not crash the proxy.
+	defer func() {
+		if r := recover(); r != nil {
+			// http.ErrAbortHandler is the sentinel panic used by
+			// net/http to silently abort a handler. Let it go.
+			if r == http.ErrAbortHandler {
+				return
+			}
+			// Re-panic for anything unexpected
+			panic(r)
+		}
+	}()
+
 	p.proxy.ServeHTTP(c.Writer, c.Request)
 }
 
