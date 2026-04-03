@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.7.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.6.1...v2.7.0) (2026-04-03)
+
+
+### Features
+
+* add unauthenticated /healthz endpoint for health checks ([#131](https://github.com/sigbit/mcp-auth-proxy/issues/131)) ([9803d0f](https://github.com/sigbit/mcp-auth-proxy/commit/9803d0fb3bc3e7c1bb915a01ce99495e02a27c53))
+
+
+### Bug Fixes
+
+* prevent panic on SSE reverse proxy when backend closes connection ([#128](https://github.com/sigbit/mcp-auth-proxy/issues/128)) ([76d1ac5](https://github.com/sigbit/mcp-auth-proxy/commit/76d1ac516899a763f75c8e015c3bfc08cb5a36b2))
+* set JWT audience claim to external URL for RFC 8707 compliance ([#133](https://github.com/sigbit/mcp-auth-proxy/issues/133)) ([351305a](https://github.com/sigbit/mcp-auth-proxy/commit/351305a8bb6a34f3ce8f4b5444c7834c469e364c)), closes [#129](https://github.com/sigbit/mcp-auth-proxy/issues/129)
+
 ## [2.6.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.6.0...v2.6.1) (2026-03-18)
 
 
