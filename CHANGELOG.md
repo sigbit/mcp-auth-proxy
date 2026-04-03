@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.7.0...v2.8.0) (2026-04-03)
+
+
+### Features
+
+* forward authenticated user identity to upstream via headers ([#135](https://github.com/sigbit/mcp-auth-proxy/issues/135)) ([e847ed5](https://github.com/sigbit/mcp-auth-proxy/commit/e847ed5eec7b63110f1559b32356b67f5e3e1888)), closes [#130](https://github.com/sigbit/mcp-auth-proxy/issues/130)
+
 ## [2.7.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.6.1...v2.7.0) (2026-04-03)
 
 
