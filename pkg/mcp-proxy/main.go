@@ -76,6 +76,7 @@ func Run(
 	proxyBearerToken string,
 	proxyTarget []string,
 	httpStreamingOnly bool,
+	passUserHeaders bool,
 ) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -292,7 +293,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly)
+	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, passUserHeaders)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}

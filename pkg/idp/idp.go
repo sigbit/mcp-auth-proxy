@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
@@ -158,7 +159,14 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
-	jwtSession, err := NewJWTSessionWithKey(a.externalURL, "user", a.privKey)
+
+	subject := "user"
+	session := sessions.Default(c)
+	if userID, ok := session.Get(auth.SessionKeyUserID).(string); ok && userID != "" {
+		subject = userID
+	}
+
+	jwtSession, err := NewJWTSessionWithKey(a.externalURL, subject, a.privKey)
 	if err != nil {
 		a.logger.With(utils.Err(err)...).Error("Failed to create JWT session", zap.Error(err))
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, err)
@@ -190,6 +198,13 @@ func (a *IDPRouter) handleToken(c *gin.Context) {
 		a.logger.With(utils.Err(err)...).Error("Failed to create access request", zap.String("grant_type", c.PostForm("grant_type")))
 		a.provider.WriteAccessError(ctx, c.Writer, accessRequest, err)
 		return
+	}
+
+	// Propagate stored subject from DefaultSession to JWTClaims for JWT generation.
+	// The repository restores Subject into DefaultSession, but JWTClaims.Subject
+	// (used by fosite's JWT strategy) must be set separately.
+	if sub := session.GetSubject(); sub != "" && session.JWTClaims.Subject == "" {
+		session.JWTClaims.Subject = sub
 	}
 
 	response, err := a.provider.NewAccessResponse(ctx, accessRequest)

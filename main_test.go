@@ -344,6 +344,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		proxyBearerToken string,
 		proxyTarget []string,
 		httpStreamingOnly bool,
+		passUserHeaders bool,
 	) error {
 		streamingOnly = httpStreamingOnly
 		receivedTargets = proxyTarget
@@ -407,6 +408,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		proxyBearerToken string,
 		proxyTarget []string,
 		httpStreamingOnly bool,
+		passUserHeaders bool,
 	) error {
 		streamingOnly = httpStreamingOnly
 		return nil
@@ -421,5 +423,125 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 
 	if !streamingOnly {
 		t.Fatalf("expected httpStreamingOnly to default to true from env var")
+	}
+}
+
+func TestNewRootCommand_PassUserHeadersFlag(t *testing.T) {
+	t.Setenv("PASS_USER_HEADERS", "")
+
+	var passUserHeaders bool
+	runner := proxyRunnerFunc(func(listen string,
+		tlsListen string,
+		autoTLS bool,
+		tlsHost string,
+		tlsDirectoryURL string,
+		tlsAcceptTOS bool,
+		tlsCertFile string,
+		tlsKeyFile string,
+		dataPath string,
+		repositoryBackend string,
+		repositoryDSN string,
+		externalURL string,
+		googleClientID string,
+		googleClientSecret string,
+		googleAllowedUsers []string,
+		googleAllowedWorkspaces []string,
+		githubClientID string,
+		githubClientSecret string,
+		githubAllowedUsers []string,
+		githubAllowedOrgs []string,
+		oidcConfigurationURL string,
+		oidcClientID string,
+		oidcClientSecret string,
+		oidcScopes []string,
+		oidcUserIDField string,
+		oidcProviderName string,
+		oidcAllowedUsers []string,
+		oidcAllowedUsersGlob []string,
+		oidcAllowedAttributes map[string][]string,
+		oidcAllowedAttributesGlob map[string][]string,
+		noProviderAutoSelect bool,
+		password string,
+		passwordHash string,
+		trustedProxy []string,
+		proxyHeaders []string,
+		proxyBearerToken string,
+		proxyTarget []string,
+		httpStreamingOnly bool,
+		puh bool,
+	) error {
+		passUserHeaders = puh
+		return nil
+	})
+
+	cmd := newRootCommand(runner)
+	cmd.SetArgs([]string{"--pass-user-headers", "http://backend"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected command to succeed, got error: %v", err)
+	}
+
+	if !passUserHeaders {
+		t.Fatalf("expected passUserHeaders to be true when flag is set")
+	}
+}
+
+func TestNewRootCommand_PassUserHeadersFromEnv(t *testing.T) {
+	t.Setenv("PASS_USER_HEADERS", "true")
+
+	var passUserHeaders bool
+	runner := proxyRunnerFunc(func(listen string,
+		tlsListen string,
+		autoTLS bool,
+		tlsHost string,
+		tlsDirectoryURL string,
+		tlsAcceptTOS bool,
+		tlsCertFile string,
+		tlsKeyFile string,
+		dataPath string,
+		repositoryBackend string,
+		repositoryDSN string,
+		externalURL string,
+		googleClientID string,
+		googleClientSecret string,
+		googleAllowedUsers []string,
+		googleAllowedWorkspaces []string,
+		githubClientID string,
+		githubClientSecret string,
+		githubAllowedUsers []string,
+		githubAllowedOrgs []string,
+		oidcConfigurationURL string,
+		oidcClientID string,
+		oidcClientSecret string,
+		oidcScopes []string,
+		oidcUserIDField string,
+		oidcProviderName string,
+		oidcAllowedUsers []string,
+		oidcAllowedUsersGlob []string,
+		oidcAllowedAttributes map[string][]string,
+		oidcAllowedAttributesGlob map[string][]string,
+		noProviderAutoSelect bool,
+		password string,
+		passwordHash string,
+		trustedProxy []string,
+		proxyHeaders []string,
+		proxyBearerToken string,
+		proxyTarget []string,
+		httpStreamingOnly bool,
+		puh bool,
+	) error {
+		passUserHeaders = puh
+		return nil
+	})
+
+	cmd := newRootCommand(runner)
+	cmd.SetArgs([]string{"http://backend"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected command to succeed, got error: %v", err)
+	}
+
+	if !passUserHeaders {
+		t.Fatalf("expected passUserHeaders to default to true from env var")
 	}
 }

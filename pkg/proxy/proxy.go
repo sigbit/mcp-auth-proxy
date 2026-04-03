@@ -16,6 +16,7 @@ type ProxyRouter struct {
 	publicKey         *rsa.PublicKey
 	proxyHeaders      http.Header
 	httpStreamingOnly bool
+	passUserHeaders   bool
 }
 
 func NewProxyRouter(
@@ -24,6 +25,7 @@ func NewProxyRouter(
 	publicKey *rsa.PublicKey,
 	proxyHeaders http.Header,
 	httpStreamingOnly bool,
+	passUserHeaders bool,
 ) (*ProxyRouter, error) {
 	return &ProxyRouter{
 		externalURL:       externalURL,
@@ -31,6 +33,7 @@ func NewProxyRouter(
 		publicKey:         publicKey,
 		proxyHeaders:      proxyHeaders,
 		httpStreamingOnly: httpStreamingOnly,
+		passUserHeaders:   passUserHeaders,
 	}, nil
 }
 
@@ -81,6 +84,15 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	}
 
 	c.Request.Header.Del("Authorization")
+
+	if p.passUserHeaders {
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			if sub, ok := claims["sub"].(string); ok && sub != "" {
+				c.Request.Header.Set("X-Forwarded-User", sub)
+			}
+		}
+	}
+
 	for key, values := range p.proxyHeaders {
 		for _, value := range values {
 			c.Request.Header.Add(key, value)

@@ -130,6 +130,7 @@ type proxyRunnerFunc func(
 	proxyBearerToken string,
 	proxyTarget []string,
 	httpStreamingOnly bool,
+	passUserHeaders bool,
 ) error
 
 func main() {
@@ -175,6 +176,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var proxyBearerToken string
 	var proxyHeaders string
 	var httpStreamingOnly bool
+	var passUserHeaders bool
 	var trustedProxies string
 
 	rootCmd := &cobra.Command{
@@ -294,6 +296,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				proxyBearerToken,
 				args,
 				httpStreamingOnly,
+				passUserHeaders,
 			); err != nil {
 				panic(err)
 			}
@@ -347,6 +350,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&trustedProxies, "trusted-proxies", getEnvWithDefault("TRUSTED_PROXIES", ""), "Comma-separated list of trusted proxies (IP addresses or CIDR ranges)")
 	rootCmd.Flags().StringVar(&proxyHeaders, "proxy-headers", getEnvWithDefault("PROXY_HEADERS", ""), "Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2)")
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")
+	rootCmd.Flags().BoolVar(&passUserHeaders, "pass-user-headers", getEnvBoolWithDefault("PASS_USER_HEADERS", false), "Forward authenticated user identity as X-Forwarded-User header to upstream")
 
 	return rootCmd
 }

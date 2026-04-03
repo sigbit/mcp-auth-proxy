@@ -19,6 +19,20 @@ type kvsRepository struct {
 
 var RefreshTokenGracePeriod = 1 * time.Hour
 
+// restoreSessionSubject sets the subject on a fosite session from stored data.
+// fosite.Session doesn't expose SetSubject, so we use an interface assertion.
+func restoreSessionSubject(sess fosite.Session, subject string) {
+	if subject == "" {
+		return
+	}
+	type subjectSetter interface {
+		SetSubject(string)
+	}
+	if setter, ok := sess.(subjectSetter); ok {
+		setter.SetSubject(subject)
+	}
+}
+
 func NewKVSRepository(path string, bucketName string) (Repository, error) {
 	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
@@ -89,6 +103,7 @@ func (r *kvsRepository) GetAuthorizeCodeSession(ctx context.Context, code string
 		return nil, err
 	}
 	fositeReq := req.ToFositeReq()
+	restoreSessionSubject(sess, req.SessionSubject)
 	fositeReq.SetSession(sess)
 	return fositeReq, nil
 }
@@ -107,6 +122,7 @@ func (r *kvsRepository) GetAccessTokenSession(ctx context.Context, signature str
 		return nil, err
 	}
 	fositeReq := req.ToFositeReq()
+	restoreSessionSubject(sess, req.SessionSubject)
 	fositeReq.SetSession(sess)
 	return fositeReq, nil
 }
@@ -125,6 +141,7 @@ func (r *kvsRepository) GetRefreshTokenSession(ctx context.Context, signature st
 		return nil, err
 	}
 	fositeReq := req.ToFositeReq()
+	restoreSessionSubject(sess, req.SessionSubject)
 	fositeReq.SetSession(sess)
 	return fositeReq, nil
 }
@@ -200,6 +217,7 @@ func (r *kvsRepository) GetPKCERequestSession(ctx context.Context, signature str
 		return nil, err
 	}
 	fositeReq := req.ToFositeReq()
+	restoreSessionSubject(sess, req.SessionSubject)
 	fositeReq.SetSession(sess)
 	return fositeReq, nil
 }

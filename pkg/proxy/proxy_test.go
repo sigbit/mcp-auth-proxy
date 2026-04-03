@@ -70,7 +70,7 @@ func TestProxyRouter_HandleProxy_ValidToken(t *testing.T) {
 	proxyHeaders := make(http.Header)
 	proxyHeaders.Set("X-Forwarded-By", "mcp-auth-proxy")
 
-	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, proxyHeaders, false)
+	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, proxyHeaders, false, false)
 	require.NoError(t, err)
 
 	gin.SetMode(gin.TestMode)
@@ -108,7 +108,7 @@ func TestProxyRouter_ProtectedResourceTrailingSlash(t *testing.T) {
 	_, publicKey, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	proxyRouter, err := NewProxyRouter("https://example.com/", http.NotFoundHandler(), publicKey, http.Header{}, false)
+	proxyRouter, err := NewProxyRouter("https://example.com/", http.NotFoundHandler(), publicKey, http.Header{}, false, false)
 	require.NoError(t, err)
 
 	gin.SetMode(gin.TestMode)
@@ -212,7 +212,7 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, tt.streamingOnly)
+			proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, tt.streamingOnly, false)
 			require.NoError(t, err)
 
 			gin.SetMode(gin.TestMode)
@@ -236,6 +236,116 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 
 			assert.Equal(t, tt.wantStatus, w.Code)
 			assert.Equal(t, tt.expectBackend, backendCalled, "backend call mismatch")
+		})
+	}
+}
+
+func TestProxyRouter_PassUserHeaders_NoSubClaim(t *testing.T) {
+	privateKey, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+
+	var receivedHeader string
+	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeader = r.Header.Get("X-Forwarded-User")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	proxyRouter, err := NewProxyRouter(
+		"https://example.com", proxyHandler, publicKey,
+		http.Header{}, false, true,
+	)
+	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	proxyRouter.SetupRoutes(router)
+
+	// JWT with no "sub" claim
+	token, err := createJWT(privateKey, jwt.MapClaims{
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"iat": time.Now().Unix(),
+	})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("POST", "/mcp", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, receivedHeader, "X-Forwarded-User should not be set when JWT has no sub claim")
+}
+
+func TestProxyRouter_PassUserHeaders(t *testing.T) {
+	privateKey, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+
+	cases := []struct {
+		name            string
+		passUserHeaders bool
+		jwtSubject      string
+		wantHeader      string
+	}{
+		{
+			name:            "enabled with subject",
+			passUserHeaders: true,
+			jwtSubject:      "jane@example.com",
+			wantHeader:      "jane@example.com",
+		},
+		{
+			name:            "disabled with subject",
+			passUserHeaders: false,
+			jwtSubject:      "jane@example.com",
+			wantHeader:      "",
+		},
+		{
+			name:            "enabled with legacy user subject",
+			passUserHeaders: true,
+			jwtSubject:      "user",
+			wantHeader:      "user",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var receivedHeader string
+			proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				receivedHeader = r.Header.Get("X-Forwarded-User")
+				w.WriteHeader(http.StatusOK)
+			})
+
+			proxyRouter, err := NewProxyRouter(
+				"https://example.com", proxyHandler, publicKey,
+				http.Header{}, false, tt.passUserHeaders,
+			)
+			require.NoError(t, err)
+
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			proxyRouter.SetupRoutes(router)
+
+			token, err := createJWT(privateKey, jwt.MapClaims{
+				"sub": tt.jwtSubject,
+				"exp": time.Now().Add(time.Hour).Unix(),
+				"iat": time.Now().Unix(),
+			})
+			require.NoError(t, err)
+
+			req, err := http.NewRequest("POST", "/mcp", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+token)
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code)
+			if tt.wantHeader != "" {
+				assert.Equal(t, tt.wantHeader, receivedHeader)
+			} else {
+				assert.Empty(t, receivedHeader)
+			}
 		})
 	}
 }

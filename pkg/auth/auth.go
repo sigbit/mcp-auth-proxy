@@ -66,6 +66,7 @@ const (
 	PasswordUserID   = "password_user"
 
 	SessionKeyAuthorized  = "authorized"
+	SessionKeyUserID      = "user_id"
 	SessionKeyRedirectURL = "redirect_url"
 	SessionKeyOAuthState  = "oauth_state"
 )
@@ -97,6 +98,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				return
 			}
 			session.Set(SessionKeyAuthorized, true)
+			session.Set(SessionKeyUserID, user)
 			redirectURL := session.Get(SessionKeyRedirectURL)
 			if redirectURL != nil {
 				session.Delete(SessionKeyRedirectURL)
@@ -177,6 +179,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 
 	session := sessions.Default(c)
 	session.Set(SessionKeyAuthorized, true)
+	session.Set(SessionKeyUserID, PasswordUserID)
 	redirectURL := session.Get(SessionKeyRedirectURL)
 	if redirectURL != nil {
 		session.Delete(SessionKeyRedirectURL)

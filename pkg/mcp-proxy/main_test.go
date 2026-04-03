@@ -31,7 +31,7 @@ func TestRun_NormalizesExternalURLTrailingSlash(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var receivedURL string
-			newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool) (*proxy.ProxyRouter, error) {
+			newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, passUserHeaders bool) (*proxy.ProxyRouter, error) {
 				receivedURL = externalURL
 				return nil, errors.New("stop early")
 			}
@@ -45,6 +45,7 @@ func TestRun_NormalizesExternalURLTrailingSlash(t *testing.T) {
 				"", "", "", nil, "", "", nil, nil, nil, nil,
 				false, "", "", nil, nil, "",
 				[]string{"http://example.com"}, false,
+				false,
 			)
 
 			if tt.wantErr {
@@ -67,7 +68,7 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 	})
 
 	var streamingOnlyReceived bool
-	newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool) (*proxy.ProxyRouter, error) {
+	newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, passUserHeaders bool) (*proxy.ProxyRouter, error) {
 		streamingOnlyReceived = httpStreamingOnly
 		return nil, errors.New("proxy router init failed")
 	}
@@ -111,9 +112,69 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 		"",
 		[]string{"http://example.com"},
 		true,
+		false,
 	)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to create proxy router")
 	require.True(t, streamingOnlyReceived, "httpStreamingOnly should be forwarded to proxy router")
+}
+
+func TestRun_PassesPassUserHeadersToProxyRouter(t *testing.T) {
+	originalNewProxyRouter := newProxyRouter
+	t.Cleanup(func() {
+		newProxyRouter = originalNewProxyRouter
+	})
+
+	var passUserHeadersReceived bool
+	newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, passUserHeaders bool) (*proxy.ProxyRouter, error) {
+		passUserHeadersReceived = passUserHeaders
+		return nil, errors.New("proxy router init failed")
+	}
+
+	err := Run(
+		":0",
+		":0",
+		false,
+		"",
+		"",
+		false,
+		"",
+		"",
+		t.TempDir(),
+		"local",
+		"",
+		"http://localhost",
+		"",
+		"",
+		nil,
+		nil,
+		"",
+		"",
+		nil,
+		nil,
+		"",
+		"",
+		"",
+		nil,
+		"",
+		"",
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		"",
+		"",
+		nil,
+		nil,
+		"",
+		[]string{"http://example.com"},
+		false,
+		true,
+	)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create proxy router")
+	require.True(t, passUserHeadersReceived, "passUserHeaders should be forwarded to proxy router")
 }

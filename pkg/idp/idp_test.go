@@ -19,6 +19,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/sigbit/mcp-auth-proxy/pkg/auth"
 	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
 	"github.com/stretchr/testify/require"
@@ -377,6 +378,162 @@ func TestAuthWithoutState(t *testing.T) {
 	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResult)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenResult["access_token"])
+}
+
+func setupTestServerWithUserID(t *testing.T, userID string) (*httptest.Server, repository.Repository, string) {
+	tmpDir, err := os.MkdirTemp("", "idp_test_*")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := repository.NewKVSRepository(dbPath, "test")
+	require.NoError(t, err)
+	t.Cleanup(func() { repo.Close() })
+
+	secret := sha256.Sum256([]byte("test_secret"))
+
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	store := cookie.NewStore(secret[:])
+	router.Use(sessions.Sessions("test_session", store))
+
+	// Mock auth middleware that sets both authorized and user_id
+	router.Use(func(c *gin.Context) {
+		session := sessions.Default(c)
+		session.Set(auth.SessionKeyAuthorized, true)
+		session.Set(auth.SessionKeyUserID, userID)
+		err := session.Save()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to save session"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	})
+
+	authRouter, err := auth.NewAuthRouter([]string{}, false)
+	require.NoError(t, err)
+
+	logger, _ := zap.NewDevelopment()
+	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter)
+	require.NoError(t, err)
+
+	idpRouter.SetupRoutes(router)
+
+	server := httptest.NewServer(router)
+	t.Cleanup(server.Close)
+
+	return server, repo, tmpDir
+}
+
+func TestPrivateClient_JWTContainsUserIdentity(t *testing.T) {
+	server, _, _ := setupTestServerWithUserID(t, "jane@example.com")
+	regResp := registerTestClient(t, server.URL)
+
+	config := &oauth2.Config{
+		ClientID:     regResp.ClientID,
+		ClientSecret: regResp.ClientSecret,
+		RedirectURL:  "http://localhost:8080/callback",
+		Scopes:       []string{},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  server.URL + AuthorizationEndpoint,
+			TokenURL: server.URL + TokenEndpoint,
+		},
+	}
+	state := "test-state"
+	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+
+	callbackURL := testAuthFlowWithURL(t, server.URL, authURL)
+
+	code := callbackURL.Query().Get("code")
+	tokenReq := url.Values{}
+	tokenReq.Set("grant_type", "authorization_code")
+	tokenReq.Set("code", code)
+	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
+	tokenReq.Set("client_id", regResp.ClientID)
+	tokenReq.Set("client_secret", regResp.ClientSecret)
+
+	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
+	require.NoError(t, err)
+	defer tokenResp.Body.Close()
+
+	require.Equal(t, http.StatusOK, tokenResp.StatusCode)
+
+	var tokenResult map[string]any
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResult)
+	require.NoError(t, err)
+
+	accessToken, ok := tokenResult["access_token"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, accessToken)
+
+	// Parse JWT without verification to inspect claims
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	parsed, _, err := parser.ParseUnverified(accessToken, jwt.MapClaims{})
+	require.NoError(t, err)
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	require.True(t, ok)
+
+	sub, ok := claims["sub"].(string)
+	require.True(t, ok, "JWT should have a 'sub' claim")
+	require.Equal(t, "jane@example.com", sub, "JWT subject should contain the authenticated user's identity")
+}
+
+func TestPrivateClient_JWTFallsBackToDefaultSubject(t *testing.T) {
+	// setupTestServer does NOT set SessionKeyUserID, so subject should fall back to "user"
+	server, _, _ := setupTestServer(t)
+	regResp := registerTestClient(t, server.URL)
+
+	config := &oauth2.Config{
+		ClientID:     regResp.ClientID,
+		ClientSecret: regResp.ClientSecret,
+		RedirectURL:  "http://localhost:8080/callback",
+		Scopes:       []string{},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  server.URL + AuthorizationEndpoint,
+			TokenURL: server.URL + TokenEndpoint,
+		},
+	}
+	authURL := config.AuthCodeURL("test-state", oauth2.AccessTypeOffline)
+
+	callbackURL := testAuthFlowWithURL(t, server.URL, authURL)
+
+	code := callbackURL.Query().Get("code")
+	tokenReq := url.Values{}
+	tokenReq.Set("grant_type", "authorization_code")
+	tokenReq.Set("code", code)
+	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
+	tokenReq.Set("client_id", regResp.ClientID)
+	tokenReq.Set("client_secret", regResp.ClientSecret)
+
+	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
+	require.NoError(t, err)
+	defer tokenResp.Body.Close()
+
+	require.Equal(t, http.StatusOK, tokenResp.StatusCode)
+
+	var tokenResult map[string]any
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResult)
+	require.NoError(t, err)
+
+	accessToken, ok := tokenResult["access_token"].(string)
+	require.True(t, ok)
+
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	parsed, _, err := parser.ParseUnverified(accessToken, jwt.MapClaims{})
+	require.NoError(t, err)
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	require.True(t, ok)
+
+	sub, ok := claims["sub"].(string)
+	require.True(t, ok)
+	require.Equal(t, "user", sub, "JWT subject should fall back to 'user' when no user_id in session")
 }
 
 func TestAuthWithEmptyState(t *testing.T) {
