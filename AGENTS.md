@@ -22,7 +22,7 @@
 - Language: Go 1.22+ modules (`go.mod`).
 - Formatting: `gofmt -s -w .` (CI checks formatting); `go fmt ./...` locally.
 - Packages: lower-case names; exported identifiers use PascalCase; files `*_test.go` for tests.
-- Imports: standard → third-party → local (`github.com/sigbit/mcp-auth-proxy/...`).
+- Imports: standard → third-party → local (`github.com/sigbit/mcp-auth-proxy/v2/...`).
 
 ## Testing Guidelines
 

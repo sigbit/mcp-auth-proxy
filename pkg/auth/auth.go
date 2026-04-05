@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 

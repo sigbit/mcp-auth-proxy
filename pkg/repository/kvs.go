@@ -8,7 +8,7 @@ import (
 	time "time"
 
 	"github.com/ory/fosite"
-	"github.com/sigbit/mcp-auth-proxy/pkg/models"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/models"
 	"go.etcd.io/bbolt"
 )
 

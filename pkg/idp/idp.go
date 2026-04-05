@@ -15,9 +15,9 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/token/jwt"
-	"github.com/sigbit/mcp-auth-proxy/pkg/auth"
-	"github.com/sigbit/mcp-auth-proxy/pkg/repository"
-	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/auth"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/repository"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/utils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )

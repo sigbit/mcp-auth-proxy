@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sigbit/mcp-auth-proxy/pkg/utils"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )

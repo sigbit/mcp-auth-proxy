@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sigbit/mcp-auth-proxy/pkg/proxy"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/proxy"
 	"github.com/stretchr/testify/require"
 )
 

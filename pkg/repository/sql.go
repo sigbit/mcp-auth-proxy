@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ory/fosite"
-	"github.com/sigbit/mcp-auth-proxy/pkg/models"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/models"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"

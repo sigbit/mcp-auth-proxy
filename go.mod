@@ -1,4 +1,4 @@
-module github.com/sigbit/mcp-auth-proxy
+module github.com/sigbit/mcp-auth-proxy/v2
 
 go 1.25
 

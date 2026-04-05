@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	mcpproxy "github.com/sigbit/mcp-auth-proxy/pkg/mcp-proxy"
+	mcpproxy "github.com/sigbit/mcp-auth-proxy/v2/pkg/mcp-proxy"
 	"github.com/spf13/cobra"
 )
 
