@@ -122,6 +122,40 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 	require.True(t, streamingOnlyReceived, "httpStreamingOnly should be forwarded to proxy router")
 }
 
+func TestUserInfoFieldsFromConfig(t *testing.T) {
+	t.Run("extracts fields from header mapping and user ID field", func(t *testing.T) {
+		fields := userInfoFieldsFromConfig("/email", map[string]string{
+			"/email":              "X-Forwarded-Email",
+			"/preferred_username": "X-Forwarded-User",
+		})
+		require.ElementsMatch(t, []string{"email", "preferred_username"}, fields)
+	})
+
+	t.Run("handles nested JSON pointers by taking top-level key", func(t *testing.T) {
+		fields := userInfoFieldsFromConfig("/email", map[string]string{
+			"/address/street": "X-Street",
+		})
+		require.ElementsMatch(t, []string{"email", "address"}, fields)
+	})
+
+	t.Run("deduplicates overlapping fields", func(t *testing.T) {
+		fields := userInfoFieldsFromConfig("/email", map[string]string{
+			"/email": "X-Forwarded-Email",
+		})
+		require.Equal(t, []string{"email"}, fields)
+	})
+
+	t.Run("empty config returns empty slice", func(t *testing.T) {
+		fields := userInfoFieldsFromConfig("", nil)
+		require.Empty(t, fields)
+	})
+
+	t.Run("handles user ID field without leading slash", func(t *testing.T) {
+		fields := userInfoFieldsFromConfig("email", nil)
+		require.Equal(t, []string{"email"}, fields)
+	})
+}
+
 func TestHealthzEndpoint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

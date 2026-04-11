@@ -285,7 +285,11 @@ func Run(
 		passwordHashes = append(passwordHashes, passwordHash)
 	}
 
-	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, providers...)
+	// Collect the top-level userinfo keys that are actually needed so the
+	// session cookie doesn't store the entire provider response.
+	userInfoFields := userInfoFieldsFromConfig(oidcUserIDField, headerMapping)
+
+	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, userInfoFields, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
@@ -528,4 +532,29 @@ func Run(
 	stop()
 	wg.Wait()
 	return errors.Join(errs...)
+}
+
+// userInfoFieldsFromConfig extracts the top-level userinfo keys referenced
+// by the OIDC user-ID field and the header mapping. JSON pointers like
+// "/email" or "/preferred_username" yield "email" or "preferred_username".
+func userInfoFieldsFromConfig(oidcUserIDField string, headerMapping map[string]string) []string {
+	seen := map[string]struct{}{}
+	add := func(pointer string) {
+		pointer = strings.TrimPrefix(pointer, "/")
+		if i := strings.IndexByte(pointer, '/'); i != -1 {
+			pointer = pointer[:i]
+		}
+		if pointer != "" {
+			seen[pointer] = struct{}{}
+		}
+	}
+	add(oidcUserIDField)
+	for pointer := range headerMapping {
+		add(pointer)
+	}
+	fields := make([]string, 0, len(seen))
+	for k := range seen {
+		fields = append(fields, k)
+	}
+	return fields
 }

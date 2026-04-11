@@ -25,9 +25,14 @@ type AuthRouter struct {
 	// When true, do not auto-redirect to the sole provider even if
 	// there is only one provider and no password is set.
 	noProviderAutoSelect bool
+	// userInfoFields is a list of top-level keys to retain from the
+	// provider's userinfo response. When non-empty, all other keys are
+	// stripped before the data is stored in the session cookie. This
+	// prevents oversized cookies when the provider returns many claims.
+	userInfoFields []string
 }
 
-func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, providers ...Provider) (*AuthRouter, error) {
+func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
 	if err != nil {
 		return nil, err
@@ -50,6 +55,7 @@ func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, providers .
 		unauthorizedTemplate: unauthorizedTmpl,
 		errorTemplate:        errorTmpl,
 		noProviderAutoSelect: noProviderAutoSelect,
+		userInfoFields:       userInfoFields,
 	}, nil
 }
 
@@ -102,6 +108,9 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			session.Set(SessionKeyAuthorized, true)
 			session.Set(SessionKeyUserID, user)
 			if userInfo != nil {
+				if len(a.userInfoFields) > 0 {
+					userInfo = filterUserInfo(userInfo, a.userInfoFields)
+				}
 				if userInfoJSON, err := json.Marshal(userInfo); err == nil {
 					session.Set(SessionKeyUserInfo, string(userInfoJSON))
 				}
@@ -280,6 +289,17 @@ func (a *AuthRouter) renderUnauthorized(c *gin.Context, userID, providerName str
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+}
+
+// filterUserInfo returns a copy of m containing only the listed keys.
+func filterUserInfo(m map[string]any, keys []string) map[string]any {
+	filtered := make(map[string]any, len(keys))
+	for _, k := range keys {
+		if v, ok := m[k]; ok {
+			filtered[k] = v
+		}
+	}
+	return filtered
 }
 
 func (a *AuthRouter) renderError(c *gin.Context, err error) {

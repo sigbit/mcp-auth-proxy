@@ -66,7 +66,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, str
 	})
 
 	// Create auth router and IDP router
-	authRouter, err := auth.NewAuthRouter([]string{}, false)
+	authRouter, err := auth.NewAuthRouter([]string{}, false, nil)
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()
