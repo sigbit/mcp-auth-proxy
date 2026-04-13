@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.8.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.8.0...v2.8.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* trim userinfo to mapped fields before storing in session cookie ([#141](https://github.com/sigbit/mcp-auth-proxy/issues/141)) ([683d79a](https://github.com/sigbit/mcp-auth-proxy/commit/683d79abf8c3a054ae611206ffb0fe543be87c69))
+* use /v2 module path ([#139](https://github.com/sigbit/mcp-auth-proxy/issues/139)) ([fb2d63e](https://github.com/sigbit/mcp-auth-proxy/commit/fb2d63ebda0392a0678e0591a2cd902b04b982e8))
+
 ## [2.8.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.7.0...v2.8.0) (2026-04-03)
 
 
