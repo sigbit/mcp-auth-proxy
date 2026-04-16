@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.8.1...v2.9.0) (2026-04-16)
+
+
+### Features
+
+* add HEADER_MAPPING_BASE flag to control JWT claims source for HEADER_MAPPING ([#144](https://github.com/sigbit/mcp-auth-proxy/issues/144)) ([a43f4f4](https://github.com/sigbit/mcp-auth-proxy/commit/a43f4f4d430c3929f59aaaea7bc258efee357d12)), closes [#143](https://github.com/sigbit/mcp-auth-proxy/issues/143)
+
 ## [2.8.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.8.0...v2.8.1) (2026-04-13)
 
 
