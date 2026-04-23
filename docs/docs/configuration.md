@@ -176,14 +176,14 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 
 ### Proxy Options
 
-| Option                  | Environment Variable  | Default     | Description                                                                                           |
-| ----------------------- | --------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
-| `--proxy-bearer-token`        | `PROXY_BEARER_TOKEN`        | -           | Bearer token to add to Authorization header when proxying requests                                     |
-| `--proxy-forward-authorization` | `PROXY_FORWARD_AUTHORIZATION` | `false`     | Forward the incoming Authorization bearer token to the backend after validation                         |
-| `--proxy-headers`             | `PROXY_HEADERS`             | -           | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2)  |
-| `--header-mapping`      | `HEADER_MAPPING`      | -           | Comma-separated mapping of JSON pointer paths to header names (e.g., `/email:X-Forwarded-Email`)      |
-| `--header-mapping-base` | `HEADER_MAPPING_BASE` | `/userinfo` | JSON pointer base path for header mapping claims lookup (e.g., `/userinfo` or `/`)                    |
-| `--http-streaming-only` | `HTTP_STREAMING_ONLY` | `false`     | Reject SSE (GET) requests and keep the backend operating in HTTP streaming-only mode                  |
-| `--trusted-proxies`     | `TRUSTED_PROXIES`     | -           | Comma-separated list of trusted proxies (IP addresses or CIDR ranges)                                 |
+| Option                          | Environment Variable          | Default     | Description                                                                                           |
+| ------------------------------- | ----------------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| `--proxy-bearer-token`          | `PROXY_BEARER_TOKEN`          | -           | Bearer token to add to Authorization header when proxying requests                                    |
+| `--proxy-forward-authorization` | `PROXY_FORWARD_AUTHORIZATION` | `false`     | Forward the incoming Authorization bearer token to the backend after validation                       |
+| `--proxy-headers`               | `PROXY_HEADERS`               | -           | Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2) |
+| `--header-mapping`              | `HEADER_MAPPING`              | -           | Comma-separated mapping of JSON pointer paths to header names (e.g., `/email:X-Forwarded-Email`)      |
+| `--header-mapping-base`         | `HEADER_MAPPING_BASE`         | `/userinfo` | JSON pointer base path for header mapping claims lookup (e.g., `/userinfo` or `/`)                    |
+| `--http-streaming-only`         | `HTTP_STREAMING_ONLY`         | `false`     | Reject SSE (GET) requests and keep the backend operating in HTTP streaming-only mode                  |
+| `--trusted-proxies`             | `TRUSTED_PROXIES`             | -           | Comma-separated list of trusted proxies (IP addresses or CIDR ranges)                                 |
 
 For practical configuration examples including environment variables, Docker Compose, and Kubernetes deployments, see the [Configuration Examples](./examples.md) page.
