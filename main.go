@@ -152,6 +152,7 @@ type proxyRunnerFunc func(
 	trustedProxy []string,
 	proxyHeaders []string,
 	proxyBearerToken string,
+	forwardAuthorizationHeader bool,
 	proxyTarget []string,
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
@@ -199,6 +200,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var password string
 	var passwordHash string
 	var proxyBearerToken string
+	var forwardAuthorizationHeader bool
 	var proxyHeaders string
 	var headerMapping string
 	var headerMappingBase string
@@ -322,6 +324,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				trustedProxiesList,
 				proxyHeadersList,
 				proxyBearerToken,
+				forwardAuthorizationHeader,
 				args,
 				httpStreamingOnly,
 				headerMappingMap,
@@ -376,6 +379,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 
 	// Proxy headers configuration
 	rootCmd.Flags().StringVar(&proxyBearerToken, "proxy-bearer-token", getEnvWithDefault("PROXY_BEARER_TOKEN", ""), "Bearer token to add to Authorization header when proxying requests")
+	rootCmd.Flags().BoolVar(&forwardAuthorizationHeader, "proxy-forward-authorization", getEnvBoolWithDefault("PROXY_FORWARD_AUTHORIZATION", false), "Forward the incoming Authorization bearer token to the backend after validation")
 	rootCmd.Flags().StringVar(&trustedProxies, "trusted-proxies", getEnvWithDefault("TRUSTED_PROXIES", ""), "Comma-separated list of trusted proxies (IP addresses or CIDR ranges)")
 	rootCmd.Flags().StringVar(&proxyHeaders, "proxy-headers", getEnvWithDefault("PROXY_HEADERS", ""), "Comma-separated list of headers to add when proxying requests (format: Header1:Value1,Header2:Value2)")
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")

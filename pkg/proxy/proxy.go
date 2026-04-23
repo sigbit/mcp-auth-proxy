@@ -12,13 +12,14 @@ import (
 )
 
 type ProxyRouter struct {
-	externalURL       string
-	proxy             http.Handler
-	publicKey         *rsa.PublicKey
-	proxyHeaders      http.Header
-	httpStreamingOnly bool
-	headerMapping     map[string]string
-	headerMappingBase string
+	externalURL                string
+	proxy                      http.Handler
+	publicKey                  *rsa.PublicKey
+	proxyHeaders               http.Header
+	httpStreamingOnly          bool
+	forwardAuthorizationHeader bool
+	headerMapping              map[string]string
+	headerMappingBase          string
 }
 
 func NewProxyRouter(
@@ -27,17 +28,19 @@ func NewProxyRouter(
 	publicKey *rsa.PublicKey,
 	proxyHeaders http.Header,
 	httpStreamingOnly bool,
+	forwardAuthorizationHeader bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
 ) (*ProxyRouter, error) {
 	return &ProxyRouter{
-		externalURL:       externalURL,
-		proxy:             proxy,
-		publicKey:         publicKey,
-		proxyHeaders:      proxyHeaders,
-		httpStreamingOnly: httpStreamingOnly,
-		headerMapping:     headerMapping,
-		headerMappingBase: headerMappingBase,
+		externalURL:                externalURL,
+		proxy:                      proxy,
+		publicKey:                  publicKey,
+		proxyHeaders:               proxyHeaders,
+		httpStreamingOnly:          httpStreamingOnly,
+		forwardAuthorizationHeader: forwardAuthorizationHeader,
+		headerMapping:              headerMapping,
+		headerMappingBase:          headerMappingBase,
 	}, nil
 }
 
@@ -87,8 +90,13 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 		return
 	}
 
-	c.Request.Header.Del("Authorization")
+	if !p.forwardAuthorizationHeader {
+		c.Request.Header.Del("Authorization")
+	}
 	for key, values := range p.proxyHeaders {
+		if strings.EqualFold(key, "Authorization") {
+			c.Request.Header.Del("Authorization")
+		}
 		for _, value := range values {
 			c.Request.Header.Add(key, value)
 		}

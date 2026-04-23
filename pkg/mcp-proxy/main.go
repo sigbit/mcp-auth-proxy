@@ -74,6 +74,7 @@ func Run(
 	trustedProxy []string,
 	proxyHeaders []string,
 	proxyBearerToken string,
+	forwardAuthorizationHeader bool,
 	proxyTarget []string,
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
@@ -298,7 +299,7 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, headerMapping, headerMappingBase)
+	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, forwardAuthorizationHeader, headerMapping, headerMappingBase)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}
