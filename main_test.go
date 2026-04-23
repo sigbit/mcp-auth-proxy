@@ -549,3 +549,65 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		t.Fatalf("expected forwardAuthorizationHeader to be true when flag is set")
 	}
 }
+
+func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
+	t.Setenv("PROXY_FORWARD_AUTHORIZATION", "true")
+
+	var forwardAuthorization bool
+	runner := proxyRunnerFunc(func(listen string,
+		tlsListen string,
+		autoTLS bool,
+		tlsHost string,
+		tlsDirectoryURL string,
+		tlsAcceptTOS bool,
+		tlsCertFile string,
+		tlsKeyFile string,
+		dataPath string,
+		repositoryBackend string,
+		repositoryDSN string,
+		externalURL string,
+		googleClientID string,
+		googleClientSecret string,
+		googleAllowedUsers []string,
+		googleAllowedWorkspaces []string,
+		githubClientID string,
+		githubClientSecret string,
+		githubAllowedUsers []string,
+		githubAllowedOrgs []string,
+		oidcConfigurationURL string,
+		oidcClientID string,
+		oidcClientSecret string,
+		oidcScopes []string,
+		oidcUserIDField string,
+		oidcProviderName string,
+		oidcAllowedUsers []string,
+		oidcAllowedUsersGlob []string,
+		oidcAllowedAttributes map[string][]string,
+		oidcAllowedAttributesGlob map[string][]string,
+		noProviderAutoSelect bool,
+		password string,
+		passwordHash string,
+		trustedProxy []string,
+		proxyHeaders []string,
+		proxyBearerToken string,
+		forwardAuthorizationHeader bool,
+		proxyTarget []string,
+		httpStreamingOnly bool,
+		headerMapping map[string]string,
+		headerMappingBase string,
+	) error {
+		forwardAuthorization = forwardAuthorizationHeader
+		return nil
+	})
+
+	cmd := newRootCommand(runner)
+	cmd.SetArgs([]string{"http://backend"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected command to succeed, got error: %v", err)
+	}
+
+	if !forwardAuthorization {
+		t.Fatalf("expected forwardAuthorizationHeader to default to true from env var")
+	}
+}
