@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.9.0...v2.9.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* persist JWT session in storage so user identity survives token exchange ([#146](https://github.com/sigbit/mcp-auth-proxy/issues/146)) ([4004e4d](https://github.com/sigbit/mcp-auth-proxy/commit/4004e4d05b1658927229b36a97c25f0cb5749745))
+* **proxy:** strip client-supplied header-mapping target headers ([#148](https://github.com/sigbit/mcp-auth-proxy/issues/148)) ([3d6e35c](https://github.com/sigbit/mcp-auth-proxy/commit/3d6e35c6621412f019078426e74dcb68cd91d2bb))
+
 ## [2.9.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.8.1...v2.9.0) (2026-04-16)
 
 
