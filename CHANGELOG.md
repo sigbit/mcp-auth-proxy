@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.9.1...v2.10.0) (2026-04-30)
+
+
+### Features
+
+* Support custom GitHub URLs ([#151](https://github.com/sigbit/mcp-auth-proxy/issues/151)) ([6e49998](https://github.com/sigbit/mcp-auth-proxy/commit/6e499986d4b739cbbd1fac1d8a31df9465dc7f12))
+
 ## [2.9.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.9.0...v2.9.1) (2026-04-25)
 
 
