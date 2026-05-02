@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.0...v2.10.1) (2026-05-02)
+
+
+### Miscellaneous Chores
+
+* release 2.10.1 ([#156](https://github.com/sigbit/mcp-auth-proxy/issues/156)) ([d347751](https://github.com/sigbit/mcp-auth-proxy/commit/d347751e0d53c6337e08b024a57589b034aa1401))
+
 ## [2.10.0](https://github.com/sigbit/mcp-auth-proxy/compare/v2.9.1...v2.10.0) (2026-04-30)
 
 
