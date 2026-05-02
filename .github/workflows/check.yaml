@@ -14,12 +14,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          go-version: "1.26"
 
       - name: Check gofmt
         run: |
@@ -27,7 +27,7 @@ jobs:
           echo "$files"
           test -z "$files"
       - run: go vet ./...
-      - uses: dominikh/staticcheck-action@v1.4.0
+      - uses: dominikh/staticcheck-action@v1.4.1
         with:
           install-go: false
 
@@ -39,10 +39,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: "npm"
