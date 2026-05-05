@@ -185,3 +185,29 @@ func TestHealthzEndpoint(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "ok", body["status"])
 }
+
+func TestSkipSuccessfulMCPAccessLog(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cases := []struct {
+		name   string
+		path   string
+		status int
+		want   bool
+	}{
+		{name: "skips successful mcp request", path: "/mcp", status: http.StatusOK, want: true},
+		{name: "keeps failed mcp request", path: "/mcp", status: http.StatusUnauthorized, want: false},
+		{name: "keeps successful auth request", path: "/.auth/login", status: http.StatusOK, want: false},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodPost, tt.path, nil)
+			c.Writer.WriteHeader(tt.status)
+
+			require.Equal(t, tt.want, skipSuccessfulMCPAccessLog(c))
+		})
+	}
+}
