@@ -77,6 +77,7 @@ const (
 	SessionKeyOAuthState  = "oauth_state"
 	SessionKeyUserID      = "user_id"
 	SessionKeyUserInfo    = "user_info"
+	SessionKeySessionID   = "session_id"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
@@ -107,6 +108,12 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			}
 			session.Set(SessionKeyAuthorized, true)
 			session.Set(SessionKeyUserID, user)
+			sid, err := utils.GenerateState()
+			if err != nil {
+				a.renderError(c, err)
+				return
+			}
+			session.Set(SessionKeySessionID, sid)
 			if userInfo != nil {
 				if len(a.userInfoFields) > 0 {
 					userInfo = filterUserInfo(userInfo, a.userInfoFields)
@@ -196,6 +203,12 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set(SessionKeyAuthorized, true)
 	session.Set(SessionKeyUserID, PasswordUserID)
+	sid, err := utils.GenerateState()
+	if err != nil {
+		a.renderError(c, err)
+		return
+	}
+	session.Set(SessionKeySessionID, sid)
 	redirectURL := session.Get(SessionKeyRedirectURL)
 	if redirectURL != nil {
 		session.Delete(SessionKeyRedirectURL)
@@ -215,6 +228,10 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 func (a *AuthRouter) handleLogout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Delete(SessionKeyAuthorized)
+	session.Delete(SessionKeyUserID)
+	session.Delete(SessionKeyUserInfo)
+	session.Delete(SessionKeySessionID)
+	session.Delete(SessionKeyOAuthState)
 	if err := session.Save(); err != nil {
 		a.renderError(c, err)
 		return

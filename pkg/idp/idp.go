@@ -171,12 +171,19 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 	if userInfoJSON, ok := session.Get(auth.SessionKeyUserInfo).(string); ok && userInfoJSON != "" {
 		json.Unmarshal([]byte(userInfoJSON), &userInfo)
 	}
+	sessionID, _ := session.Get(auth.SessionKeySessionID).(string)
 
 	jwtSession, err := NewJWTSessionWithKey(a.externalURL, subject, a.privKey, userInfo)
 	if err != nil {
 		a.logger.With(utils.Err(err)...).Error("Failed to create JWT session", zap.Error(err))
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, err)
 		return
+	}
+	if sessionID != "" {
+		if jwtSession.JWTClaims.Extra == nil {
+			jwtSession.JWTClaims.Extra = map[string]any{}
+		}
+		jwtSession.JWTClaims.Extra["sid"] = sessionID
 	}
 
 	response, err := a.provider.NewAuthorizeResponse(ctx, ar, jwtSession)

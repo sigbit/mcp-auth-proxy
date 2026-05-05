@@ -197,6 +197,46 @@ func TestProxyRouter_HeaderMapping(t *testing.T) {
 	}
 }
 
+func TestProxyRouter_SessionIDHeader(t *testing.T) {
+	privateKey, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+
+	var upstreamSessionID string
+	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamSessionID = r.Header.Get(SessionIDHeader)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, false, false, nil, "/userinfo")
+	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	proxyRouter.SetupRoutes(router)
+
+	claims := jwt.MapClaims{
+		"sub": "test-user",
+		"sid": "session-123",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"iat": time.Now().Unix(),
+	}
+
+	token, err := createJWT(privateKey, claims)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("GET", "/test", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(SessionIDHeader, "client-spoof")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "session-123", upstreamSessionID)
+	assert.Empty(t, w.Header().Get(SessionIDHeader))
+}
+
 func TestProxyRouter_HeaderMappingBase(t *testing.T) {
 	privateKey, publicKey, err := generateRSAKeyPair()
 	require.NoError(t, err)

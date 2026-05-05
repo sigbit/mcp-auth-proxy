@@ -46,6 +46,7 @@ func NewProxyRouter(
 
 const (
 	OauthProtectedResourceEndpoint = "/.well-known/oauth-protected-resource"
+	SessionIDHeader                = "X-Session-Id"
 )
 
 func (p *ProxyRouter) SetupRoutes(router gin.IRouter) {
@@ -93,6 +94,7 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	if !p.forwardAuthorizationHeader {
 		c.Request.Header.Del("Authorization")
 	}
+	c.Request.Header.Del(SessionIDHeader)
 	for _, headerName := range p.headerMapping {
 		c.Request.Header.Del(headerName)
 	}
@@ -138,6 +140,11 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 					}
 				}
 			}
+		}
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if sid, ok := claims["sid"].(string); ok && sid != "" {
+			c.Request.Header.Set(SessionIDHeader, sid)
 		}
 	}
 
