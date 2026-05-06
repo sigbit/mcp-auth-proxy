@@ -155,6 +155,7 @@ type proxyRunnerFunc func(
 	proxyHeaders []string,
 	proxyBearerToken string,
 	forwardAuthorizationHeader bool,
+	logMode string,
 	proxyTarget []string,
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
@@ -210,6 +211,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var headerMappingBase string
 	var httpStreamingOnly bool
 	var trustedProxies string
+	var logMode string
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
@@ -331,6 +333,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				proxyHeadersList,
 				proxyBearerToken,
 				forwardAuthorizationHeader,
+				logMode,
 				args,
 				httpStreamingOnly,
 				headerMappingMap,
@@ -353,6 +356,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&repositoryBackend, "repository-backend", getEnvWithDefault("REPOSITORY_BACKEND", "local"), "Repository backend to use: local, sqlite, postgres, or mysql")
 	rootCmd.Flags().StringVar(&repositoryDSN, "repository-dsn", getEnvWithDefault("REPOSITORY_DSN", ""), "DSN passed directly to the SQL driver (required when repository-backend is sqlite/postgres/mysql)")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
+	rootCmd.Flags().StringVar(&logMode, "log-mode", getEnvWithDefault("LOG_MODE", "normal"), "Logging mode: normal or inspect")
 
 	// Google OAuth configuration
 	rootCmd.Flags().StringVar(&googleClientID, "google-client-id", getEnvWithDefault("GOOGLE_CLIENT_ID", ""), "Google OAuth client ID")

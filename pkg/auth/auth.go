@@ -10,6 +10,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/sigbit/mcp-auth-proxy/v2/pkg/utils"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -29,7 +30,9 @@ type AuthRouter struct {
 	// provider's userinfo response. When non-empty, all other keys are
 	// stripped before the data is stored in the session cookie. This
 	// prevents oversized cookies when the provider returns many claims.
-	userInfoFields []string
+	userInfoFields  []string
+	logger          *zap.Logger
+	inspectUserInfo bool
 }
 
 func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
@@ -56,7 +59,15 @@ func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFie
 		errorTemplate:        errorTmpl,
 		noProviderAutoSelect: noProviderAutoSelect,
 		userInfoFields:       userInfoFields,
+		logger:               zap.NewNop(),
 	}, nil
+}
+
+func (a *AuthRouter) EnableInspectLogging(logger *zap.Logger) {
+	a.inspectUserInfo = true
+	if logger != nil {
+		a.logger = logger
+	}
 }
 
 const (
@@ -106,6 +117,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				a.renderUnauthorized(c, user, provider.Name())
 				return
 			}
+			a.logInspectUserInfo(provider, user, userInfo)
 			session.Set(SessionKeyAuthorized, true)
 			session.Set(SessionKeyUserID, user)
 			sid, err := utils.GenerateState()
@@ -159,6 +171,18 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			c.Redirect(http.StatusFound, url)
 		})
 	}
+}
+
+func (a *AuthRouter) logInspectUserInfo(provider Provider, user string, userInfo map[string]any) {
+	if !a.inspectUserInfo {
+		return
+	}
+	a.logger.Info("Inspect userinfo",
+		zap.String("provider", provider.Name()),
+		zap.String("provider_type", provider.Type()),
+		zap.String("user", user),
+		zap.Any("userinfo", userInfo),
+	)
 }
 
 func (a *AuthRouter) handleLogin(c *gin.Context) {

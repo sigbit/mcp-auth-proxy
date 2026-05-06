@@ -14,6 +14,12 @@ Complete reference for all MCP Auth Proxy configuration options.
 | ---------------- | -------------------- | ------------------ | -------------------------- |
 | `--external-url` | `EXTERNAL_URL`       | `http://localhost` | External URL for the proxy |
 
+### Logging Options
+
+| Option       | Environment Variable | Default  | Description                                                                           |
+| ------------ | -------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `--log-mode` | `LOG_MODE`           | `normal` | Logging mode. Use `inspect` temporarily to log complete provider userinfo after login |
+
 ### TLS Options
 
 | Option                | Environment Variable | Default                                          | Description                                                                                        |

@@ -12,6 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/oauth2"
 )
 
@@ -199,6 +202,59 @@ func TestUserInfoFilteringInOAuthFlow(t *testing.T) {
 		require.Contains(t, parsed, "email")
 		require.Contains(t, parsed, "groups")
 	})
+}
+
+func TestInspectLoggingLogsFullUserInfoBeforeFiltering(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fullUserInfo := map[string]any{
+		"email":              "user@example.com",
+		"preferred_username": "user",
+		"groups":             []any{"admin", "developers"},
+	}
+
+	mockToken := &oauth2.Token{AccessToken: "test-token"}
+	mockProvider := NewMockProvider(ctrl)
+	mockProvider.EXPECT().Name().Return("test").AnyTimes()
+	mockProvider.EXPECT().Type().Return("oidc").AnyTimes()
+	mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
+	mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+	mockProvider.EXPECT().AuthCodeURL(gomock.Any()).Return("https://example.com/oauth", nil)
+	mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
+	mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "user@example.com", fullUserInfo, nil)
+
+	core, observed := observer.New(zapcore.InfoLevel)
+	authRouter, err := NewAuthRouter(nil, false, []string{"email"}, mockProvider)
+	require.NoError(t, err)
+	authRouter.EnableInspectLogging(zap.New(core))
+
+	router := gin.New()
+	store := memstore.NewStore([]byte("test-secret"))
+	router.Use(sessions.Sessions("session", store))
+	authRouter.SetupRoutes(router)
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+	client := setupClient()
+
+	resp, err := client.Get(server.URL + "/.auth/test")
+	require.NoError(t, err)
+	resp.Body.Close()
+
+	resp, err = client.Get(server.URL + "/.auth/test/callback")
+	require.NoError(t, err)
+	resp.Body.Close()
+	require.Equal(t, http.StatusFound, resp.StatusCode)
+
+	entries := observed.FilterMessage("Inspect userinfo").All()
+	require.Len(t, entries, 1)
+
+	fields := entries[0].ContextMap()
+	require.Equal(t, "test", fields["provider"])
+	require.Equal(t, "oidc", fields["provider_type"])
+	require.Equal(t, "user@example.com", fields["user"])
+	require.Equal(t, fullUserInfo, fields["userinfo"])
 }
 
 func TestAuthenticationFlow(t *testing.T) {

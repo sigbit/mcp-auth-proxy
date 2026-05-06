@@ -78,6 +78,7 @@ func Run(
 	proxyHeaders []string,
 	proxyBearerToken string,
 	forwardAuthorizationHeader bool,
+	logMode string,
 	proxyTarget []string,
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
@@ -142,6 +143,9 @@ func Run(
 
 	if len(proxyTarget) == 0 {
 		return fmt.Errorf("proxy target must be specified")
+	}
+	if logMode != "" && logMode != "normal" && logMode != "inspect" {
+		return fmt.Errorf("invalid log mode %q: expected normal or inspect", logMode)
 	}
 	var be backend.Backend
 	var beHandler http.Handler
@@ -297,6 +301,9 @@ func Run(
 	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, userInfoFields, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
+	}
+	if logMode == "inspect" {
+		authRouter.EnableInspectLogging(logger)
 	}
 	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, secret, authRouter)
 	if err != nil {
