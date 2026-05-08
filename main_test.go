@@ -359,6 +359,39 @@ func TestGetEnvBoolWithDefault(t *testing.T) {
 	}
 }
 
+func TestSplitCSV(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+		},
+		{
+			name:     "trims values",
+			input:    " user1@example.com, user2@example.com ",
+			expected: []string{"user1@example.com", "user2@example.com"},
+		},
+		{
+			name:     "keeps empty values",
+			input:    "a,,b",
+			expected: []string{"a", "", "b"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := splitCSV(tc.input)
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
 func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 	t.Setenv("HTTP_STREAMING_ONLY", "")
 

@@ -216,6 +216,31 @@ func TestOIDCProviderErrors(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("configuration endpoint error", func(t *testing.T) {
+		configServer := gin.New()
+		configServer.GET("/.well-known/openid_configuration", func(c *gin.Context) {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "server error"})
+		})
+		tsConfig := httptest.NewServer(configServer)
+		defer tsConfig.Close()
+
+		_, err := NewOIDCProvider(
+			tsConfig.URL+"/.well-known/openid_configuration",
+			[]string{"openid"},
+			"/sub",
+			"TestOIDC",
+			TestOIDCExternalURL,
+			TestOIDCClientID,
+			TestOIDCClientSecret,
+			[]string{},
+			[]string{},
+			nil,
+			nil,
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "502 Bad Gateway")
+	})
+
 	t.Run("missing user ID field", func(t *testing.T) {
 		p, _, userinfo, tsConfig := setupOIDCTest([]string{}, "/missing_field")
 		defer tsConfig.Close()
@@ -252,6 +277,7 @@ func TestOIDCProviderErrors(t *testing.T) {
 
 		ok, _, _, err := p.Authorization(context.Background(), &oauth2.Token{AccessToken: "test-access-token"})
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "500 Internal Server Error")
 		require.False(t, ok)
 	})
 }

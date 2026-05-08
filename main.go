@@ -17,12 +17,20 @@ func getEnvWithDefault(key, defaultValue string) string {
 
 func getEnvBoolWithDefault(key string, defaultValue bool) bool {
 	if value := os.Getenv(key); value != "" {
-		if strings.ToLower(value) == "true" || value == "1" {
-			return true
-		}
-		return false
+		return strings.EqualFold(value, "true") || value == "1"
 	}
 	return defaultValue
+}
+
+func splitCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
 }
 
 // splitWithEscapes splits a string by delimiter, respecting escape sequences
@@ -214,45 +222,11 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
 		Run: func(cmd *cobra.Command, args []string) {
-			var googleAllowedUsersList []string
-			if googleAllowedUsers != "" {
-				googleAllowedUsersList = strings.Split(googleAllowedUsers, ",")
-				for i := range googleAllowedUsersList {
-					googleAllowedUsersList[i] = strings.TrimSpace(googleAllowedUsersList[i])
-				}
-			}
-
-			var googleAllowedWorkspacesList []string
-			if googleAllowedWorkspaces != "" {
-				googleAllowedWorkspacesList = strings.Split(googleAllowedWorkspaces, ",")
-				for i := range googleAllowedWorkspacesList {
-					googleAllowedWorkspacesList[i] = strings.TrimSpace(googleAllowedWorkspacesList[i])
-				}
-			}
-
-			var githubAllowedUsersList []string
-			if githubAllowedUsers != "" {
-				githubAllowedUsersList = strings.Split(githubAllowedUsers, ",")
-				for i := range githubAllowedUsersList {
-					githubAllowedUsersList[i] = strings.TrimSpace(githubAllowedUsersList[i])
-				}
-			}
-
-			var githubAllowedOrgsList []string
-			if githubAllowedOrgs != "" {
-				githubAllowedOrgsList = strings.Split(githubAllowedOrgs, ",")
-				for i := range githubAllowedOrgsList {
-					githubAllowedOrgsList[i] = strings.TrimSpace(githubAllowedOrgsList[i])
-				}
-			}
-
-			var oidcAllowedUsersList []string
-			if oidcAllowedUsers != "" {
-				oidcAllowedUsersList = strings.Split(oidcAllowedUsers, ",")
-				for i := range oidcAllowedUsersList {
-					oidcAllowedUsersList[i] = strings.TrimSpace(oidcAllowedUsersList[i])
-				}
-			}
+			googleAllowedUsersList := splitCSV(googleAllowedUsers)
+			googleAllowedWorkspacesList := splitCSV(googleAllowedWorkspaces)
+			githubAllowedUsersList := splitCSV(githubAllowedUsers)
+			githubAllowedOrgsList := splitCSV(githubAllowedOrgs)
+			oidcAllowedUsersList := splitCSV(oidcAllowedUsers)
 
 			var oidcAllowedUsersGlobList []string
 			if oidcAllowedUsersGlob != "" {
@@ -262,32 +236,13 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 			oidcAllowedAttributesMap := parseAttributeMap(oidcAllowedAttributes)
 			oidcAllowedAttributesGlobMap := parseAttributeMap(oidcAllowedAttributesGlob)
 
-			var oidcScopesList []string
-			if oidcScopes != "" {
-				oidcScopesList = strings.Split(oidcScopes, ",")
-				for i := range oidcScopesList {
-					oidcScopesList[i] = strings.TrimSpace(oidcScopesList[i])
-				}
-			} else {
+			oidcScopesList := splitCSV(oidcScopes)
+			if len(oidcScopesList) == 0 {
 				oidcScopesList = []string{"openid", "profile", "email"}
 			}
 
-			var trustedProxiesList []string
-			if trustedProxies != "" {
-				trustedProxiesList = strings.Split(trustedProxies, ",")
-				for i := range trustedProxiesList {
-					trustedProxiesList[i] = strings.TrimSpace(trustedProxiesList[i])
-				}
-			}
-
-			// Parse proxy headers into slice
-			var proxyHeadersList []string
-			if proxyHeaders != "" {
-				headersList := strings.Split(proxyHeaders, ",")
-				for _, header := range headersList {
-					proxyHeadersList = append(proxyHeadersList, strings.TrimSpace(header))
-				}
-			}
+			trustedProxiesList := splitCSV(trustedProxies)
+			proxyHeadersList := splitCSV(proxyHeaders)
 
 			headerMappingMap := parseHeaderMapping(headerMapping)
 

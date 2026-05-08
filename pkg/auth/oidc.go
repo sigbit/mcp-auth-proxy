@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -35,6 +36,9 @@ func NewOIDCProvider(
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("OIDC configuration request failed: %s", resp.Status)
+	}
 	var cfg struct {
 		AuthEndpoint  string `json:"authorization_endpoint"`
 		TokenEndpoint string `json:"token_endpoint"`
@@ -135,6 +139,9 @@ func (p *oidcProvider) Authorization(ctx context.Context, token *oauth2.Token) (
 		return false, "", nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return false, "", nil, fmt.Errorf("userinfo request failed: %s", resp.Status)
+	}
 	var obj any
 	if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
 		return false, "", nil, err
