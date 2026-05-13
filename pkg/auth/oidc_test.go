@@ -286,7 +286,7 @@ func TestOIDCProviderGlobPatterns(t *testing.T) {
 	// Setup test server with OIDC configuration
 	configServer := gin.New()
 	configServer.GET("/.well-known/openid_configuration", func(c *gin.Context) {
-		c.JSON(200, map[string]interface{}{
+		c.JSON(200, map[string]any{
 			"authorization_endpoint": "http://localhost/auth",
 			"token_endpoint":         "http://localhost/token",
 			"userinfo_endpoint":      "http://localhost/userinfo",
@@ -330,7 +330,7 @@ func TestOIDCProviderGlobPatterns(t *testing.T) {
 			// Mock userinfo endpoint
 			userServer := gin.New()
 			userServer.GET("/userinfo", func(c *gin.Context) {
-				c.JSON(200, map[string]interface{}{
+				c.JSON(200, map[string]any{
 					"email": tc.email,
 				})
 			})
@@ -354,7 +354,7 @@ func TestOIDCProviderAttributeMatching(t *testing.T) {
 	// Setup test server with OIDC configuration
 	configServer := gin.New()
 	configServer.GET("/.well-known/openid_configuration", func(c *gin.Context) {
-		c.JSON(200, map[string]interface{}{
+		c.JSON(200, map[string]any{
 			"authorization_endpoint": "http://localhost/auth",
 			"token_endpoint":         "http://localhost/token",
 			"userinfo_endpoint":      "http://localhost/userinfo",
@@ -367,79 +367,79 @@ func TestOIDCProviderAttributeMatching(t *testing.T) {
 		name                  string
 		allowedAttributes     map[string][]string
 		allowedAttributesGlob map[string][]string
-		userInfo              map[string]interface{}
+		userInfo              map[string]any
 		expected              bool
 	}{
 		{
 			name:              "allow all when no restrictions",
 			allowedAttributes: nil,
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com"},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com"},
 			expected:          true,
 		},
 		{
 			name:              "exact match on string attribute",
 			allowedAttributes: map[string][]string{"/department": {"engineering"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "engineering"},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com", "department": "engineering"},
 			expected:          true,
 		},
 		{
 			name:              "no match on string attribute",
 			allowedAttributes: map[string][]string{"/department": {"engineering"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "marketing"},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com", "department": "marketing"},
 			expected:          false,
 		},
 		{
 			name:              "match on array attribute",
 			allowedAttributes: map[string][]string{"/groups": {"admin"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "admin"}},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com", "groups": []any{"users", "admin"}},
 			expected:          true,
 		},
 		{
 			name:              "no match on array attribute",
 			allowedAttributes: map[string][]string{"/groups": {"admin"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "developers"}},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com", "groups": []any{"users", "developers"}},
 			expected:          false,
 		},
 		{
 			name:              "multiple allowed values - match",
 			allowedAttributes: map[string][]string{"/role": {"admin", "moderator"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "role": "moderator"},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com", "role": "moderator"},
 			expected:          true,
 		},
 		{
 			name:              "nested attribute match",
 			allowedAttributes: map[string][]string{"/org/team": {"platform"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com", "org": map[string]interface{}{"team": "platform"}},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com", "org": map[string]any{"team": "platform"}},
 			expected:          true,
 		},
 		{
 			name:                  "glob pattern match on string",
 			allowedAttributesGlob: map[string][]string{"/department": {"eng*"}},
-			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "engineering"},
+			userInfo:              map[string]any{"sub": "user1", "email": "user@example.com", "department": "engineering"},
 			expected:              true,
 		},
 		{
 			name:                  "glob pattern no match on string",
 			allowedAttributesGlob: map[string][]string{"/department": {"eng*"}},
-			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "department": "marketing"},
+			userInfo:              map[string]any{"sub": "user1", "email": "user@example.com", "department": "marketing"},
 			expected:              false,
 		},
 		{
 			name:                  "glob pattern match on array",
 			allowedAttributesGlob: map[string][]string{"/groups": {"*-admins"}},
-			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "platform-admins"}},
+			userInfo:              map[string]any{"sub": "user1", "email": "user@example.com", "groups": []any{"users", "platform-admins"}},
 			expected:              true,
 		},
 		{
 			name:                  "glob pattern no match on array",
 			allowedAttributesGlob: map[string][]string{"/groups": {"*-admins"}},
-			userInfo:              map[string]interface{}{"sub": "user1", "email": "user@example.com", "groups": []interface{}{"users", "developers"}},
+			userInfo:              map[string]any{"sub": "user1", "email": "user@example.com", "groups": []any{"users", "developers"}},
 			expected:              false,
 		},
 		{
 			name:              "missing attribute - no match",
 			allowedAttributes: map[string][]string{"/department": {"engineering"}},
-			userInfo:          map[string]interface{}{"sub": "user1", "email": "user@example.com"},
+			userInfo:          map[string]any{"sub": "user1", "email": "user@example.com"},
 			expected:          false,
 		},
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobwas/glob"
@@ -217,6 +218,131 @@ func matchAttributeValue(attrValue any, allowedValues []string) bool {
 		}
 	}
 	return false
+}
+
+// Revalidate implements Revalidator by re-querying the OIDC userinfo endpoint
+// using the supplied upstream token. If the access token is expired (or near
+// expiry per oauth2 internal skew), the underlying TokenSource will transparently
+// use the refresh token to obtain a new one. The (potentially refreshed) token
+// is returned so the caller can persist it.
+//
+// Fatal classification mirrors oauth2-proxy semantics:
+//   - HTTP 401/403 from userinfo  -> fatal
+//   - oauth2 *RetrieveError whose body contains "invalid_grant" or
+//     "invalid_client" (RFC 6749 §5.2) -> fatal
+//   - Network / 5xx / decode errors -> non-fatal
+func (p *oidcProvider) Revalidate(ctx context.Context, token *oauth2.Token) (bool, *oauth2.Token, error) {
+	if token == nil {
+		return false, nil, &FatalRevalidationError{Reason: "missing upstream token"}
+	}
+
+	ts := p.oauth2.TokenSource(ctx, token)
+	refreshed, err := ts.Token()
+	if err != nil {
+		if isFatalOAuth2Error(err) {
+			return false, nil, &FatalRevalidationError{Reason: "token refresh rejected", Err: err}
+		}
+		return false, nil, fmt.Errorf("token refresh failed: %w", err)
+	}
+
+	client := oauth2.NewClient(ctx, oauth2.StaticTokenSource(refreshed))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.userInfoURL, nil)
+	if err != nil {
+		return false, nil, fmt.Errorf("build userinfo request: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, nil, fmt.Errorf("userinfo request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
+		return false, nil, &FatalRevalidationError{Reason: fmt.Sprintf("userinfo returned %s", resp.Status)}
+	case resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices:
+		return false, nil, fmt.Errorf("userinfo request failed: %s", resp.Status)
+	}
+
+	var obj any
+	if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
+		return false, nil, fmt.Errorf("decode userinfo response: %w", err)
+	}
+	userInfoMap, ok := obj.(map[string]any)
+	if !ok {
+		return false, nil, errors.New("userinfo response is not a JSON object")
+	}
+	v, err := jsonpointer.Get(obj, p.userIDField)
+	if err != nil {
+		return false, nil, err
+	}
+	userID, ok := v.(string)
+	if !ok {
+		return false, nil, errors.New("user ID field is not a string")
+	}
+
+	allowed := p.matchAuthorization(userID, userInfoMap)
+	return allowed, refreshed, nil
+}
+
+// matchAuthorization mirrors the allow-list logic in Authorization, factored
+// out so Revalidate can reuse it without re-issuing a userinfo request.
+func (p *oidcProvider) matchAuthorization(userID string, userInfo map[string]any) bool {
+	if len(p.allowedUsers) == 0 && len(p.allowedUsersGlob) == 0 && len(p.allowedAttributes) == 0 && len(p.allowedAttributesGlob) == 0 {
+		return true
+	}
+	if slices.Contains(p.allowedUsers, userID) {
+		return true
+	}
+	for _, g := range p.allowedUsersGlob {
+		if g.Match(userID) {
+			return true
+		}
+	}
+	for key, allowedValues := range p.allowedAttributes {
+		attrValue, err := jsonpointer.Get(userInfo, key)
+		if err != nil {
+			continue
+		}
+		if matchAttributeValue(attrValue, allowedValues) {
+			return true
+		}
+	}
+	for key, globs := range p.allowedAttributesGlob {
+		attrValue, err := jsonpointer.Get(userInfo, key)
+		if err != nil {
+			continue
+		}
+		if matchAttributeGlob(attrValue, globs) {
+			return true
+		}
+	}
+	return false
+}
+
+// isFatalOAuth2Error returns true for errors that the IdP considers terminal
+// per RFC 6749 §5.2 (invalid_grant, invalid_client). Detection mirrors
+// oauth2-proxy: substring match on the error body since the upstream
+// golang.org/x/oauth2 *RetrieveError stringification varies by version.
+func isFatalOAuth2Error(err error) bool {
+	if err == nil {
+		return false
+	}
+	var re *oauth2.RetrieveError
+	if errors.As(err, &re) {
+		if re.Response != nil && (re.Response.StatusCode == http.StatusUnauthorized || re.Response.StatusCode == http.StatusForbidden) {
+			return true
+		}
+		if re.ErrorCode == "invalid_grant" || re.ErrorCode == "invalid_client" {
+			return true
+		}
+		body := strings.ToLower(string(re.Body))
+		if strings.Contains(body, "invalid_grant") || strings.Contains(body, "invalid_client") {
+			return true
+		}
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "invalid_grant") || strings.Contains(msg, "invalid_client")
 }
 
 // matchAttributeGlob checks if an attribute value matches any of the glob patterns.

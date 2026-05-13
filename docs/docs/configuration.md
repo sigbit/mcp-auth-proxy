@@ -131,7 +131,28 @@ For Okta, you typically need to:
 
 1. Add the `groups` scope: `--oidc-scopes "openid,profile,email,groups"`
 2. Configure a groups claim in Okta Admin (Security → API → Authorization Servers → Claims)
+3. To enable upstream session revalidation with refresh-token rotation (see [Session Revalidation](#session-revalidation) below), also include the `offline_access` scope: `--oidc-scopes "openid,profile,email,groups,offline_access"`
    :::
+
+#### Session Revalidation
+
+To honor IdP-side deprovisioning (e.g. an Okta user is suspended or removed from a required group), the proxy can periodically re-contact the upstream OIDC `userinfo` endpoint and revoke all downstream tokens for the subject when the IdP rejects the upstream token.
+
+| Option                       | Environment Variable       | Default | Description                                                                                                                              |
+| ---------------------------- | -------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth-revalidate-interval` | `AUTH_REVALIDATE_INTERVAL` | `60s`   | How frequently to re-validate each upstream session against the IdP (`/userinfo`). Set to `0` to disable. Currently OIDC providers only. |
+
+Behavior mirrors `oauth2-proxy`:
+
+- **Fatal errors** (`invalid_grant`, `invalid_client`, HTTP 401/403 from `/userinfo`) revoke every downstream access-token issued for the subject and force re-authentication.
+- **Non-fatal errors** (5xx, network failures) allow the request through and retry on the next interval.
+
+**Refresh tokens and `offline_access`:** Many IdPs (including Okta) only issue a refresh token when the `offline_access` scope is requested. Without a refresh token the proxy cannot rotate the upstream access token. The downstream consequence depends on how the IdP signals expiry:
+
+- If the IdP returns HTTP 401 from `/userinfo` once the upstream access token expires, the proxy treats it as fatal and forces the user to re-authenticate.
+- If the IdP returns a transient error (network failure, 5xx), the proxy allows the session to continue and retries on the next interval.
+
+Requesting `offline_access` lets the proxy refresh the upstream token transparently and avoid premature forced re-authentication. Add it to your scopes, e.g. `--oidc-scopes "openid,profile,email,offline_access"`.
 
 ### Cryptographic Key Options
 

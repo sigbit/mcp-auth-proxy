@@ -81,6 +81,7 @@ func Run(
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	authRevalidateInterval time.Duration,
 ) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -301,7 +302,12 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
-	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, forwardAuthorizationHeader, headerMapping, headerMappingBase)
+	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, forwardAuthorizationHeader, headerMapping, headerMappingBase, &proxy.Options{
+		Repo:               repo,
+		Providers:          providers,
+		RevalidateInterval: authRevalidateInterval,
+		Logger:             logger,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
 	}
@@ -371,9 +377,7 @@ func Run(
 			Handler:   router,
 			TLSConfig: &tls.Config{GetCertificate: certReloader.GetCertificate},
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := httpServer.ListenAndServe()
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
@@ -382,7 +386,7 @@ func Run(
 			}
 			logger.Debug("HTTP server closed")
 			exit <- struct{}{}
-		}()
+		})
 		go func() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
@@ -391,9 +395,7 @@ func Run(
 				logger.Warn("HTTP server shutdown error", zap.Error(shutdownErr))
 			}
 		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := httpsServer.ListenAndServeTLS("", "")
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
@@ -402,7 +404,7 @@ func Run(
 			}
 			logger.Debug("HTTPS server closed")
 			exit <- struct{}{}
-		}()
+		})
 		go func() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
@@ -446,9 +448,7 @@ func Run(
 			Handler:   router,
 			TLSConfig: m.TLSConfig(),
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := httpServer.ListenAndServe()
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
@@ -457,7 +457,7 @@ func Run(
 			}
 			logger.Debug("HTTP server closed")
 			exit <- struct{}{}
-		}()
+		})
 		go func() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
@@ -467,9 +467,7 @@ func Run(
 			}
 		}()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := httpsServer.ListenAndServeTLS("", "")
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
@@ -478,7 +476,7 @@ func Run(
 			}
 			logger.Debug("HTTPS server closed")
 			exit <- struct{}{}
-		}()
+		})
 		go func() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
@@ -492,9 +490,7 @@ func Run(
 			Addr:    listen,
 			Handler: router,
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := httpServer.ListenAndServe()
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				lock.Lock()
@@ -502,7 +498,7 @@ func Run(
 				lock.Unlock()
 			}
 			exit <- struct{}{}
-		}()
+		})
 		go func() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ServerShutdownTimeout)
@@ -514,9 +510,7 @@ func Run(
 	}
 
 	if be != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := be.Wait(); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 				lock.Lock()
 				errs = append(errs, err)
@@ -524,7 +518,7 @@ func Run(
 			}
 			logger.Debug("proxy backend closed")
 			exit <- struct{}{}
-		}()
+		})
 	}
 
 	if manualTLS || tlsHost != "" {

@@ -35,7 +35,7 @@ func TestRun_NormalizesExternalURLTrailingSlash(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var receivedURL string
-			newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, forwardAuthorizationHeader bool, headerMapping map[string]string, headerMappingBase string) (*proxy.ProxyRouter, error) {
+			newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, forwardAuthorizationHeader bool, headerMapping map[string]string, headerMappingBase string, _ *proxy.Options) (*proxy.ProxyRouter, error) {
 				receivedURL = externalURL
 				return nil, errors.New("stop early")
 			}
@@ -48,7 +48,7 @@ func TestRun_NormalizesExternalURLTrailingSlash(t *testing.T) {
 				"", "", "", "", nil, nil,
 				"", "", "", nil, "", "", nil, nil, nil, nil,
 				false, "", "", nil, nil, "", false,
-				[]string{"http://example.com"}, false, nil, "/userinfo",
+				[]string{"http://example.com"}, false, nil, "/userinfo", 0,
 			)
 
 			if tt.wantErr {
@@ -71,7 +71,7 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 	})
 
 	var streamingOnlyReceived bool
-	newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, forwardAuthorizationHeader bool, headerMapping map[string]string, headerMappingBase string) (*proxy.ProxyRouter, error) {
+	newProxyRouter = func(externalURL string, proxyHandler http.Handler, publicKey *rsa.PublicKey, proxyHeaders http.Header, httpStreamingOnly bool, forwardAuthorizationHeader bool, headerMapping map[string]string, headerMappingBase string, _ *proxy.Options) (*proxy.ProxyRouter, error) {
 		streamingOnlyReceived = httpStreamingOnly
 		return nil, errors.New("proxy router init failed")
 	}
@@ -120,6 +120,7 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 		true,
 		nil,
 		"/userinfo",
+		0,
 	)
 
 	require.Error(t, err)

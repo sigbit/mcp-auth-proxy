@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"strings"
+	"time"
 
 	mcpproxy "github.com/sigbit/mcp-auth-proxy/v2/pkg/mcp-proxy"
 	"github.com/spf13/cobra"
@@ -20,6 +21,18 @@ func getEnvBoolWithDefault(key string, defaultValue bool) bool {
 		return strings.EqualFold(value, "true") || value == "1"
 	}
 	return defaultValue
+}
+
+func getEnvDurationWithDefault(key string, defaultValue time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return defaultValue
+	}
+	return d
 }
 
 func splitCSV(s string) []string {
@@ -86,12 +99,12 @@ func parseAttributeMap(s string) map[string][]string {
 		if part == "" {
 			continue
 		}
-		eqIdx := strings.Index(part, "=")
-		if eqIdx == -1 {
+		before, after, ok := strings.Cut(part, "=")
+		if !ok {
 			continue
 		}
-		key := strings.TrimSpace(part[:eqIdx])
-		value := strings.TrimSpace(part[eqIdx+1:])
+		key := strings.TrimSpace(before)
+		value := strings.TrimSpace(after)
 		if key != "" && value != "" {
 			result[key] = append(result[key], value)
 		}
@@ -167,6 +180,7 @@ type proxyRunnerFunc func(
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	authRevalidateInterval time.Duration,
 ) error
 
 func main() {
@@ -218,6 +232,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var headerMappingBase string
 	var httpStreamingOnly bool
 	var trustedProxies string
+	var authRevalidateInterval time.Duration
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
@@ -290,6 +305,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				httpStreamingOnly,
 				headerMappingMap,
 				headerMappingBase,
+				authRevalidateInterval,
 			); err != nil {
 				panic(err)
 			}
@@ -348,6 +364,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")
 	rootCmd.Flags().StringVar(&headerMapping, "header-mapping", getEnvWithDefault("HEADER_MAPPING", ""), "Comma-separated mapping of JSON pointer paths to header names (e.g., /email:X-Forwarded-Email,/preferred_username:X-Forwarded-User)")
 	rootCmd.Flags().StringVar(&headerMappingBase, "header-mapping-base", getEnvWithDefault("HEADER_MAPPING_BASE", "/userinfo"), "JSON pointer base path for header mapping claims lookup (e.g., /userinfo or /)")
+	rootCmd.Flags().DurationVar(&authRevalidateInterval, "auth-revalidate-interval", getEnvDurationWithDefault("AUTH_REVALIDATE_INTERVAL", 60*time.Second), "Periodic upstream OIDC re-validation interval (e.g. 60s, 5m). Set to 0 to disable. For graceful refresh-token rotation, request the 'offline_access' scope (e.g. add it to --oidc-scopes); otherwise the upstream access token cannot be refreshed and the user will be forced to re-authenticate when it expires.")
 
 	return rootCmd
 }
