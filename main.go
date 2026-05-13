@@ -181,6 +181,8 @@ type proxyRunnerFunc func(
 	headerMapping map[string]string,
 	headerMappingBase string,
 	authRevalidateInterval time.Duration,
+	authRevalidateTimeout time.Duration,
+	authRevalidateOnFailure string,
 ) error
 
 func main() {
@@ -233,6 +235,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var httpStreamingOnly bool
 	var trustedProxies string
 	var authRevalidateInterval time.Duration
+	var authRevalidateTimeout time.Duration
+	var authRevalidateOnFailure string
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
@@ -306,6 +310,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				headerMappingMap,
 				headerMappingBase,
 				authRevalidateInterval,
+				authRevalidateTimeout,
+				authRevalidateOnFailure,
 			); err != nil {
 				panic(err)
 			}
@@ -365,6 +371,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&headerMapping, "header-mapping", getEnvWithDefault("HEADER_MAPPING", ""), "Comma-separated mapping of JSON pointer paths to header names (e.g., /email:X-Forwarded-Email,/preferred_username:X-Forwarded-User)")
 	rootCmd.Flags().StringVar(&headerMappingBase, "header-mapping-base", getEnvWithDefault("HEADER_MAPPING_BASE", "/userinfo"), "JSON pointer base path for header mapping claims lookup (e.g., /userinfo or /)")
 	rootCmd.Flags().DurationVar(&authRevalidateInterval, "auth-revalidate-interval", getEnvDurationWithDefault("AUTH_REVALIDATE_INTERVAL", 60*time.Second), "Periodic upstream OIDC re-validation interval (e.g. 60s, 5m). Set to 0 to disable. For graceful refresh-token rotation, request the 'offline_access' scope (e.g. add it to --oidc-scopes); otherwise the upstream access token cannot be refreshed and the user will be forced to re-authenticate when it expires.")
+	rootCmd.Flags().DurationVar(&authRevalidateTimeout, "auth-revalidate-timeout", getEnvDurationWithDefault("AUTH_REVALIDATE_TIMEOUT", 10*time.Second), "Maximum time to wait for a single upstream OIDC re-validation call (token refresh + userinfo). If exceeded, the call is treated as a transient failure (request allowed, warning logged). Bounds the impact of an unresponsive IdP on proxy request latency. Set <=0 to use the default (10s).")
+	rootCmd.Flags().StringVar(&authRevalidateOnFailure, "auth-revalidate-on-failure", getEnvWithDefault("AUTH_REVALIDATE_ON_FAILURE", "allow"), "Behavior when revalidation returns a non-fatal error (timeout, network failure, OAuth2 errors other than invalid_grant/invalid_client). 'allow' (default, oauth2-proxy parity): log a warning and proceed; favors availability during IdP outages. 'deny': revoke the subject's tokens and reject the request; favors security and is recommended when the IdP returns non-fatal-coded errors for revoked sessions (e.g. dex returning invalid_request for revoked refresh tokens).")
 
 	return rootCmd
 }

@@ -740,6 +740,20 @@ func newRevalTestRepo(t *testing.T) repository.Repository {
 // buildRevalRouter wires a ProxyRouter with revalidation enabled for the
 // given provider, repo, and interval. Returns the gin engine ready to serve.
 func buildRevalRouter(t *testing.T, publicKey *rsa.PublicKey, repo repository.Repository, prov auth.Provider, interval time.Duration, backend http.Handler) *gin.Engine {
+	return buildRevalRouterWithTimeout(t, publicKey, repo, prov, interval, 0, backend)
+}
+
+// buildRevalRouterWithTimeout is like buildRevalRouter but lets the caller
+// override the per-call revalidation timeout. A zero timeout selects the
+// proxy's built-in default (defaultRevalidateTimeout).
+func buildRevalRouterWithTimeout(t *testing.T, publicKey *rsa.PublicKey, repo repository.Repository, prov auth.Provider, interval, timeout time.Duration, backend http.Handler) *gin.Engine {
+	return buildRevalRouterWithOptions(t, publicKey, repo, prov, interval, timeout, "", backend)
+}
+
+// buildRevalRouterWithOptions wires a ProxyRouter with the full set of
+// revalidation knobs. onFailure="" selects the constructor's default
+// (RevalidateOnFailureAllow).
+func buildRevalRouterWithOptions(t *testing.T, publicKey *rsa.PublicKey, repo repository.Repository, prov auth.Provider, interval, timeout time.Duration, onFailure RevalidateOnFailure, backend http.Handler) *gin.Engine {
 	t.Helper()
 	if backend == nil {
 		backend = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -749,9 +763,11 @@ func buildRevalRouter(t *testing.T, publicKey *rsa.PublicKey, repo repository.Re
 	pr, err := NewProxyRouter(
 		"https://example.com", backend, publicKey, http.Header{}, false, false, nil, "/userinfo",
 		&Options{
-			Repo:               repo,
-			Providers:          []auth.Provider{prov},
-			RevalidateInterval: interval,
+			Repo:                repo,
+			Providers:           []auth.Provider{prov},
+			RevalidateInterval:  interval,
+			RevalidateTimeout:   timeout,
+			RevalidateOnFailure: onFailure,
 		},
 	)
 	require.NoError(t, err)
@@ -870,6 +886,70 @@ func TestProxyRouter_Revalidation(t *testing.T) {
 
 		w := doRequest(t, router, makeToken(t))
 		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, 1, prov.CallCount())
+	})
+
+	t.Run("revalidate timeout is bounded and treated as transient", func(t *testing.T) {
+		// Simulate an unresponsive IdP: the revalidator blocks until its
+		// ctx is cancelled. With a short RevalidateTimeout the call must
+		// return quickly via context.DeadlineExceeded and be classified as
+		// a transient failure (request allowed, no token revocation),
+		// preventing the proxy from hanging on a stuck upstream.
+		repo := newRevalTestRepo(t)
+		var ctxErr error
+		prov := &fakeRevalidator{name: "okta", fn: func(ctx context.Context, _ *oauth2.Token) (bool, *oauth2.Token, error) {
+			<-ctx.Done()
+			ctxErr = ctx.Err()
+			return false, nil, ctx.Err()
+		}}
+		seedSession(t, repo, time.Now().Add(-2*time.Hour).UTC(), prov.Name())
+		router := buildRevalRouterWithTimeout(t, publicKey, repo, prov, time.Minute, 50*time.Millisecond, nil)
+
+		start := time.Now()
+		w := doRequest(t, router, makeToken(t))
+		elapsed := time.Since(start)
+
+		assert.Equal(t, http.StatusOK, w.Code, "transient timeout should allow the request")
+		assert.Equal(t, 1, prov.CallCount())
+		assert.ErrorIs(t, ctxErr, context.DeadlineExceeded, "revalidator must observe the bounded timeout")
+		assert.Less(t, elapsed, time.Second, "request must not block beyond the timeout")
+	})
+
+	t.Run("on-failure=deny revokes session on transient error", func(t *testing.T) {
+		// With RevalidateOnFailureDeny, even a non-fatal error (e.g. dex
+		// returning invalid_request for a revoked refresh token, or a
+		// network blip) must result in revocation + 401 rather than the
+		// default allow-with-warning. This is the strict-mode path
+		// operators opt into when their IdP doesn't reliably distinguish
+		// deprovisioning with a fatal-coded error.
+		repo := newRevalTestRepo(t)
+		prov := &fakeRevalidator{name: "okta", fn: func(context.Context, *oauth2.Token) (bool, *oauth2.Token, error) {
+			return false, nil, fmt.Errorf("oauth2: \"invalid_request\" \"Refresh token is invalid or has already been claimed by another client.\"")
+		}}
+		seedSession(t, repo, time.Now().Add(-2*time.Hour).UTC(), prov.Name())
+		router := buildRevalRouterWithOptions(t, publicKey, repo, prov, time.Minute, 0, RevalidateOnFailureDeny, nil)
+
+		w := doRequest(t, router, makeToken(t))
+		assert.Equal(t, http.StatusUnauthorized, w.Code, "deny mode must reject on transient failure")
+		assert.Equal(t, 1, prov.CallCount())
+
+		_, err := repo.GetUpstreamSession(context.Background(), subject)
+		assert.Error(t, err, "deny mode must revoke the upstream session")
+	})
+
+	t.Run("on-failure=deny still allows on success", func(t *testing.T) {
+		// Sanity check: deny mode must not affect the happy path. A
+		// successful revalidation continues to allow + persist the
+		// refreshed token.
+		repo := newRevalTestRepo(t)
+		prov := &fakeRevalidator{name: "okta", fn: func(context.Context, *oauth2.Token) (bool, *oauth2.Token, error) {
+			return true, nil, nil
+		}}
+		seedSession(t, repo, time.Now().Add(-2*time.Hour).UTC(), prov.Name())
+		router := buildRevalRouterWithOptions(t, publicKey, repo, prov, time.Minute, 0, RevalidateOnFailureDeny, nil)
+
+		w := doRequest(t, router, makeToken(t))
+		assert.Equal(t, http.StatusOK, w.Code, "deny mode must allow successful revalidations")
 		assert.Equal(t, 1, prov.CallCount())
 	})
 

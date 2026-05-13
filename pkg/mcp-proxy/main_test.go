@@ -48,7 +48,7 @@ func TestRun_NormalizesExternalURLTrailingSlash(t *testing.T) {
 				"", "", "", "", nil, nil,
 				"", "", "", nil, "", "", nil, nil, nil, nil,
 				false, "", "", nil, nil, "", false,
-				[]string{"http://example.com"}, false, nil, "/userinfo", 0,
+				[]string{"http://example.com"}, false, nil, "/userinfo", 0, 0, "",
 			)
 
 			if tt.wantErr {
@@ -121,6 +121,8 @@ func TestRun_PassesHTTPStreamingOnlyToProxyRouter(t *testing.T) {
 		nil,
 		"/userinfo",
 		0,
+		0,
+		"",
 	)
 
 	require.Error(t, err)

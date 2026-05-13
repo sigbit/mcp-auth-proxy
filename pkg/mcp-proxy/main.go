@@ -82,6 +82,8 @@ func Run(
 	headerMapping map[string]string,
 	headerMappingBase string,
 	authRevalidateInterval time.Duration,
+	authRevalidateTimeout time.Duration,
+	authRevalidateOnFailure string,
 ) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -303,10 +305,12 @@ func Run(
 		return fmt.Errorf("failed to create IDP router: %w", err)
 	}
 	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, forwardAuthorizationHeader, headerMapping, headerMappingBase, &proxy.Options{
-		Repo:               repo,
-		Providers:          providers,
-		RevalidateInterval: authRevalidateInterval,
-		Logger:             logger,
+		Repo:                repo,
+		Providers:           providers,
+		RevalidateInterval:  authRevalidateInterval,
+		RevalidateTimeout:   authRevalidateTimeout,
+		RevalidateOnFailure: proxy.RevalidateOnFailure(authRevalidateOnFailure),
+		Logger:              logger,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)

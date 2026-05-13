@@ -34,10 +34,32 @@ type ProxyRouter struct {
 	repo                repository.Repository
 	providers           map[string]auth.Provider
 	revalidateInterval  time.Duration
+	revalidateTimeout   time.Duration
+	revalidateOnFailure RevalidateOnFailure
 	revalidateGroup     singleflight.Group
 	logger              *zap.Logger
 	disableRevalidation bool
 }
+
+// RevalidateOnFailure controls how non-fatal upstream revalidation errors
+// (timeouts, network errors, ambiguous OAuth2 responses such as
+// invalid_request) are handled.
+//
+//   - RevalidateOnFailureAllow (default): log a warning and allow the
+//     request through. Matches oauth2-proxy behavior; favors availability
+//     during IdP outages at the cost of leaving deprovisioned users active
+//     until the IdP recovers and returns a fatal error.
+//   - RevalidateOnFailureDeny: revoke the subject's downstream tokens and
+//     reject the request. Stricter; favors security over availability.
+//     Recommended when the upstream IdP reliably distinguishes deprovisioned
+//     users with a non-fatal-coded error (e.g. dex returning invalid_request
+//     for revoked refresh tokens).
+type RevalidateOnFailure string
+
+const (
+	RevalidateOnFailureAllow RevalidateOnFailure = "allow"
+	RevalidateOnFailureDeny  RevalidateOnFailure = "deny"
+)
 
 // Options holds optional dependencies for ProxyRouter, primarily related to
 // upstream re-validation (PP023). Zero values disable revalidation entirely.
@@ -45,8 +67,26 @@ type Options struct {
 	Repo               repository.Repository
 	Providers          []auth.Provider
 	RevalidateInterval time.Duration
-	Logger             *zap.Logger
+	// RevalidateTimeout bounds each upstream Revalidate call. If <= 0,
+	// defaults to 10s. The proxy's request handler can otherwise hang
+	// indefinitely if the upstream IdP becomes unresponsive (no TCP RST,
+	// no graceful close); singleflight then blocks every concurrent
+	// request for the same subject. Bounded transient timeouts are
+	// classified as non-fatal (allow + warn), matching the
+	// oauth2-proxy revalidation model.
+	RevalidateTimeout time.Duration
+	// RevalidateOnFailure controls behavior when revalidation returns a
+	// non-fatal error (timeout, network failure, OAuth2 errors other than
+	// invalid_grant/invalid_client). Defaults to RevalidateOnFailureAllow
+	// for oauth2-proxy parity. Set to RevalidateOnFailureDeny to revoke
+	// the session on any non-fatal failure.
+	RevalidateOnFailure RevalidateOnFailure
+	Logger              *zap.Logger
 }
+
+// defaultRevalidateTimeout is the safety bound applied to upstream
+// Revalidate calls when Options.RevalidateTimeout is unset.
+const defaultRevalidateTimeout = 10 * time.Second
 
 func NewProxyRouter(
 	externalURL string,
@@ -72,6 +112,8 @@ func NewProxyRouter(
 	if opts != nil {
 		r.repo = opts.Repo
 		r.revalidateInterval = opts.RevalidateInterval
+		r.revalidateTimeout = opts.RevalidateTimeout
+		r.revalidateOnFailure = opts.RevalidateOnFailure
 		r.logger = opts.Logger
 		if len(opts.Providers) > 0 {
 			r.providers = make(map[string]auth.Provider, len(opts.Providers))
@@ -85,6 +127,15 @@ func NewProxyRouter(
 	}
 	if r.repo == nil || r.revalidateInterval <= 0 || len(r.providers) == 0 {
 		r.disableRevalidation = true
+	}
+	if r.revalidateTimeout <= 0 {
+		r.revalidateTimeout = defaultRevalidateTimeout
+	}
+	if r.revalidateOnFailure != RevalidateOnFailureDeny {
+		// Default to allow for oauth2-proxy parity. Any unknown value
+		// (including the empty string) maps to allow so misconfiguration
+		// fails open rather than locking users out.
+		r.revalidateOnFailure = RevalidateOnFailureAllow
 	}
 	return r, nil
 }
@@ -203,8 +254,10 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 //     This protects against tokens issued before this feature shipped.
 //   - If LastChecked is within the configured interval -> allow (cache hit).
 //   - Otherwise call Provider.Revalidate. On FatalRevalidationError, revoke all
-//     downstream tokens for the subject and reject. On any other error, log a
-//     warning and allow the request to proceed (oauth2-proxy parity).
+//     downstream tokens for the subject and reject. On any other error,
+//     behavior depends on revalidateOnFailure: "allow" (default, oauth2-proxy
+//     parity) logs a warning and proceeds; "deny" revokes the subject's
+//     tokens and rejects.
 func (p *ProxyRouter) revalidate(ctx context.Context, claims jwt.MapClaims) bool {
 	subject, _ := claims["sub"].(string)
 	if subject == "" {
@@ -257,7 +310,15 @@ func (p *ProxyRouter) revalidate(ctx context.Context, claims jwt.MapClaims) bool
 			RefreshToken: upSess.RefreshToken,
 			Expiry:       upSess.Expiry,
 		}
-		allowed, newTok, err := revalidator.Revalidate(ctx, tok)
+		// Decouple the upstream call from any single caller's request
+		// context: the singleflight leader is shared, so a client
+		// disconnecting must not cancel revalidation for the others.
+		// context.WithoutCancel preserves trace/log values while
+		// detaching cancellation; the timeout then bounds the call so
+		// an unresponsive IdP cannot hang the proxy.
+		revalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.revalidateTimeout)
+		defer cancel()
+		allowed, newTok, err := revalidator.Revalidate(revalCtx, tok)
 		return result{allowed: allowed, token: newTok, err: err}, nil
 	})
 	res := v.(result)
@@ -270,6 +331,12 @@ func (p *ProxyRouter) revalidate(ctx context.Context, claims jwt.MapClaims) bool
 		p.revokeAllForSubject(ctx, subject)
 		return false
 	case res.err != nil:
+		if p.revalidateOnFailure == RevalidateOnFailureDeny {
+			p.logger.Info("Upstream revalidation failed and on-failure=deny; revoking subject's tokens",
+				zap.String("subject", subject), zap.Error(res.err))
+			p.revokeAllForSubject(ctx, subject)
+			return false
+		}
 		p.logger.Warn("Upstream revalidation transient failure; allowing",
 			zap.String("subject", subject), zap.Error(res.err))
 		return true
