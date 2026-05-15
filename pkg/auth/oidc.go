@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobwas/glob"
@@ -24,6 +25,12 @@ type oidcProvider struct {
 	allowedUsersGlob      []glob.Glob
 	allowedAttributes     map[string][]string
 	allowedAttributesGlob map[string][]glob.Glob
+	// pkceVerifiers maps the OAuth `state` to its PKCE code_verifier. The
+	// verifier is generated in AuthCodeURL, sent as a code_challenge to the
+	// upstream IdP, and consumed in Exchange to fulfill the PKCE flow.
+	// Required for OAuth 2.1-compliant IdPs (e.g. Duo SSO) that reject
+	// authorization requests without code_challenge.
+	pkceVerifiers sync.Map
 }
 
 func NewOIDCProvider(
@@ -116,7 +123,9 @@ func (p *oidcProvider) AuthURL() string {
 }
 
 func (p *oidcProvider) AuthCodeURL(state string) (string, error) {
-	authURL := p.oauth2.AuthCodeURL(state)
+	verifier := oauth2.GenerateVerifier()
+	p.pkceVerifiers.Store(state, verifier)
+	authURL := p.oauth2.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
 	return authURL, nil
 }
 
@@ -125,7 +134,11 @@ func (p *oidcProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, er
 		return nil, errors.New("invalid OAuth state")
 	}
 	code := c.Query("code")
-	token, err := p.oauth2.Exchange(c, code)
+	var opts []oauth2.AuthCodeOption
+	if v, ok := p.pkceVerifiers.LoadAndDelete(state); ok {
+		opts = append(opts, oauth2.VerifierOption(v.(string)))
+	}
+	token, err := p.oauth2.Exchange(c, code, opts...)
 	if err != nil {
 		return nil, err
 	}
