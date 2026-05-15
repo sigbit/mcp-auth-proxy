@@ -156,6 +156,7 @@ type proxyRunnerFunc func(
 	oidcAllowedUsersGlob []string,
 	oidcAllowedAttributes map[string][]string,
 	oidcAllowedAttributesGlob map[string][]string,
+	oidcPrompt string,
 	noProviderAutoSelect bool,
 	password string,
 	passwordHash string,
@@ -208,6 +209,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var oidcAllowedUsersGlob string
 	var oidcAllowedAttributes string
 	var oidcAllowedAttributesGlob string
+	var oidcPrompt string
 	var noProviderAutoSelect bool
 	var password string
 	var passwordHash string
@@ -279,6 +281,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				oidcAllowedUsersGlobList,
 				oidcAllowedAttributesMap,
 				oidcAllowedAttributesGlobMap,
+				oidcPrompt,
 				noProviderAutoSelect,
 				password,
 				passwordHash,
@@ -334,6 +337,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&oidcAllowedUsersGlob, "oidc-allowed-users-glob", getEnvWithDefault("OIDC_ALLOWED_USERS_GLOB", ""), "Comma-separated list of glob patterns for allowed OIDC users")
 	rootCmd.Flags().StringVar(&oidcAllowedAttributes, "oidc-allowed-attributes", getEnvWithDefault("OIDC_ALLOWED_ATTRIBUTES", ""), "Comma-separated list of allowed attribute key=value pairs (e.g., /groups=admin,/roles=editor). Keys are JSON pointers.")
 	rootCmd.Flags().StringVar(&oidcAllowedAttributesGlob, "oidc-allowed-attributes-glob", getEnvWithDefault("OIDC_ALLOWED_ATTRIBUTES_GLOB", ""), "Comma-separated list of attribute key=pattern pairs for glob matching (e.g., /groups=*-admins,/email=*@example.com). Keys are JSON pointers.")
+	rootCmd.Flags().StringVar(&oidcPrompt, "oidc-prompt", getEnvWithDefault("OIDC_PROMPT", ""), "Value to send as the OIDC `prompt` parameter on /authorize (e.g. `login` to force re-authentication, `consent` to force consent, `select_account`, `none`). Empty disables.")
 
 	// Password authentication
 	rootCmd.Flags().BoolVar(&noProviderAutoSelect, "no-provider-auto-select", getEnvBoolWithDefault("NO_PROVIDER_AUTO_SELECT", false), "Disable auto-redirect when only one OAuth/OIDC provider is configured and no password is set")

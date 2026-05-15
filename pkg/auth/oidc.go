@@ -25,6 +25,12 @@ type oidcProvider struct {
 	allowedUsersGlob      []glob.Glob
 	allowedAttributes     map[string][]string
 	allowedAttributesGlob map[string][]glob.Glob
+	// promptValue, if non-empty, is sent as the OIDC `prompt` query parameter
+	// on the authorization request. Common values: "login" (force the IdP to
+	// show a login screen even when a valid SSO session exists), "consent",
+	// "select_account", "none". Useful for IdPs (e.g. Entra ID) where silent
+	// SSO would otherwise hide whether MFA was challenged.
+	promptValue string
 	// pkceVerifiers maps the OAuth `state` to its PKCE code_verifier. The
 	// verifier is generated in AuthCodeURL, sent as a code_challenge to the
 	// upstream IdP, and consumed in Exchange to fulfill the PKCE flow.
@@ -37,6 +43,7 @@ func NewOIDCProvider(
 	configurationURL string, scopes []string, userIDField string,
 	providerName, externalURL, clientID, clientSecret string, allowedUsers []string, allowedUsersGlob []string,
 	allowedAttributes map[string][]string, allowedAttributesGlob map[string][]string,
+	promptValue string,
 ) (Provider, error) {
 	resp, err := http.Get(configurationURL)
 	if err != nil {
@@ -103,6 +110,7 @@ func NewOIDCProvider(
 		allowedUsersGlob:      compiledGlobs,
 		allowedAttributes:     allowedAttributes,
 		allowedAttributesGlob: compiledAttributeGlobs,
+		promptValue:           promptValue,
 	}, nil
 }
 
@@ -125,7 +133,11 @@ func (p *oidcProvider) AuthURL() string {
 func (p *oidcProvider) AuthCodeURL(state string) (string, error) {
 	verifier := oauth2.GenerateVerifier()
 	p.pkceVerifiers.Store(state, verifier)
-	authURL := p.oauth2.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
+	opts := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(verifier)}
+	if p.promptValue != "" {
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", p.promptValue))
+	}
+	authURL := p.oauth2.AuthCodeURL(state, opts...)
 	return authURL, nil
 }
 
