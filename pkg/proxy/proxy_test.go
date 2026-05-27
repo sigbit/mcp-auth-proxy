@@ -697,3 +697,85 @@ func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 		})
 	}
 }
+
+func TestProxyRouter_SetsSubjectInContext(t *testing.T) {
+	privateKey, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+
+	cases := []struct {
+		name          string
+		claims        jwt.MapClaims
+		expectSubject bool
+		subject       string
+	}{
+		{
+			name: "sub claim is set in context",
+			claims: jwt.MapClaims{
+				"sub": "user-123",
+				"exp": time.Now().Add(time.Hour).Unix(),
+				"iat": time.Now().Unix(),
+			},
+			expectSubject: true,
+			subject:       "user-123",
+		},
+		{
+			name: "missing sub claim",
+			claims: jwt.MapClaims{
+				"exp": time.Now().Add(time.Hour).Unix(),
+				"iat": time.Now().Unix(),
+			},
+			expectSubject: false,
+		},
+		{
+			name: "empty sub claim",
+			claims: jwt.MapClaims{
+				"sub": "",
+				"exp": time.Now().Add(time.Hour).Unix(),
+				"iat": time.Now().Unix(),
+			},
+			expectSubject: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedSubject string
+			var capturedExists bool
+
+			proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
+
+			proxyRouter, err := NewProxyRouter("https://example.com", proxyHandler, publicKey, http.Header{}, false, false, nil, "/userinfo")
+			require.NoError(t, err)
+
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			router.Use(func(c *gin.Context) {
+				c.Next()
+				val, exists := c.Get("subject")
+				capturedExists = exists
+				if exists {
+					capturedSubject, _ = val.(string)
+				}
+			})
+			proxyRouter.SetupRoutes(router)
+
+			token, err := createJWT(privateKey, tt.claims)
+			require.NoError(t, err)
+
+			req, err := http.NewRequest(http.MethodGet, "/test", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+token)
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, tt.expectSubject, capturedExists)
+			if tt.expectSubject {
+				assert.Equal(t, tt.subject, capturedSubject)
+			}
+		})
+	}
+}
