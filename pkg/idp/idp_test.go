@@ -582,6 +582,186 @@ func TestAccessTokenAudienceClaim(t *testing.T) {
 	require.Contains(t, aud, "http://localhost:8080", "aud should contain the external URL")
 }
 
+// setupTestServerWithKey is like setupTestServer but accepts an existing repository
+// and signing key, so a test can simulate a pod restart with a rotated key while
+// reusing the prior pod's storage (refresh-token sessions persist there).
+func setupTestServerWithKey(t *testing.T, repo repository.Repository, privKey *rsa.PrivateKey) *httptest.Server {
+	t.Helper()
+
+	secret := sha256.Sum256([]byte("test_secret"))
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	store := cookie.NewStore(secret[:])
+	router.Use(sessions.Sessions("test_session", store))
+
+	router.Use(func(c *gin.Context) {
+		session := sessions.Default(c)
+		session.Set(auth.SessionKeyAuthorized, true)
+		session.Set(auth.SessionKeyUserID, "test-user@example.com")
+		session.Set(auth.SessionKeyUserInfo, `{"email":"test-user@example.com","name":"Test User"}`)
+		if err := session.Save(); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to save session"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	})
+
+	authRouter, err := auth.NewAuthRouter([]string{}, false, nil)
+	require.NoError(t, err)
+
+	logger, _ := zap.NewDevelopment()
+	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter)
+	require.NoError(t, err)
+	idpRouter.SetupRoutes(router)
+
+	server := httptest.NewServer(router)
+	t.Cleanup(server.Close)
+	return server
+}
+
+// jwtKID extracts the "kid" header from a compact JWS string.
+func jwtKID(t *testing.T, token string) string {
+	t.Helper()
+	parts := strings.Split(token, ".")
+	require.Len(t, parts, 3, "token should be a 3-part JWS")
+	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
+	require.NoError(t, err)
+	var header map[string]any
+	require.NoError(t, json.Unmarshal(headerBytes, &header))
+	kid, ok := header["kid"].(string)
+	require.True(t, ok, "kid header should be a string")
+	require.NotEmpty(t, kid)
+	return kid
+}
+
+// jwksFirstKID fetches /.well-known/jwks.json and returns the first key's kid.
+func jwksFirstKID(t *testing.T, serverURL string) string {
+	t.Helper()
+	resp, err := http.Get(serverURL + JWKSEndpoint)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var jwks map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&jwks))
+	keys, ok := jwks["keys"].([]any)
+	require.True(t, ok)
+	require.Len(t, keys, 1)
+	kid, ok := keys[0].(map[string]any)["kid"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, kid)
+	return kid
+}
+
+// TestRefreshTokenUsesCurrentSigningKid simulates a key rotation across a pod
+// restart: an initial server mints tokens using key A and persists the refresh
+// token session in storage; a second server is then constructed using the same
+// storage but a different signing key (B), and a refresh_token grant is made
+// against it. The resulting access token's "kid" header MUST advertise key B's
+// kid so downstream JWKS-based verifiers (e.g. Grafana) can verify the token.
+//
+// Regression for: after a cert-manager-managed signing key rotation, refresh
+// tokens minted by the old pod were causing the new pod to emit JWTs with the
+// old kid in the header (restored from fosite session storage), even though the
+// JWKS endpoint now publishes only the new key. Grafana then rejected the token
+// with "failed to verify JWT: no keys found".
+func TestRefreshTokenUsesCurrentSigningKid(t *testing.T) {
+	// Shared storage across the two "pods"
+	tmpDir, err := os.MkdirTemp("", "idp_test_rotation_*")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := repository.NewKVSRepository(dbPath, "test")
+	require.NoError(t, err)
+	t.Cleanup(func() { repo.Close() })
+
+	// --- "Pod A" with signing key A: register client, mint initial tokens.
+	keyA, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	serverA := setupTestServerWithKey(t, repo, keyA)
+
+	kidA := jwksFirstKID(t, serverA.URL)
+
+	regResp := registerTestClient(t, serverA.URL)
+
+	config := &oauth2.Config{
+		ClientID:     regResp.ClientID,
+		ClientSecret: regResp.ClientSecret,
+		RedirectURL:  "http://localhost:8080/callback",
+		Scopes:       []string{},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  serverA.URL + AuthorizationEndpoint,
+			TokenURL: serverA.URL + TokenEndpoint,
+		},
+	}
+
+	callbackURL := testAuthFlowWithURL(t, serverA.URL, config.AuthCodeURL("test-state", oauth2.AccessTypeOffline))
+	code := callbackURL.Query().Get("code")
+	require.NotEmpty(t, code)
+
+	tokenReq := url.Values{}
+	tokenReq.Set("grant_type", "authorization_code")
+	tokenReq.Set("code", code)
+	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
+	tokenReq.Set("client_id", regResp.ClientID)
+	tokenReq.Set("client_secret", regResp.ClientSecret)
+
+	tokenResp, err := http.PostForm(serverA.URL+TokenEndpoint, tokenReq)
+	require.NoError(t, err)
+	defer tokenResp.Body.Close()
+	require.Equal(t, http.StatusOK, tokenResp.StatusCode)
+
+	var tokenResult map[string]any
+	require.NoError(t, json.NewDecoder(tokenResp.Body).Decode(&tokenResult))
+
+	initialAccess, _ := tokenResult["access_token"].(string)
+	require.NotEmpty(t, initialAccess)
+	refreshToken, _ := tokenResult["refresh_token"].(string)
+	require.NotEmpty(t, refreshToken)
+
+	require.Equal(t, kidA, jwtKID(t, initialAccess),
+		"initial access token should advertise key A's kid")
+
+	// --- "Pod B" with rotated signing key B: same shared storage.
+	keyB, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	require.NotEqual(t, keyA.PublicKey.N.String(), keyB.PublicKey.N.String(),
+		"test setup error: regenerated key matches the previous one")
+	serverA.Close()
+	serverB := setupTestServerWithKey(t, repo, keyB)
+
+	kidB := jwksFirstKID(t, serverB.URL)
+	require.NotEqual(t, kidA, kidB, "JWKS should publish the rotated key's kid")
+
+	// --- Perform refresh_token grant against the rotated pod.
+	refreshReq := url.Values{}
+	refreshReq.Set("grant_type", "refresh_token")
+	refreshReq.Set("refresh_token", refreshToken)
+	refreshReq.Set("client_id", regResp.ClientID)
+	refreshReq.Set("client_secret", regResp.ClientSecret)
+
+	refreshResp, err := http.PostForm(serverB.URL+TokenEndpoint, refreshReq)
+	require.NoError(t, err)
+	defer refreshResp.Body.Close()
+	require.Equal(t, http.StatusOK, refreshResp.StatusCode)
+
+	var refreshResult map[string]any
+	require.NoError(t, json.NewDecoder(refreshResp.Body).Decode(&refreshResult))
+
+	refreshedAccess, _ := refreshResult["access_token"].(string)
+	require.NotEmpty(t, refreshedAccess)
+	require.NotEqual(t, initialAccess, refreshedAccess,
+		"refresh should produce a new access token")
+
+	// --- The new access token MUST be tagged with key B's kid, NOT the kid
+	// that was persisted in the refresh-token session at issuance time.
+	require.Equal(t, kidB, jwtKID(t, refreshedAccess),
+		"refreshed access token must advertise the CURRENT signing key's kid (rotated key B), not the stored kid from key A")
+}
+
 func TestAccessTokenPreservesUserIdentity(t *testing.T) {
 	server, _, _ := setupTestServer(t)
 	regResp := registerTestClient(t, server.URL)
