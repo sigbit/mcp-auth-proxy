@@ -703,9 +703,10 @@ func TestProxyRouter_SetsSubjectInContext(t *testing.T) {
 	require.NoError(t, err)
 
 	cases := []struct {
-		name            string
-		claims          jwt.MapClaims
-		expectedSubject string
+		name          string
+		claims        jwt.MapClaims
+		expectSubject bool
+		subject       string
 	}{
 		{
 			name: "sub claim is set in context",
@@ -714,15 +715,25 @@ func TestProxyRouter_SetsSubjectInContext(t *testing.T) {
 				"exp": time.Now().Add(time.Hour).Unix(),
 				"iat": time.Now().Unix(),
 			},
-			expectedSubject: "user-123",
+			expectSubject: true,
+			subject:       "user-123",
 		},
 		{
-			name: "missing sub claim sets null",
+			name: "missing sub claim",
 			claims: jwt.MapClaims{
 				"exp": time.Now().Add(time.Hour).Unix(),
 				"iat": time.Now().Unix(),
 			},
-			expectedSubject: "null",
+			expectSubject: false,
+		},
+		{
+			name: "empty sub claim",
+			claims: jwt.MapClaims{
+				"sub": "",
+				"exp": time.Now().Add(time.Hour).Unix(),
+				"iat": time.Now().Unix(),
+			},
+			expectSubject: false,
 		},
 	}
 
@@ -761,8 +772,10 @@ func TestProxyRouter_SetsSubjectInContext(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			assert.Equal(t, http.StatusOK, w.Code)
-			assert.True(t, capturedExists)
-			assert.Equal(t, tt.expectedSubject, capturedSubject)
+			assert.Equal(t, tt.expectSubject, capturedExists)
+			if tt.expectSubject {
+				assert.Equal(t, tt.subject, capturedSubject)
+			}
 		})
 	}
 }

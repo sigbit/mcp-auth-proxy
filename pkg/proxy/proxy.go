@@ -88,8 +88,6 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 
 	if subject, _ := claims.GetSubject(); subject != "" {
 		c.Set("subject", subject)
-	} else {
-		c.Set("subject", "null")
 	}
 
 	if p.httpStreamingOnly && isSSEGetRequest(c.Request) {
