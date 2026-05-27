@@ -2,9 +2,12 @@ package auth
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-contrib/sessions"
@@ -14,6 +17,12 @@ import (
 	"go.uber.org/mock/gomock"
 	"golang.org/x/oauth2"
 )
+
+type errorReadFileFS struct{}
+
+func (errorReadFileFS) ReadFile(string) ([]byte, error) {
+	return nil, os.ErrPermission
+}
 
 func setupTestRouter(authRouter *AuthRouter) *gin.Engine {
 	router := gin.New()
@@ -41,6 +50,135 @@ func setupClient() *http.Client {
 			return http.ErrUseLastResponse
 		},
 	}
+}
+
+func TestNewAuthRouterWithTemplateDir(t *testing.T) {
+	t.Run("uses custom login template and shared styles", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(templateDir, "styles.html"), []byte(`{{define "styles"}}<style>.custom{color:red}</style>{{end}}`), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(templateDir, "login.html"), []byte(`<!doctype html>{{template "styles" .}}<p>Custom login {{if .HasPassword}}password{{end}}</p>`), 0o600))
+
+		authRouter, err := NewAuthRouterWithTemplateDir([]string{"unused"}, true, nil, templateDir)
+		require.NoError(t, err)
+
+		router := setupTestRouter(authRouter)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		resp, err := setupClient().Get(server.URL + LoginEndpoint)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Contains(t, string(body), "Custom login password")
+		require.Contains(t, string(body), ".custom{color:red}")
+	})
+
+	t.Run("rejects missing template directory", func(t *testing.T) {
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, filepath.Join(t.TempDir(), "missing"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to stat auth template dir")
+	})
+
+	t.Run("rejects template directory path that is a file", func(t *testing.T) {
+		templateDir := filepath.Join(t.TempDir(), "templates")
+		require.NoError(t, os.WriteFile(templateDir, []byte("not a directory"), 0o600))
+
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, templateDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "auth template dir is not a directory")
+	})
+
+	t.Run("rejects invalid shared styles template", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(templateDir, "styles.html"), []byte(`{{define "styles"`), 0o600))
+
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, templateDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse styles.html")
+	})
+
+	t.Run("rejects unreadable shared styles template", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(templateDir, "styles.html"), 0o700))
+
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, templateDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read auth template")
+	})
+
+	t.Run("rejects invalid custom login template", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(templateDir, "login.html"), []byte(`{{if .HasPassword}}`), 0o600))
+
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, templateDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse login.html")
+	})
+
+	t.Run("rejects invalid custom unauthorized template", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(templateDir, "unauthorized.html"), []byte(`{{if .UserID}}`), 0o600))
+
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, templateDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse unauthorized.html")
+	})
+
+	t.Run("rejects invalid custom error template", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(templateDir, "error.html"), []byte(`{{if .ErrorMessage}}`), 0o600))
+
+		_, err := NewAuthRouterWithTemplateDir(nil, false, nil, templateDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse error.html")
+	})
+
+	t.Run("errors when required template cannot be found", func(t *testing.T) {
+		_, err := readAuthTemplate("", "missing.html")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "auth template missing.html not found")
+	})
+
+	t.Run("parse errors when required template cannot be found", func(t *testing.T) {
+		_, err := parseAuthTemplate("", "missing.html")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "auth template missing.html not found")
+	})
+
+	t.Run("errors when required custom template cannot be read", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(templateDir, "login.html"), 0o700))
+
+		_, err := readAuthTemplate(templateDir, "login.html")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read auth template")
+	})
+
+	t.Run("errors when custom optional template cannot be read", func(t *testing.T) {
+		templateDir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(templateDir, "styles.html"), 0o700))
+
+		_, ok, err := readOptionalAuthTemplate(templateDir, "styles.html")
+		require.Error(t, err)
+		require.False(t, ok)
+		require.Contains(t, err.Error(), "failed to read auth template")
+	})
+
+	t.Run("missing embedded optional template is not an error", func(t *testing.T) {
+		_, ok, err := readOptionalAuthTemplate("", "missing.html")
+		require.NoError(t, err)
+		require.False(t, ok)
+	})
+
+	t.Run("unexpected embedded template read error is returned", func(t *testing.T) {
+		_, ok, err := readEmbeddedAuthTemplate(errorReadFileFS{}, "login.html")
+		require.Error(t, err)
+		require.False(t, ok)
+		require.Contains(t, err.Error(), "failed to read embedded auth template")
+	})
 }
 
 func TestFilterUserInfo(t *testing.T) {

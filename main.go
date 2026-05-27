@@ -136,6 +136,7 @@ type proxyRunnerFunc func(
 	repositoryBackend string,
 	repositoryDSN string,
 	externalURL string,
+	authTemplateDir string,
 	googleClientID string,
 	googleClientSecret string,
 	googleAllowedUsers []string,
@@ -188,6 +189,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var repositoryBackend string
 	var repositoryDSN string
 	var externalURL string
+	var authTemplateDir string
 	var googleClientID string
 	var googleClientSecret string
 	var googleAllowedUsers string
@@ -259,6 +261,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				repositoryBackend,
 				repositoryDSN,
 				externalURL,
+				authTemplateDir,
 				googleClientID,
 				googleClientSecret,
 				googleAllowedUsersList,
@@ -308,6 +311,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&repositoryBackend, "repository-backend", getEnvWithDefault("REPOSITORY_BACKEND", "local"), "Repository backend to use: local, sqlite, postgres, or mysql")
 	rootCmd.Flags().StringVar(&repositoryDSN, "repository-dsn", getEnvWithDefault("REPOSITORY_DSN", ""), "DSN passed directly to the SQL driver (required when repository-backend is sqlite/postgres/mysql)")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
+	rootCmd.Flags().StringVar(&authTemplateDir, "auth-template-dir", getEnvWithDefault("AUTH_TEMPLATE_DIR", ""), "Directory containing auth HTML templates that override embedded login.html, unauthorized.html, and error.html; may include styles.html")
 
 	// Google OAuth configuration
 	rootCmd.Flags().StringVar(&googleClientID, "google-client-id", getEnvWithDefault("GOOGLE_CLIENT_ID", ""), "Google OAuth client ID")

@@ -50,6 +50,7 @@ func Run(
 	repositoryBackend string,
 	repositoryDSN string,
 	externalURL string,
+	authTemplateDir string,
 	googleClientID string,
 	googleClientSecret string,
 	googleAllowedUsers []string,
@@ -293,7 +294,7 @@ func Run(
 	// session cookie doesn't store the entire provider response.
 	userInfoFields := userInfoFieldsFromConfig(oidcUserIDField, headerMapping)
 
-	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, userInfoFields, providers...)
+	authRouter, err := auth.NewAuthRouterWithTemplateDir(passwordHashes, noProviderAutoSelect, userInfoFields, authTemplateDir, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
