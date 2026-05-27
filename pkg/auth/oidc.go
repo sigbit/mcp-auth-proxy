@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobwas/glob"
@@ -24,12 +25,25 @@ type oidcProvider struct {
 	allowedUsersGlob      []glob.Glob
 	allowedAttributes     map[string][]string
 	allowedAttributesGlob map[string][]glob.Glob
+	// promptValue, if non-empty, is sent as the OIDC `prompt` query parameter
+	// on the authorization request. Common values: "login" (force the IdP to
+	// show a login screen even when a valid SSO session exists), "consent",
+	// "select_account", "none". Useful for IdPs (e.g. Entra ID) where silent
+	// SSO would otherwise hide whether MFA was challenged.
+	promptValue string
+	// pkceVerifiers maps the OAuth `state` to its PKCE code_verifier. The
+	// verifier is generated in AuthCodeURL, sent as a code_challenge to the
+	// upstream IdP, and consumed in Exchange to fulfill the PKCE flow.
+	// Required for OAuth 2.1-compliant IdPs (e.g. Duo SSO) that reject
+	// authorization requests without code_challenge.
+	pkceVerifiers sync.Map
 }
 
 func NewOIDCProvider(
 	configurationURL string, scopes []string, userIDField string,
 	providerName, externalURL, clientID, clientSecret string, allowedUsers []string, allowedUsersGlob []string,
 	allowedAttributes map[string][]string, allowedAttributesGlob map[string][]string,
+	promptValue string,
 ) (Provider, error) {
 	resp, err := http.Get(configurationURL)
 	if err != nil {
@@ -96,6 +110,7 @@ func NewOIDCProvider(
 		allowedUsersGlob:      compiledGlobs,
 		allowedAttributes:     allowedAttributes,
 		allowedAttributesGlob: compiledAttributeGlobs,
+		promptValue:           promptValue,
 	}, nil
 }
 
@@ -116,7 +131,13 @@ func (p *oidcProvider) AuthURL() string {
 }
 
 func (p *oidcProvider) AuthCodeURL(state string) (string, error) {
-	authURL := p.oauth2.AuthCodeURL(state)
+	verifier := oauth2.GenerateVerifier()
+	p.pkceVerifiers.Store(state, verifier)
+	opts := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(verifier)}
+	if p.promptValue != "" {
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", p.promptValue))
+	}
+	authURL := p.oauth2.AuthCodeURL(state, opts...)
 	return authURL, nil
 }
 
@@ -125,7 +146,11 @@ func (p *oidcProvider) Exchange(c *gin.Context, state string) (*oauth2.Token, er
 		return nil, errors.New("invalid OAuth state")
 	}
 	code := c.Query("code")
-	token, err := p.oauth2.Exchange(c, code)
+	var opts []oauth2.AuthCodeOption
+	if v, ok := p.pkceVerifiers.LoadAndDelete(state); ok {
+		opts = append(opts, oauth2.VerifierOption(v.(string)))
+	}
+	token, err := p.oauth2.Exchange(c, code, opts...)
 	if err != nil {
 		return nil, err
 	}
