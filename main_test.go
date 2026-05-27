@@ -3,6 +3,7 @@ package main
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestSplitWithEscapes(t *testing.T) {
@@ -440,6 +441,9 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		authRevalidateInterval time.Duration,
+		authRevalidateTimeout time.Duration,
+		authRevalidateOnFailure string,
 	) error {
 		streamingOnly = httpStreamingOnly
 		receivedTargets = proxyTarget
@@ -508,6 +512,9 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		authRevalidateInterval time.Duration,
+		authRevalidateTimeout time.Duration,
+		authRevalidateOnFailure string,
 	) error {
 		streamingOnly = httpStreamingOnly
 		return nil
@@ -572,6 +579,9 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		authRevalidateInterval time.Duration,
+		authRevalidateTimeout time.Duration,
+		authRevalidateOnFailure string,
 	) error {
 		forwardAuthorization = forwardAuthorizationHeader
 		return nil
@@ -636,6 +646,9 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		authRevalidateInterval time.Duration,
+		authRevalidateTimeout time.Duration,
+		authRevalidateOnFailure string,
 	) error {
 		forwardAuthorization = forwardAuthorizationHeader
 		return nil

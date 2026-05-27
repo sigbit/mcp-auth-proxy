@@ -131,7 +131,30 @@ For Okta, you typically need to:
 
 1. Add the `groups` scope: `--oidc-scopes "openid,profile,email,groups"`
 2. Configure a groups claim in Okta Admin (Security → API → Authorization Servers → Claims)
+3. To enable upstream session revalidation with refresh-token rotation (see [Session Revalidation](#session-revalidation) below), also include the `offline_access` scope: `--oidc-scopes "openid,profile,email,groups,offline_access"`
    :::
+
+#### Session Revalidation
+
+To honor IdP-side deprovisioning (e.g. an Okta user is suspended or removed from a required group), the proxy can periodically re-contact the upstream OIDC `userinfo` endpoint and revoke all downstream tokens for the subject when the IdP rejects the upstream token.
+
+| Option                         | Environment Variable         | Default | Description                                                                                                                              |
+| ------------------------------ | ---------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth-revalidate-interval`   | `AUTH_REVALIDATE_INTERVAL`   | `60s`   | How frequently to re-validate each upstream session against the IdP (`/userinfo`). Set to `0` to disable. Currently OIDC providers only. |
+| `--auth-revalidate-timeout`    | `AUTH_REVALIDATE_TIMEOUT`    | `10s`   | Maximum time to wait for a single upstream re-validation call (token refresh + `/userinfo`). Exceeding it is treated as a transient failure (request allowed, warning logged). Bounds the impact of an unresponsive IdP on proxy request latency. |
+| `--auth-revalidate-on-failure` | `AUTH_REVALIDATE_ON_FAILURE` | `allow` | Behavior on non-fatal revalidation errors (timeouts, network failures, OAuth2 errors other than `invalid_grant`/`invalid_client`). `allow` (default, oauth2-proxy parity) logs a warning and proceeds; favors availability during IdP outages. `deny` revokes the subject's tokens and rejects the request; favors security and is recommended when the IdP returns non-fatal-coded errors for revoked sessions (e.g. dex returning `invalid_request` for revoked refresh tokens). |
+
+Behavior mirrors `oauth2-proxy` by default:
+
+- **Fatal errors** (`invalid_grant`, `invalid_client`, HTTP 401/403 from `/userinfo`) revoke every downstream access-token issued for the subject and force re-authentication.
+- **Non-fatal errors** (5xx, network failures, timeouts, OAuth2 `invalid_request`, etc.) allow the request through and retry on the next interval. Set `--auth-revalidate-on-failure=deny` to revoke instead — useful when the upstream IdP returns non-fatal-coded errors for revoked sessions.
+
+**Refresh tokens and `offline_access`:** Many IdPs (including Okta) only issue a refresh token when the `offline_access` scope is requested. Without a refresh token the proxy cannot rotate the upstream access token. The downstream consequence depends on how the IdP signals expiry:
+
+- If the IdP returns HTTP 401 from `/userinfo` once the upstream access token expires, the proxy treats it as fatal and forces the user to re-authenticate.
+- If the IdP returns a transient error (network failure, 5xx), the proxy allows the session to continue and retries on the next interval.
+
+Requesting `offline_access` lets the proxy refresh the upstream token transparently and avoid premature forced re-authentication. Add it to your scopes, e.g. `--oidc-scopes "openid,profile,email,offline_access"`.
 
 ### Cryptographic Key Options
 

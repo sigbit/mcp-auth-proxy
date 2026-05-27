@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"strings"
+	"time"
 
 	mcpproxy "github.com/sigbit/mcp-auth-proxy/v2/pkg/mcp-proxy"
 	"github.com/spf13/cobra"
@@ -20,6 +21,18 @@ func getEnvBoolWithDefault(key string, defaultValue bool) bool {
 		return strings.EqualFold(value, "true") || value == "1"
 	}
 	return defaultValue
+}
+
+func getEnvDurationWithDefault(key string, defaultValue time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return defaultValue
+	}
+	return d
 }
 
 func splitCSV(s string) []string {
@@ -86,12 +99,12 @@ func parseAttributeMap(s string) map[string][]string {
 		if part == "" {
 			continue
 		}
-		eqIdx := strings.Index(part, "=")
-		if eqIdx == -1 {
+		before, after, ok := strings.Cut(part, "=")
+		if !ok {
 			continue
 		}
-		key := strings.TrimSpace(part[:eqIdx])
-		value := strings.TrimSpace(part[eqIdx+1:])
+		key := strings.TrimSpace(before)
+		value := strings.TrimSpace(after)
 		if key != "" && value != "" {
 			result[key] = append(result[key], value)
 		}
@@ -167,6 +180,9 @@ type proxyRunnerFunc func(
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	authRevalidateInterval time.Duration,
+	authRevalidateTimeout time.Duration,
+	authRevalidateOnFailure string,
 ) error
 
 func main() {
@@ -218,6 +234,9 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var headerMappingBase string
 	var httpStreamingOnly bool
 	var trustedProxies string
+	var authRevalidateInterval time.Duration
+	var authRevalidateTimeout time.Duration
+	var authRevalidateOnFailure string
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
@@ -238,7 +257,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 
 			oidcScopesList := splitCSV(oidcScopes)
 			if len(oidcScopesList) == 0 {
-				oidcScopesList = []string{"openid", "profile", "email"}
+				oidcScopesList = []string{"openid", "profile", "email", "offline_access"}
 			}
 
 			trustedProxiesList := splitCSV(trustedProxies)
@@ -290,6 +309,9 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				httpStreamingOnly,
 				headerMappingMap,
 				headerMappingBase,
+				authRevalidateInterval,
+				authRevalidateTimeout,
+				authRevalidateOnFailure,
 			); err != nil {
 				panic(err)
 			}
@@ -327,7 +349,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&oidcConfigurationURL, "oidc-configuration-url", getEnvWithDefault("OIDC_CONFIGURATION_URL", ""), "OIDC configuration URL")
 	rootCmd.Flags().StringVar(&oidcClientID, "oidc-client-id", getEnvWithDefault("OIDC_CLIENT_ID", ""), "OIDC client ID")
 	rootCmd.Flags().StringVar(&oidcClientSecret, "oidc-client-secret", getEnvWithDefault("OIDC_CLIENT_SECRET", ""), "OIDC client secret")
-	rootCmd.Flags().StringVar(&oidcScopes, "oidc-scopes", getEnvWithDefault("OIDC_SCOPES", "openid,profile,email"), "Comma-separated list of OIDC scopes")
+	rootCmd.Flags().StringVar(&oidcScopes, "oidc-scopes", getEnvWithDefault("OIDC_SCOPES", "openid,profile,email,offline_access"), "Comma-separated list of OIDC scopes")
 	rootCmd.Flags().StringVar(&oidcUserIDField, "oidc-user-id-field", getEnvWithDefault("OIDC_USER_ID_FIELD", "/email"), "JSON pointer to user ID field in userinfo endpoint response")
 	rootCmd.Flags().StringVar(&oidcProviderName, "oidc-provider-name", getEnvWithDefault("OIDC_PROVIDER_NAME", "OIDC"), "Display name for OIDC provider")
 	rootCmd.Flags().StringVar(&oidcAllowedUsers, "oidc-allowed-users", getEnvWithDefault("OIDC_ALLOWED_USERS", ""), "Comma-separated list of allowed OIDC users")
@@ -348,6 +370,9 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")
 	rootCmd.Flags().StringVar(&headerMapping, "header-mapping", getEnvWithDefault("HEADER_MAPPING", ""), "Comma-separated mapping of JSON pointer paths to header names (e.g., /email:X-Forwarded-Email,/preferred_username:X-Forwarded-User)")
 	rootCmd.Flags().StringVar(&headerMappingBase, "header-mapping-base", getEnvWithDefault("HEADER_MAPPING_BASE", "/userinfo"), "JSON pointer base path for header mapping claims lookup (e.g., /userinfo or /)")
+	rootCmd.Flags().DurationVar(&authRevalidateInterval, "auth-revalidate-interval", getEnvDurationWithDefault("AUTH_REVALIDATE_INTERVAL", 60*time.Second), "Periodic upstream OIDC re-validation interval (e.g. 60s, 5m). Set to 0 to disable. For graceful refresh-token rotation, request the 'offline_access' scope (e.g. add it to --oidc-scopes); otherwise the upstream access token cannot be refreshed and the user will be forced to re-authenticate when it expires.")
+	rootCmd.Flags().DurationVar(&authRevalidateTimeout, "auth-revalidate-timeout", getEnvDurationWithDefault("AUTH_REVALIDATE_TIMEOUT", 10*time.Second), "Maximum time to wait for a single upstream OIDC re-validation call (token refresh + userinfo). If exceeded, the call is treated as a transient failure (request allowed, warning logged). Bounds the impact of an unresponsive IdP on proxy request latency. Set <=0 to use the default (10s).")
+	rootCmd.Flags().StringVar(&authRevalidateOnFailure, "auth-revalidate-on-failure", getEnvWithDefault("AUTH_REVALIDATE_ON_FAILURE", "allow"), "Behavior when revalidation returns a non-fatal error (timeout, network failure, OAuth2 errors other than invalid_grant/invalid_client). 'allow' (default, oauth2-proxy parity): log a warning and proceed; favors availability during IdP outages. 'deny': revoke the subject's tokens and reject the request; favors security and is recommended when the IdP returns non-fatal-coded errors for revoked sessions (e.g. dex returning invalid_request for revoked refresh tokens).")
 
 	return rootCmd
 }

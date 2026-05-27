@@ -144,3 +144,43 @@ func (mr *MockProviderMockRecorder) Type() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockProvider)(nil).Type))
 }
+
+// MockRevalidator is a mock of Revalidator interface.
+type MockRevalidator struct {
+	ctrl     *gomock.Controller
+	recorder *MockRevalidatorMockRecorder
+	isgomock struct{}
+}
+
+// MockRevalidatorMockRecorder is the mock recorder for MockRevalidator.
+type MockRevalidatorMockRecorder struct {
+	mock *MockRevalidator
+}
+
+// NewMockRevalidator creates a new mock instance.
+func NewMockRevalidator(ctrl *gomock.Controller) *MockRevalidator {
+	mock := &MockRevalidator{ctrl: ctrl}
+	mock.recorder = &MockRevalidatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRevalidator) EXPECT() *MockRevalidatorMockRecorder {
+	return m.recorder
+}
+
+// Revalidate mocks base method.
+func (m *MockRevalidator) Revalidate(ctx context.Context, token *oauth2.Token) (bool, *oauth2.Token, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revalidate", ctx, token)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(*oauth2.Token)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Revalidate indicates an expected call of Revalidate.
+func (mr *MockRevalidatorMockRecorder) Revalidate(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revalidate", reflect.TypeOf((*MockRevalidator)(nil).Revalidate), ctx, token)
+}

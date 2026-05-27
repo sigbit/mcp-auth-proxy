@@ -100,7 +100,13 @@ func (r *kvsRepository) InvalidateAuthorizeCodeSession(ctx context.Context, code
 }
 
 func (r *kvsRepository) CreateAccessTokenSession(ctx context.Context, signature string, fositeReq fosite.Requester) error {
-	return r.create(ctx, "access_token-"+signature, models.FromFositeReq(fositeReq))
+	if err := r.create(ctx, "access_token-"+signature, models.FromFositeReq(fositeReq)); err != nil {
+		return err
+	}
+	if subject := subjectFromRequester(fositeReq); subject != "" {
+		_ = r.IndexAccessTokenForSubject(ctx, subject, signature)
+	}
+	return nil
 }
 
 func (r *kvsRepository) GetAccessTokenSession(ctx context.Context, signature string, sess fosite.Session) (fosite.Requester, error) {
@@ -116,6 +122,9 @@ func (r *kvsRepository) GetAccessTokenSession(ctx context.Context, signature str
 }
 
 func (r *kvsRepository) DeleteAccessTokenSession(ctx context.Context, signature string) error {
+	if subject := r.subjectForSignature(ctx, signature); subject != "" {
+		_ = r.UnindexAccessToken(ctx, subject, signature)
+	}
 	return r.delete(ctx, "access_token-"+signature)
 }
 
@@ -165,7 +174,21 @@ func (r *kvsRepository) RevokeRefreshToken(ctx context.Context, requestID string
 // is an access token, the server MAY revoke the respective refresh
 // token as well.
 func (r *kvsRepository) RevokeAccessToken(ctx context.Context, requestID string) error {
+	if subject := r.subjectForSignature(ctx, requestID); subject != "" {
+		_ = r.UnindexAccessToken(ctx, subject, requestID)
+	}
 	return r.delete(ctx, "access_token-"+requestID)
+}
+
+// subjectForSignature looks up the subject of an existing access-token session
+// in the KVS by decoding its persisted request. Returns "" if the session is
+// unknown or if the subject cannot be extracted.
+func (r *kvsRepository) subjectForSignature(ctx context.Context, signature string) string {
+	var req models.Request
+	if err := r.get(ctx, "access_token-"+signature, &req); err != nil {
+		return ""
+	}
+	return subjectFromSessionData(req.SessionData)
 }
 
 func (r *kvsRepository) RegisterClient(ctx context.Context, fositeClient fosite.Client) error {
@@ -234,4 +257,83 @@ func (r *kvsRepository) DeleteAuthorizeRequest(ctx context.Context, requestID st
 
 func (r *kvsRepository) Close() error {
 	return r.db.Close()
+}
+
+func (r *kvsRepository) PutUpstreamSession(ctx context.Context, sess *UpstreamSession) error {
+	if sess == nil || sess.Subject == "" {
+		return fmt.Errorf("invalid upstream session: subject required")
+	}
+	return r.create(ctx, "upstream_session-"+sess.Subject, sess)
+}
+
+func (r *kvsRepository) GetUpstreamSession(ctx context.Context, subject string) (*UpstreamSession, error) {
+	var sess UpstreamSession
+	if err := r.get(ctx, "upstream_session-"+subject, &sess); err != nil {
+		return nil, err
+	}
+	return &sess, nil
+}
+
+func (r *kvsRepository) DeleteUpstreamSession(ctx context.Context, subject string) error {
+	return r.delete(ctx, "upstream_session-"+subject)
+}
+
+// IndexAccessTokenForSubject stores a per-(subject, signature) marker so that
+// ListAccessTokensForSubject can enumerate all downstream access-token
+// signatures issued for a given upstream subject. We use compound keys of the
+// form "subject_token-<subject>:<signature>" and rely on bbolt's ordered
+// iteration to enumerate by prefix.
+func (r *kvsRepository) IndexAccessTokenForSubject(ctx context.Context, subject, signature string) error {
+	if subject == "" || signature == "" {
+		return nil
+	}
+	return r.db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket([]byte(r.bucketName))
+		key := subjectTokenKey(subject, signature)
+		return bucket.Put([]byte(key), []byte{1})
+	})
+}
+
+func (r *kvsRepository) ListAccessTokensForSubject(ctx context.Context, subject string) ([]string, error) {
+	prefix := []byte(subjectTokenPrefix(subject))
+	var sigs []string
+	err := r.db.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket([]byte(r.bucketName))
+		c := bucket.Cursor()
+		for k, _ := c.Seek(prefix); k != nil && hasPrefix(k, prefix); k, _ = c.Next() {
+			sigs = append(sigs, string(k[len(prefix):]))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list access tokens for subject: %w", err)
+	}
+	return sigs, nil
+}
+
+func (r *kvsRepository) UnindexAccessToken(ctx context.Context, subject, signature string) error {
+	if subject == "" || signature == "" {
+		return nil
+	}
+	return r.delete(ctx, subjectTokenKey(subject, signature))
+}
+
+func subjectTokenPrefix(subject string) string {
+	return "subject_token-" + subject + ":"
+}
+
+func subjectTokenKey(subject, signature string) string {
+	return subjectTokenPrefix(subject) + signature
+}
+
+func hasPrefix(b, prefix []byte) bool {
+	if len(b) < len(prefix) {
+		return false
+	}
+	for i := range prefix {
+		if b[i] != prefix[i] {
+			return false
+		}
+	}
+	return true
 }

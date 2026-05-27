@@ -5,9 +5,11 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"maps"
 	"math/big"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,6 +34,16 @@ type IDPRouter struct {
 	provider    fosite.OAuth2Provider
 	signer      *jwt.DefaultSigner
 	authRouter  *auth.AuthRouter
+}
+
+// oauth2Token is a JSON-compatible projection of *golang.org/x/oauth2.Token.
+// We define it locally to avoid coupling this package to the oauth2 library
+// solely for unmarshalling a payload that was JSON-encoded upstream.
+type oauth2Token struct {
+	AccessToken  string    `json:"access_token"`
+	TokenType    string    `json:"token_type,omitempty"`
+	RefreshToken string    `json:"refresh_token,omitempty"`
+	Expiry       time.Time `json:"expiry"`
 }
 
 func NewIDPRouter(
@@ -202,6 +214,29 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 		json.Unmarshal([]byte(userInfoJSON), &userInfo)
 	}
 
+	// Persist the upstream IdP token for periodic revalidation. This is best-effort:
+	// a storage failure must not block the user from authenticating, but it does
+	// disable revalidation for this session until the next login.
+	if tokenJSON, ok := session.Get(auth.SessionKeyUpstreamTok).(string); ok && tokenJSON != "" && subject != "user" {
+		var tok oauth2Token
+		if err := json.Unmarshal([]byte(tokenJSON), &tok); err == nil {
+			providerName, _ := session.Get(auth.SessionKeyProviderName).(string)
+			upSess := &repository.UpstreamSession{
+				Subject:      subject,
+				Provider:     providerName,
+				AccessToken:  tok.AccessToken,
+				RefreshToken: tok.RefreshToken,
+				TokenType:    tok.TokenType,
+				Expiry:       tok.Expiry,
+				LastChecked:  time.Now().UTC(),
+			}
+			if err := a.repo.PutUpstreamSession(ctx, upSess); err != nil {
+				a.logger.Warn("Failed to persist upstream session for revalidation",
+					zap.String("subject", subject), zap.Error(err))
+			}
+		}
+	}
+
 	jwtSession, err := NewJWTSessionWithKey(a.externalURL, subject, a.privKey, userInfo)
 	if err != nil {
 		a.logger.With(utils.Err(err)...).Error("Failed to create JWT session", zap.Error(err))
@@ -249,12 +284,7 @@ func addAuthorizeRequestID(session sessions.Session, arID string) {
 }
 
 func hasAuthorizeRequestID(session sessions.Session, arID string) bool {
-	for _, id := range authorizeRequestIDs(session) {
-		if id == arID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(authorizeRequestIDs(session), arID)
 }
 
 func removeAuthorizeRequestID(session sessions.Session, arID string) {
@@ -577,9 +607,7 @@ func (s *Session) Clone() fosite.Session {
 		},
 	}
 
-	for k, v := range s.JWTHeader.Extra {
-		clone.JWTHeader.Extra[k] = v
-	}
+	maps.Copy(clone.JWTHeader.Extra, s.JWTHeader.Extra)
 
 	return clone
 }

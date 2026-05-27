@@ -72,11 +72,13 @@ const (
 	PasswordProvider = "password"
 	PasswordUserID   = "password_user"
 
-	SessionKeyAuthorized  = "authorized"
-	SessionKeyRedirectURL = "redirect_url"
-	SessionKeyOAuthState  = "oauth_state"
-	SessionKeyUserID      = "user_id"
-	SessionKeyUserInfo    = "user_info"
+	SessionKeyAuthorized   = "authorized"
+	SessionKeyRedirectURL  = "redirect_url"
+	SessionKeyOAuthState   = "oauth_state"
+	SessionKeyUserID       = "user_id"
+	SessionKeyUserInfo     = "user_info"
+	SessionKeyProviderName = "provider_name"
+	SessionKeyUpstreamTok  = "upstream_token"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
@@ -107,6 +109,10 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			}
 			session.Set(SessionKeyAuthorized, true)
 			session.Set(SessionKeyUserID, user)
+			session.Set(SessionKeyProviderName, provider.Name())
+			if tokenJSON, err := json.Marshal(token); err == nil {
+				session.Set(SessionKeyUpstreamTok, string(tokenJSON))
+			}
 			if userInfo != nil {
 				if len(a.userInfoFields) > 0 {
 					userInfo = filterUserInfo(userInfo, a.userInfoFields)

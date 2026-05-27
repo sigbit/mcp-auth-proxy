@@ -64,6 +64,24 @@ type authorizeRequestRecord struct {
 	UpdatedAt time.Time
 }
 
+type upstreamSessionRecord struct {
+	Subject      string    `gorm:"primaryKey;size:512"`
+	Provider     string    `gorm:"size:255"`
+	AccessToken  string    `gorm:"type:text;not null"`
+	RefreshToken string    `gorm:"type:text"`
+	TokenType    string    `gorm:"size:64"`
+	Expiry       time.Time `gorm:""`
+	LastChecked  time.Time `gorm:""`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type subjectAccessTokenIndex struct {
+	Subject   string `gorm:"primaryKey;size:512"`
+	Signature string `gorm:"primaryKey;size:512"`
+	CreatedAt time.Time
+}
+
 func NewSQLRepository(driver string, dsn string) (Repository, error) {
 	if driver == "" {
 		return nil, fmt.Errorf("driver must not be empty")
@@ -96,6 +114,8 @@ func NewSQLRepository(driver string, dsn string) (Repository, error) {
 		&clientRecord{},
 		&pkceRequestSession{},
 		&authorizeRequestRecord{},
+		&upstreamSessionRecord{},
+		&subjectAccessTokenIndex{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate schema: %w", err)
 	}
@@ -146,9 +166,20 @@ func (r *sqlRepository) CreateAccessTokenSession(ctx context.Context, signature 
 		Request:   data,
 	}
 
-	return r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{UpdateAll: true}).
-		Create(&session).Error
+		Create(&session).Error; err != nil {
+		return err
+	}
+
+	// Maintain the subject -> access-token signatures index used by the
+	// revalidation middleware to revoke all of a user's tokens when upstream
+	// revalidation fails terminally. Best-effort: an index write failure must
+	// not block token issuance.
+	if subject := subjectFromRequester(fositeReq); subject != "" {
+		_ = r.IndexAccessTokenForSubject(ctx, subject, signature)
+	}
+	return nil
 }
 
 func (r *sqlRepository) GetAccessTokenSession(ctx context.Context, signature string, sess fosite.Session) (fosite.Requester, error) {
@@ -164,6 +195,10 @@ func (r *sqlRepository) GetAccessTokenSession(ctx context.Context, signature str
 }
 
 func (r *sqlRepository) DeleteAccessTokenSession(ctx context.Context, signature string) error {
+	// Best-effort cleanup of subject index; ignore lookup failures.
+	if subject, err := r.subjectForSignature(ctx, signature); err == nil && subject != "" {
+		_ = r.UnindexAccessToken(ctx, subject, signature)
+	}
 	return r.db.WithContext(ctx).Delete(&accessTokenSession{}, "signature = ?", signature).Error
 }
 
@@ -231,6 +266,9 @@ func (r *sqlRepository) RevokeRefreshToken(ctx context.Context, requestID string
 }
 
 func (r *sqlRepository) RevokeAccessToken(ctx context.Context, requestID string) error {
+	if subject, err := r.subjectForSignature(ctx, requestID); err == nil && subject != "" {
+		_ = r.UnindexAccessToken(ctx, subject, requestID)
+	}
 	return r.db.WithContext(ctx).Delete(&accessTokenSession{}, "signature = ?", requestID).Error
 }
 
@@ -340,6 +378,90 @@ func (r *sqlRepository) Close() error {
 		return fmt.Errorf("failed to get sql db: %w", err)
 	}
 	return sqlDB.Close()
+}
+
+func (r *sqlRepository) PutUpstreamSession(ctx context.Context, sess *UpstreamSession) error {
+	if sess == nil || sess.Subject == "" {
+		return fmt.Errorf("invalid upstream session: subject required")
+	}
+	rec := upstreamSessionRecord{
+		Subject:      sess.Subject,
+		Provider:     sess.Provider,
+		AccessToken:  sess.AccessToken,
+		RefreshToken: sess.RefreshToken,
+		TokenType:    sess.TokenType,
+		Expiry:       sess.Expiry,
+		LastChecked:  sess.LastChecked,
+	}
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{UpdateAll: true}).
+		Create(&rec).Error
+}
+
+func (r *sqlRepository) GetUpstreamSession(ctx context.Context, subject string) (*UpstreamSession, error) {
+	var rec upstreamSessionRecord
+	if err := r.db.WithContext(ctx).First(&rec, "subject = ?", subject).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fosite.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to load upstream session: %w", err)
+	}
+	return &UpstreamSession{
+		Subject:      rec.Subject,
+		Provider:     rec.Provider,
+		AccessToken:  rec.AccessToken,
+		RefreshToken: rec.RefreshToken,
+		TokenType:    rec.TokenType,
+		Expiry:       rec.Expiry,
+		LastChecked:  rec.LastChecked,
+	}, nil
+}
+
+func (r *sqlRepository) DeleteUpstreamSession(ctx context.Context, subject string) error {
+	return r.db.WithContext(ctx).Delete(&upstreamSessionRecord{}, "subject = ?", subject).Error
+}
+
+func (r *sqlRepository) IndexAccessTokenForSubject(ctx context.Context, subject, signature string) error {
+	if subject == "" || signature == "" {
+		return nil
+	}
+	rec := subjectAccessTokenIndex{Subject: subject, Signature: signature}
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(&rec).Error
+}
+
+func (r *sqlRepository) ListAccessTokensForSubject(ctx context.Context, subject string) ([]string, error) {
+	var rows []subjectAccessTokenIndex
+	if err := r.db.WithContext(ctx).Where("subject = ?", subject).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to list access tokens for subject: %w", err)
+	}
+	out := make([]string, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, row.Signature)
+	}
+	return out, nil
+}
+
+func (r *sqlRepository) UnindexAccessToken(ctx context.Context, subject, signature string) error {
+	return r.db.WithContext(ctx).
+		Where("subject = ? AND signature = ?", subject, signature).
+		Delete(&subjectAccessTokenIndex{}).Error
+}
+
+// subjectForSignature looks up the subject of an existing access-token session
+// by decoding its persisted request. Returns "" if the session is unknown or
+// if the subject cannot be extracted.
+func (r *sqlRepository) subjectForSignature(ctx context.Context, signature string) (string, error) {
+	var rec accessTokenSession
+	if err := r.db.WithContext(ctx).First(&rec, "signature = ?", signature).Error; err != nil {
+		return "", err
+	}
+	var req models.Request
+	if err := json.Unmarshal(rec.Request, &req); err != nil {
+		return "", err
+	}
+	return subjectFromSessionData(req.SessionData), nil
 }
 
 func marshalRequest(req fosite.Requester) ([]byte, error) {

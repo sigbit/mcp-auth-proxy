@@ -1,14 +1,23 @@
 package proxy
 
 import (
+	"context"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mattn/go-jsonpointer"
+	"github.com/ory/fosite"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/auth"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/repository"
+	"go.uber.org/zap"
+	"golang.org/x/oauth2"
+	"golang.org/x/sync/singleflight"
 )
 
 type ProxyRouter struct {
@@ -20,7 +29,64 @@ type ProxyRouter struct {
 	forwardAuthorizationHeader bool
 	headerMapping              map[string]string
 	headerMappingBase          string
+
+	// Revalidation
+	repo                repository.Repository
+	providers           map[string]auth.Provider
+	revalidateInterval  time.Duration
+	revalidateTimeout   time.Duration
+	revalidateOnFailure RevalidateOnFailure
+	revalidateGroup     singleflight.Group
+	logger              *zap.Logger
+	disableRevalidation bool
 }
+
+// RevalidateOnFailure controls how non-fatal upstream revalidation errors
+// (timeouts, network errors, ambiguous OAuth2 responses such as
+// invalid_request) are handled.
+//
+//   - RevalidateOnFailureAllow (default): log a warning and allow the
+//     request through. Matches oauth2-proxy behavior; favors availability
+//     during IdP outages at the cost of leaving deprovisioned users active
+//     until the IdP recovers and returns a fatal error.
+//   - RevalidateOnFailureDeny: revoke the subject's downstream tokens and
+//     reject the request. Stricter; favors security over availability.
+//     Recommended when the upstream IdP reliably distinguishes deprovisioned
+//     users with a non-fatal-coded error (e.g. dex returning invalid_request
+//     for revoked refresh tokens).
+type RevalidateOnFailure string
+
+const (
+	RevalidateOnFailureAllow RevalidateOnFailure = "allow"
+	RevalidateOnFailureDeny  RevalidateOnFailure = "deny"
+)
+
+// Options holds optional dependencies for ProxyRouter, primarily related to
+// upstream re-validation (PP023). Zero values disable revalidation entirely.
+type Options struct {
+	Repo               repository.Repository
+	Providers          []auth.Provider
+	RevalidateInterval time.Duration
+	// RevalidateTimeout bounds each upstream Revalidate call. If <= 0,
+	// defaults to 10s. The proxy's request handler can otherwise hang
+	// indefinitely if the upstream IdP becomes unresponsive (no TCP RST,
+	// no graceful close); singleflight then blocks every concurrent
+	// request for the same subject. Bounded transient timeouts are
+	// classified as non-fatal (allow + warn), matching the
+	// oauth2-proxy revalidation model.
+	RevalidateTimeout time.Duration
+	// RevalidateOnFailure controls behavior when revalidation returns a
+	// non-fatal error (timeout, network failure, OAuth2 errors other than
+	// invalid_grant/invalid_client). Defaults to RevalidateOnFailureAllow
+	// for oauth2-proxy parity. Set to RevalidateOnFailureDeny to revoke
+	// the session on any non-fatal failure.
+	RevalidateOnFailure RevalidateOnFailure
+	Logger              *zap.Logger
+}
+
+// defaultRevalidateTimeout is the safety bound applied to upstream
+// Revalidate calls when Options.RevalidateTimeout is unset.
+const defaultRevalidateTimeout = 10 * time.Second
 
 func NewProxyRouter(
 	externalURL string,
@@ -31,8 +97,9 @@ func NewProxyRouter(
 	forwardAuthorizationHeader bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	opts *Options,
 ) (*ProxyRouter, error) {
-	return &ProxyRouter{
+	r := &ProxyRouter{
 		externalURL:                externalURL,
 		proxy:                      proxy,
 		publicKey:                  publicKey,
@@ -41,7 +108,36 @@ func NewProxyRouter(
 		forwardAuthorizationHeader: forwardAuthorizationHeader,
 		headerMapping:              headerMapping,
 		headerMappingBase:          headerMappingBase,
-	}, nil
+	}
+	if opts != nil {
+		r.repo = opts.Repo
+		r.revalidateInterval = opts.RevalidateInterval
+		r.revalidateTimeout = opts.RevalidateTimeout
+		r.revalidateOnFailure = opts.RevalidateOnFailure
+		r.logger = opts.Logger
+		if len(opts.Providers) > 0 {
+			r.providers = make(map[string]auth.Provider, len(opts.Providers))
+			for _, p := range opts.Providers {
+				r.providers[p.Name()] = p
+			}
+		}
+	}
+	if r.logger == nil {
+		r.logger = zap.NewNop()
+	}
+	if r.repo == nil || r.revalidateInterval <= 0 || len(r.providers) == 0 {
+		r.disableRevalidation = true
+	}
+	if r.revalidateTimeout <= 0 {
+		r.revalidateTimeout = defaultRevalidateTimeout
+	}
+	if r.revalidateOnFailure != RevalidateOnFailureDeny {
+		// Default to allow for oauth2-proxy parity. Any unknown value
+		// (including the empty string) maps to allow so misconfiguration
+		// fails open rather than locking users out.
+		r.revalidateOnFailure = RevalidateOnFailureAllow
+	}
+	return r, nil
 }
 
 const (
@@ -74,7 +170,7 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	bearerToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(bearerToken, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(bearerToken, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -84,6 +180,13 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	if err != nil || !token.Valid {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
+	}
+
+	if !p.disableRevalidation {
+		if !p.revalidate(c.Request.Context(), claims) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Session revalidation failed"})
+			return
+		}
 	}
 
 	if p.httpStreamingOnly && isSSEGetRequest(c.Request) {
@@ -143,6 +246,145 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	p.proxy.ServeHTTP(c.Writer, c.Request)
 }
 
+// revalidate ensures the upstream IdP still considers the user authorized.
+// Returns true if the request may proceed.
+//
+// Behavior:
+//   - If the cached upstream session is missing -> reject (force re-login).
+//     This protects against tokens issued before this feature shipped.
+//   - If LastChecked is within the configured interval -> allow (cache hit).
+//   - Otherwise call Provider.Revalidate. On FatalRevalidationError, revoke all
+//     downstream tokens for the subject and reject. On any other error,
+//     behavior depends on revalidateOnFailure: "allow" (default, oauth2-proxy
+//     parity) logs a warning and proceeds; "deny" revokes the subject's
+//     tokens and rejects.
+func (p *ProxyRouter) revalidate(ctx context.Context, claims jwt.MapClaims) bool {
+	subject, _ := claims["sub"].(string)
+	if subject == "" {
+		// No subject => can't revalidate; conservative behavior is to reject.
+		p.logger.Warn("JWT missing sub claim; rejecting")
+		return false
+	}
+
+	upSess, err := p.repo.GetUpstreamSession(ctx, subject)
+	if err != nil {
+		if errors.Is(err, fosite.ErrNotFound) {
+			p.logger.Info("No upstream session for subject; forcing re-login",
+				zap.String("subject", subject))
+			return false
+		}
+		p.logger.Warn("Failed to load upstream session; allowing request",
+			zap.String("subject", subject), zap.Error(err))
+		return true
+	}
+
+	if !upSess.LastChecked.IsZero() && time.Since(upSess.LastChecked) < p.revalidateInterval {
+		return true
+	}
+
+	provider, ok := p.providers[upSess.Provider]
+	if !ok {
+		p.logger.Warn("Unknown provider in upstream session; allowing request",
+			zap.String("subject", subject), zap.String("provider", upSess.Provider))
+		return true
+	}
+	revalidator, ok := provider.(auth.Revalidator)
+	if !ok {
+		// Provider does not support revalidation; nothing to do. Bump
+		// LastChecked so we don't keep retrying on every request.
+		upSess.LastChecked = time.Now().UTC()
+		_ = p.repo.PutUpstreamSession(ctx, upSess)
+		return true
+	}
+
+	type result struct {
+		allowed bool
+		token   *oauth2.Token
+		err     error
+	}
+
+	v, _, _ := p.revalidateGroup.Do(subject, func() (any, error) {
+		tok := &oauth2.Token{
+			AccessToken:  upSess.AccessToken,
+			TokenType:    upSess.TokenType,
+			RefreshToken: upSess.RefreshToken,
+			Expiry:       upSess.Expiry,
+		}
+		// Decouple the upstream call from any single caller's request
+		// context: the singleflight leader is shared, so a client
+		// disconnecting must not cancel revalidation for the others.
+		// context.WithoutCancel preserves trace/log values while
+		// detaching cancellation; the timeout then bounds the call so
+		// an unresponsive IdP cannot hang the proxy.
+		revalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.revalidateTimeout)
+		defer cancel()
+		allowed, newTok, err := revalidator.Revalidate(revalCtx, tok)
+		return result{allowed: allowed, token: newTok, err: err}, nil
+	})
+	res := v.(result)
+
+	var fatal *auth.FatalRevalidationError
+	switch {
+	case errors.As(res.err, &fatal):
+		p.logger.Info("Upstream revalidation rejected; revoking subject's tokens",
+			zap.String("subject", subject), zap.String("reason", fatal.Reason))
+		p.revokeAllForSubject(ctx, subject)
+		return false
+	case res.err != nil:
+		if p.revalidateOnFailure == RevalidateOnFailureDeny {
+			p.logger.Info("Upstream revalidation failed and on-failure=deny; revoking subject's tokens",
+				zap.String("subject", subject), zap.Error(res.err))
+			p.revokeAllForSubject(ctx, subject)
+			return false
+		}
+		p.logger.Warn("Upstream revalidation transient failure; allowing",
+			zap.String("subject", subject), zap.Error(res.err))
+		return true
+	case !res.allowed:
+		p.logger.Info("User no longer authorized by upstream; revoking",
+			zap.String("subject", subject))
+		p.revokeAllForSubject(ctx, subject)
+		return false
+	}
+
+	// Persist refreshed token + bump LastChecked.
+	if res.token != nil {
+		upSess.AccessToken = res.token.AccessToken
+		upSess.TokenType = res.token.TokenType
+		if res.token.RefreshToken != "" {
+			upSess.RefreshToken = res.token.RefreshToken
+		}
+		upSess.Expiry = res.token.Expiry
+	}
+	upSess.LastChecked = time.Now().UTC()
+	if err := p.repo.PutUpstreamSession(ctx, upSess); err != nil {
+		p.logger.Warn("Failed to persist refreshed upstream session",
+			zap.String("subject", subject), zap.Error(err))
+	}
+	return true
+}
+
+// revokeAllForSubject deletes every downstream access-token session known for
+// the given subject and removes the upstream-session cache entry. Best-effort:
+// individual failures are logged but do not stop the loop.
+func (p *ProxyRouter) revokeAllForSubject(ctx context.Context, subject string) {
+	sigs, err := p.repo.ListAccessTokensForSubject(ctx, subject)
+	if err != nil {
+		p.logger.Warn("Failed to enumerate access tokens for subject",
+			zap.String("subject", subject), zap.Error(err))
+	}
+	for _, sig := range sigs {
+		if err := p.repo.RevokeAccessToken(ctx, sig); err != nil {
+			p.logger.Warn("Failed to revoke access token",
+				zap.String("subject", subject), zap.String("signature", sig), zap.Error(err))
+		}
+	}
+	if err := p.repo.DeleteUpstreamSession(ctx, subject); err != nil {
+		p.logger.Warn("Failed to delete upstream session",
+			zap.String("subject", subject), zap.Error(err))
+	}
+}
+
 func isSSEGetRequest(r *http.Request) bool {
 	if r.Method != http.MethodGet {
 		return false
@@ -151,7 +393,7 @@ func isSSEGetRequest(r *http.Request) bool {
 	if accept == "" {
 		return false
 	}
-	for _, value := range strings.Split(accept, ",") {
+	for value := range strings.SplitSeq(accept, ",") {
 		mediaType := strings.TrimSpace(strings.ToLower(value))
 		if idx := strings.Index(mediaType, ";"); idx != -1 {
 			mediaType = strings.TrimSpace(mediaType[:idx])
