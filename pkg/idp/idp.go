@@ -290,6 +290,29 @@ func (a *IDPRouter) handleToken(c *gin.Context) {
 		return
 	}
 
+	// For refresh_token grants, fosite restores the session (including the
+	// JWT header's "kid") from storage, which can refer to a signing key
+	// that no longer exists (e.g., after a key rotation). The token would
+	// then be signed with the current key but advertise an old "kid",
+	// causing downstream JWKS-based verifiers to fail with "no keys found".
+	// Stamp the current signing key's "kid" onto the response session so
+	// the minted JWT matches what /.well-known/jwks.json publishes.
+	if s, ok := accessRequest.GetSession().(*Session); ok {
+		if kid, kidErr := utils.GenerateKeyID(&a.privKey.PublicKey); kidErr == nil {
+			if s.JWTHeader == nil {
+				s.JWTHeader = &jwt.Headers{}
+			}
+			if s.JWTHeader.Extra == nil {
+				s.JWTHeader.Extra = map[string]any{}
+			}
+			s.JWTHeader.Extra["kid"] = kid
+		} else {
+			a.logger.With(utils.Err(kidErr)...).Error("Failed to derive current key ID for token response", zap.Error(kidErr))
+			a.provider.WriteAccessError(ctx, c.Writer, accessRequest, fosite.ErrServerError.WithWrap(kidErr))
+			return
+		}
+	}
+
 	response, err := a.provider.NewAccessResponse(ctx, accessRequest)
 	if err != nil {
 		a.logger.With(utils.Err(err)...).Error("Failed to create access response", zap.String("grant_type", c.PostForm("grant_type")), zap.Error(err))
