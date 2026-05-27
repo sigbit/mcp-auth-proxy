@@ -27,6 +27,21 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 ### Authentication Options
 
+#### Custom Auth Templates
+
+| Option                | Environment Variable | Default | Description                                                                                |
+| --------------------- | -------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `--auth-template-dir` | `AUTH_TEMPLATE_DIR`  | -       | Directory containing auth HTML templates that override embedded pages by matching filename |
+
+The template directory can contain any of these files:
+
+- `login.html` — rendered for `/.auth/login`
+- `unauthorized.html` — rendered when an authenticated user is not authorized
+- `error.html` — rendered when authentication returns an error
+- `styles.html` — optional shared partial for pages that call `{{template "styles" .}}`
+
+Missing files fall back to the embedded templates, so you can override only the page you need. Templates use Go's `html/template` syntax. `login.html` receives `.Providers`, `.HasPassword`, and `.PasswordError`; `unauthorized.html` receives `.UserID` and `.Provider`; `error.html` receives `.ErrorMessage`.
+
 #### Password Authentication
 
 | Option                      | Environment Variable      | Default | Description                                                                                  |

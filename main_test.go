@@ -392,6 +392,70 @@ func TestSplitCSV(t *testing.T) {
 	}
 }
 
+func TestNewRootCommand_AuthTemplateDirFlag(t *testing.T) {
+	t.Setenv("AUTH_TEMPLATE_DIR", "")
+
+	var receivedTemplateDir string
+	runner := proxyRunnerFunc(func(listen string,
+		tlsListen string,
+		autoTLS bool,
+		tlsHost string,
+		tlsDirectoryURL string,
+		tlsAcceptTOS bool,
+		tlsCertFile string,
+		tlsKeyFile string,
+		dataPath string,
+		repositoryBackend string,
+		repositoryDSN string,
+		externalURL string,
+		authTemplateDir string,
+		googleClientID string,
+		googleClientSecret string,
+		googleAllowedUsers []string,
+		googleAllowedWorkspaces []string,
+		githubURL string,
+		githubAPIURL string,
+		githubClientID string,
+		githubClientSecret string,
+		githubAllowedUsers []string,
+		githubAllowedOrgs []string,
+		oidcConfigurationURL string,
+		oidcClientID string,
+		oidcClientSecret string,
+		oidcScopes []string,
+		oidcUserIDField string,
+		oidcProviderName string,
+		oidcAllowedUsers []string,
+		oidcAllowedUsersGlob []string,
+		oidcAllowedAttributes map[string][]string,
+		oidcAllowedAttributesGlob map[string][]string,
+		noProviderAutoSelect bool,
+		password string,
+		passwordHash string,
+		trustedProxy []string,
+		proxyHeaders []string,
+		proxyBearerToken string,
+		forwardAuthorizationHeader bool,
+		proxyTarget []string,
+		httpStreamingOnly bool,
+		headerMapping map[string]string,
+		headerMappingBase string,
+	) error {
+		receivedTemplateDir = authTemplateDir
+		return nil
+	})
+
+	cmd := newRootCommand(runner)
+	cmd.SetArgs([]string{"--auth-template-dir", "/templates/auth", "http://backend"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected command to succeed, got error: %v", err)
+	}
+	if receivedTemplateDir != "/templates/auth" {
+		t.Fatalf("expected authTemplateDir to receive CLI flag, got %q", receivedTemplateDir)
+	}
+}
+
 func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 	t.Setenv("HTTP_STREAMING_ONLY", "")
 
@@ -409,6 +473,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		repositoryBackend string,
 		repositoryDSN string,
 		externalURL string,
+		authTemplateDir string,
 		googleClientID string,
 		googleClientSecret string,
 		googleAllowedUsers []string,
@@ -477,6 +542,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		repositoryBackend string,
 		repositoryDSN string,
 		externalURL string,
+		authTemplateDir string,
 		googleClientID string,
 		googleClientSecret string,
 		googleAllowedUsers []string,
@@ -541,6 +607,7 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		repositoryBackend string,
 		repositoryDSN string,
 		externalURL string,
+		authTemplateDir string,
 		googleClientID string,
 		googleClientSecret string,
 		googleAllowedUsers []string,
@@ -605,6 +672,7 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 		repositoryBackend string,
 		repositoryDSN string,
 		externalURL string,
+		authTemplateDir string,
 		googleClientID string,
 		googleClientSecret string,
 		googleAllowedUsers []string,

@@ -4,8 +4,12 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -15,6 +19,10 @@ import (
 
 //go:embed templates/*
 var templateFS embed.FS
+
+type authTemplateFS interface {
+	ReadFile(name string) ([]byte, error)
+}
 
 type AuthRouter struct {
 	passwordHash         []string
@@ -33,17 +41,25 @@ type AuthRouter struct {
 }
 
 func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
-	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
+	return NewAuthRouterWithTemplateDir(passwordHash, noProviderAutoSelect, userInfoFields, "", providers...)
+}
+
+func NewAuthRouterWithTemplateDir(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, templateDir string, providers ...Provider) (*AuthRouter, error) {
+	if err := validateTemplateDir(templateDir); err != nil {
+		return nil, err
+	}
+
+	tmpl, err := parseAuthTemplate(templateDir, "login.html")
 	if err != nil {
 		return nil, err
 	}
 
-	unauthorizedTmpl, err := template.ParseFS(templateFS, "templates/unauthorized.html")
+	unauthorizedTmpl, err := parseAuthTemplate(templateDir, "unauthorized.html")
 	if err != nil {
 		return nil, err
 	}
 
-	errorTmpl, err := template.ParseFS(templateFS, "templates/error.html")
+	errorTmpl, err := parseAuthTemplate(templateDir, "error.html")
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +73,75 @@ func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFie
 		noProviderAutoSelect: noProviderAutoSelect,
 		userInfoFields:       userInfoFields,
 	}, nil
+}
+
+func validateTemplateDir(templateDir string) error {
+	if templateDir == "" {
+		return nil
+	}
+	info, err := os.Stat(templateDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat auth template dir: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("auth template dir is not a directory: %s", templateDir)
+	}
+	return nil
+}
+
+func parseAuthTemplate(templateDir, name string) (*template.Template, error) {
+	tmpl := template.New(name)
+	if styles, ok, err := readOptionalAuthTemplate(templateDir, "styles.html"); err != nil {
+		return nil, err
+	} else if ok {
+		if _, err := tmpl.Parse(string(styles)); err != nil {
+			return nil, fmt.Errorf("failed to parse styles.html: %w", err)
+		}
+	}
+
+	data, err := readAuthTemplate(templateDir, name)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tmpl.Parse(string(data)); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", name, err)
+	}
+	return tmpl, nil
+}
+
+func readAuthTemplate(templateDir, name string) ([]byte, error) {
+	if data, ok, err := readOptionalAuthTemplate(templateDir, name); err != nil {
+		return nil, err
+	} else if ok {
+		return data, nil
+	}
+	return nil, fmt.Errorf("auth template %s not found", name)
+}
+
+func readOptionalAuthTemplate(templateDir, name string) ([]byte, bool, error) {
+	if templateDir != "" {
+		path := filepath.Join(templateDir, name)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return data, true, nil
+		}
+		if !os.IsNotExist(err) {
+			return nil, false, fmt.Errorf("failed to read auth template %s: %w", path, err)
+		}
+	}
+
+	return readEmbeddedAuthTemplate(templateFS, name)
+}
+
+func readEmbeddedAuthTemplate(fsys authTemplateFS, name string) ([]byte, bool, error) {
+	data, err := fsys.ReadFile(filepath.ToSlash(filepath.Join("templates", name)))
+	if err == nil {
+		return data, true, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return nil, false, fmt.Errorf("failed to read embedded auth template %s: %w", name, err)
+	}
+	return nil, false, nil
 }
 
 const (
