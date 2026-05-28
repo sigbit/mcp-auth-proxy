@@ -10,13 +10,19 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/sigbit/mcp-auth-proxy/v2/pkg/utils"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// publicAuthErrorMessage is the generic message rendered to callers;
+// internal error details are logged server-side and never returned.
+const publicAuthErrorMessage = "Authentication failed"
 
 //go:embed templates/*
 var templateFS embed.FS
 
 type AuthRouter struct {
+	logger               *zap.Logger
 	passwordHash         []string
 	providers            []Provider
 	loginTemplate        *template.Template
@@ -32,7 +38,7 @@ type AuthRouter struct {
 	userInfoFields []string
 }
 
-func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
+func NewAuthRouter(logger *zap.Logger, passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
 	if err != nil {
 		return nil, err
@@ -48,7 +54,12 @@ func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFie
 		return nil, err
 	}
 
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &AuthRouter{
+		logger:               logger,
 		passwordHash:         passwordHash,
 		providers:            providers,
 		loginTemplate:        tmpl,
@@ -88,17 +99,17 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			session := sessions.Default(c)
 			state := session.Get(SessionKeyOAuthState)
 			if state == nil {
-				a.renderError(c, errors.New("OAuth state is missing"))
+				a.renderError(c, http.StatusBadRequest, publicAuthErrorMessage, errors.New("OAuth state is missing"))
 				return
 			}
 			token, err := provider.Exchange(c, state.(string))
 			if err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusBadRequest, publicAuthErrorMessage, err)
 				return
 			}
 			ok, user, userInfo, err := provider.Authorization(c, token)
 			if err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusBadGateway, publicAuthErrorMessage, err)
 				return
 			}
 			if !ok {
@@ -120,7 +131,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				session.Delete(SessionKeyRedirectURL)
 			}
 			if err := session.Save(); err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 				return
 			}
 
@@ -136,17 +147,17 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 
 			state, err := utils.GenerateState()
 			if err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 				return
 			}
 			url, err := provider.AuthCodeURL(state)
 			if err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 				return
 			}
 			session.Set(SessionKeyOAuthState, state)
 			if err := session.Save(); err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 				return
 			}
 			c.Redirect(http.StatusFound, url)
@@ -201,7 +212,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 		session.Delete(SessionKeyRedirectURL)
 	}
 	if err := session.Save(); err != nil {
-		a.renderError(c, err)
+		a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 		return
 	}
 
@@ -216,7 +227,7 @@ func (a *AuthRouter) handleLogout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Delete(SessionKeyAuthorized)
 	if err := session.Save(); err != nil {
-		a.renderError(c, err)
+		a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 		return
 	}
 	c.Redirect(http.StatusFound, LoginEndpoint)
@@ -229,7 +240,7 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 		if authorized == nil {
 			session.Set(SessionKeyRedirectURL, c.Request.URL.String())
 			if err := session.Save(); err != nil {
-				a.renderError(c, err)
+				a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 				return
 			}
 			c.Redirect(http.StatusFound, LoginEndpoint)
@@ -302,12 +313,25 @@ func filterUserInfo(m map[string]any, keys []string) map[string]any {
 	return filtered
 }
 
-func (a *AuthRouter) renderError(c *gin.Context, err error) {
+// renderError writes a generic error page with publicMsg and logs the
+// internal err server-side; err is never sent to the caller.
+func (a *AuthRouter) renderError(c *gin.Context, status int, publicMsg string, err error) {
+	if status == 0 {
+		status = http.StatusInternalServerError
+	}
+	if a.logger != nil && err != nil {
+		a.logger.Warn("auth error",
+			zap.Int("status", status),
+			zap.String("path", c.Request.URL.Path),
+			zap.String("public_message", publicMsg),
+			zap.Error(err),
+		)
+	}
 	data := errorTemplateData{
-		ErrorMessage: err.Error(),
+		ErrorMessage: publicMsg,
 	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Status(http.StatusInternalServerError)
+	c.Status(status)
 	if templateErr := a.errorTemplate.Execute(c.Writer, data); templateErr != nil {
 		c.AbortWithError(http.StatusInternalServerError, templateErr)
 		return
