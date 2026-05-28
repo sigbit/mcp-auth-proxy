@@ -293,7 +293,7 @@ func Run(
 	// session cookie doesn't store the entire provider response.
 	userInfoFields := userInfoFieldsFromConfig(oidcUserIDField, headerMapping)
 
-	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, userInfoFields, providers...)
+	authRouter, err := auth.NewAuthRouter(logger, passwordHashes, noProviderAutoSelect, userInfoFields, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
