@@ -347,6 +347,20 @@ func (a *IDPRouter) handleRegister(c *gin.Context) {
 		return
 	}
 
+	// RFC 7591 §2: apply server-side defaults for omitted optional fields, so
+	// the persisted client and the registration response are spec-compliant.
+	// Strict clients (e.g. LM Studio's Zod schema) reject null/empty values
+	// here; any caller-supplied values are preserved verbatim.
+	if len(req.GrantTypes) == 0 {
+		req.GrantTypes = []string{"authorization_code"}
+	}
+	if len(req.ResponseTypes) == 0 {
+		req.ResponseTypes = []string{"code"}
+	}
+	if req.TokenEndpointAuthMethod == "" {
+		req.TokenEndpointAuthMethod = "client_secret_basic"
+	}
+
 	clientID, err := utils.GenerateClientID()
 	if err != nil {
 		a.logger.Error("Failed to generate client ID", zap.Error(err))
