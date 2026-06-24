@@ -116,12 +116,17 @@ func setupProxy(ctx context.Context, logger *zap.Logger, tr transport.Bidirectio
 	}
 	s := server.NewMCPServer(init.ServerInfo.Name, init.ServerInfo.Version)
 	if init.Capabilities.Tools != nil {
-		tools, err := c.ListTools(ctx, mcp.ListToolsRequest{})
+		tools, err := listToolsPreservingSchema(ctx, tr)
 		if err != nil {
-			c.Close()
-			return nil, nil, fmt.Errorf("failed to list tools: %w", err)
+			logger.Warn("raw tools/list failed; falling back to typed relay", zap.Error(err))
+			typed, terr := c.ListTools(ctx, mcp.ListToolsRequest{})
+			if terr != nil {
+				c.Close()
+				return nil, nil, fmt.Errorf("failed to list tools: %w", terr)
+			}
+			tools = typed.Tools
 		}
-		for _, tool := range tools.Tools {
+		for _, tool := range tools {
 			s.AddTool(tool, c.CallTool)
 		}
 	}
