@@ -50,6 +50,7 @@ const (
 
 func (p *ProxyRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(OauthProtectedResourceEndpoint, p.handleProtectedResource)
+	router.GET(OauthProtectedResourceEndpoint+"/*resourcePath", p.handleProtectedResourceForPath)
 	router.Use(p.handleProxy)
 }
 
@@ -65,9 +66,38 @@ func (p *ProxyRouter) handleProtectedResource(c *gin.Context) {
 	})
 }
 
+func (p *ProxyRouter) handleProtectedResourceForPath(c *gin.Context) {
+	resourcePath := strings.Trim(c.Param("resourcePath"), "/")
+	if resourcePath == "" {
+		p.handleProtectedResource(c)
+		return
+	}
+	c.JSON(http.StatusOK, protectedResourceResponse{
+		Resource:             strings.TrimRight(p.externalURL, "/") + "/" + resourcePath,
+		AuthorizationServers: []string{p.externalURL},
+	})
+}
+
+func (p *ProxyRouter) protectedResourceMetadataURL(requestPath string) string {
+	metadataURL := strings.TrimRight(p.externalURL, "/") + OauthProtectedResourceEndpoint
+	if resourcePath := strings.Trim(requestPath, "/"); resourcePath != "" {
+		metadataURL += "/" + resourcePath
+	}
+	return metadataURL
+}
+
+func (p *ProxyRouter) setWWWAuthenticate(c *gin.Context, invalidToken bool) {
+	challenge := fmt.Sprintf(`Bearer resource_metadata="%s"`, p.protectedResourceMetadataURL(c.Request.URL.Path))
+	if invalidToken {
+		challenge += `, error="invalid_token"`
+	}
+	c.Header("WWW-Authenticate", challenge)
+}
+
 func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	authHeader := c.Request.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
+		p.setWWWAuthenticate(c, false)
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -82,6 +112,7 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 	}, jwt.WithIssuer(p.externalURL), jwt.WithAudience(p.externalURL))
 
 	if err != nil || !token.Valid {
+		p.setWWWAuthenticate(c, true)
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
