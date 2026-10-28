@@ -30,6 +30,9 @@ type AuthRouter struct {
 	// stripped before the data is stored in the session cookie. This
 	// prevents oversized cookies when the provider returns many claims.
 	userInfoFields []string
+	// groupsFilter narrows the `groups` claim before it is stored; see
+	// GroupsFilter. Nil keeps every group.
+	groupsFilter *GroupsFilter
 }
 
 func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
@@ -57,6 +60,11 @@ func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFie
 		noProviderAutoSelect: noProviderAutoSelect,
 		userInfoFields:       userInfoFields,
 	}, nil
+}
+
+// SetGroupsFilter narrows the `groups` claim stored in the session.
+func (a *AuthRouter) SetGroupsFilter(f *GroupsFilter) {
+	a.groupsFilter = f
 }
 
 const (
@@ -111,6 +119,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				if len(a.userInfoFields) > 0 {
 					userInfo = filterUserInfo(userInfo, a.userInfoFields)
 				}
+				userInfo = a.groupsFilter.Apply(userInfo)
 				if userInfoJSON, err := json.Marshal(userInfo); err == nil {
 					session.Set(SessionKeyUserInfo, string(userInfoJSON))
 				}

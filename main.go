@@ -167,6 +167,7 @@ type proxyRunnerFunc func(
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	groupsKeep []string,
 ) error
 
 func main() {
@@ -216,6 +217,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var proxyHeaders string
 	var headerMapping string
 	var headerMappingBase string
+	var groupsKeep string
 	var httpStreamingOnly bool
 	var trustedProxies string
 
@@ -290,6 +292,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				httpStreamingOnly,
 				headerMappingMap,
 				headerMappingBase,
+				splitWithEscapes(groupsKeep, ","),
 			); err != nil {
 				panic(err)
 			}
@@ -348,6 +351,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")
 	rootCmd.Flags().StringVar(&headerMapping, "header-mapping", getEnvWithDefault("HEADER_MAPPING", ""), "Comma-separated mapping of JSON pointer paths to header names (e.g., /email:X-Forwarded-Email,/preferred_username:X-Forwarded-User)")
 	rootCmd.Flags().StringVar(&headerMappingBase, "header-mapping-base", getEnvWithDefault("HEADER_MAPPING_BASE", "/userinfo"), "JSON pointer base path for header mapping claims lookup (e.g., /userinfo or /)")
+
+	rootCmd.Flags().StringVar(&groupsKeep, "groups-keep", getEnvWithDefault("GROUPS_KEEP", ""), "Comma-separated glob patterns; only matching names are kept in the groups claim stored in the session (e.g., team-*,admins; escape a comma inside a pattern as \\,). Unset keeps all groups")
 
 	return rootCmd
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/auth"
 )
 
 func TestSplitWithEscapes(t *testing.T) {
@@ -440,6 +442,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		groupsKeep []string,
 	) error {
 		streamingOnly = httpStreamingOnly
 		receivedTargets = proxyTarget
@@ -508,6 +511,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		groupsKeep []string,
 	) error {
 		streamingOnly = httpStreamingOnly
 		return nil
@@ -572,6 +576,7 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		groupsKeep []string,
 	) error {
 		forwardAuthorization = forwardAuthorizationHeader
 		return nil
@@ -636,6 +641,7 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		groupsKeep []string,
 	) error {
 		forwardAuthorization = forwardAuthorizationHeader
 		return nil
@@ -650,5 +656,24 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 
 	if !forwardAuthorization {
 		t.Fatalf("expected forwardAuthorizationHeader to default to true from env var")
+	}
+}
+
+// GROUPS_KEEP is split with the escape-aware parser, so a pattern may contain
+// a comma (`team-{a\\,b}`) and still compile as one glob.
+func TestGroupsKeepKeepsEscapedCommas(t *testing.T) {
+	patterns := splitWithEscapes(`team-{a\,b},admins`, ",")
+	if !reflect.DeepEqual(patterns, []string{"team-{a,b}", "admins"}) {
+		t.Fatalf("unexpected patterns: %q", patterns)
+	}
+
+	filter, err := auth.NewGroupsFilter(patterns)
+	if err != nil {
+		t.Fatalf("pattern with an escaped comma should compile: %v", err)
+	}
+	got := filter.Apply(map[string]any{"groups": []any{"team-a", "team-b", "team-c", "admins"}})
+	want := []any{"team-a", "team-b", "admins"}
+	if !reflect.DeepEqual(got["groups"], want) {
+		t.Fatalf("groups = %v, want %v", got["groups"], want)
 	}
 }

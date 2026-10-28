@@ -81,6 +81,7 @@ func Run(
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	groupsKeep []string,
 ) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -297,6 +298,11 @@ func Run(
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}
+	groupsFilter, err := auth.NewGroupsFilter(groupsKeep)
+	if err != nil {
+		return fmt.Errorf("failed to compile groups-keep patterns: %w", err)
+	}
+	authRouter.SetGroupsFilter(groupsFilter)
 	idpRouter, err := idp.NewIDPRouter(repo, privKey, logger, externalURL, secret, authRouter)
 	if err != nil {
 		return fmt.Errorf("failed to create IDP router: %w", err)
