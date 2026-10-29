@@ -20,6 +20,13 @@ For detailed information about each configuration option, see the [Configuration
 
 ## Docker Configuration
 
+Choose the matching image and container arguments for your server:
+
+| Mode | Image | Container `args` |
+| --- | --- | --- |
+| Minimal: existing HTTP/SSE server | `ghcr.io/sigbit/mcp-auth-proxy:latest-minimal` | `["{mcp-server-url}"]` |
+| Full: start a stdio server with `npx` | `ghcr.io/sigbit/mcp-auth-proxy:latest` | `["--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/workspace"]` |
+
 ### Docker Compose
 
 ```yaml
@@ -60,6 +67,16 @@ services:
 ### Kubernetes Deployment
 
 ```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mcp-auth-proxy-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,6 +86,8 @@ spec:
   selector:
     matchLabels:
       app: mcp-auth-proxy
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
@@ -76,7 +95,7 @@ spec:
     spec:
       containers:
         - name: mcp-auth-proxy
-          image: ghcr.io/sigbit/mcp-auth-proxy:latest
+          image: ghcr.io/sigbit/mcp-auth-proxy:latest-minimal
           ports:
             - containerPort: 80
           env:
@@ -99,7 +118,14 @@ spec:
                 secretKeyRef:
                   name: mcp-auth-proxy-keys
                   key: jwt-private-key
-          args: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "./"]
+          args: ["{mcp-server-url}"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mcp-auth-proxy-data
 ---
 apiVersion: v1
 kind: Service
@@ -248,7 +274,7 @@ spec:
       containers:
         # Auth proxy sidecar
         - name: mcp-auth-proxy
-          image: ghcr.io/sigbit/mcp-auth-proxy:latest
+          image: ghcr.io/sigbit/mcp-auth-proxy:latest-minimal
           args:
             - --external-url=https://mcp.example.com
             - --no-auto-tls
