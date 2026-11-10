@@ -193,6 +193,14 @@ func (r *sqlRepository) GetRefreshTokenSession(ctx context.Context, signature st
 		return nil, fmt.Errorf("failed to load refresh token session: %w", err)
 	}
 
+	var req models.Request
+	if err := json.Unmarshal(session.Request, &req); err != nil {
+		return nil, fmt.Errorf("failed to decode refresh token session: %w", err)
+	}
+	if isRotatedBeyondGracePeriod(req.RotatedAt) {
+		return nil, fosite.ErrInactiveToken
+	}
+
 	return unmarshalRequest(session.Request, sess)
 }
 

@@ -128,6 +128,9 @@ func (r *kvsRepository) GetRefreshTokenSession(ctx context.Context, signature st
 	if err := r.get(ctx, "refresh_token-"+signature, &req); err != nil {
 		return nil, err
 	}
+	if isRotatedBeyondGracePeriod(req.RotatedAt) {
+		return nil, fosite.ErrInactiveToken
+	}
 	fositeReq := req.ToFositeReq()
 	if err := restoreSession(fositeReq, req.SessionData, sess); err != nil {
 		return nil, err

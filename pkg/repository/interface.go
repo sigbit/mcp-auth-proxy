@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/oauth2"
@@ -38,4 +39,14 @@ func restoreSession(req *fosite.Request, sessionData json.RawMessage, sess fosit
 		req.SetSession(sess)
 	}
 	return nil
+}
+
+// isRotatedBeyondGracePeriod reports whether a rotated refresh token entry may
+// no longer be presented. Rotated entries are kept for RefreshTokenGracePeriod
+// so that clients can safely retry a refresh request, e.g. after a network
+// failure. Beyond that window, presenting the rotated token is treated as
+// reuse: fosite turns the ErrInactiveToken error into grant-wide revocation
+// (RFC 6819, section 5.2.2.3).
+func isRotatedBeyondGracePeriod(rotatedAt time.Time) bool {
+	return !rotatedAt.IsZero() && time.Since(rotatedAt) > RefreshTokenGracePeriod
 }
