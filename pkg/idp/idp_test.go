@@ -2,12 +2,14 @@ package idp
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -33,6 +35,10 @@ func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, str
 }
 
 func setupTestServerWithConsent(t *testing.T, consentTitle string, consentDescription string) (*httptest.Server, repository.Repository, string) {
+	return setupTestServerWithConsentTemplate(t, consentTitle, consentDescription, nil)
+}
+
+func setupTestServerWithConsentTemplate(t *testing.T, consentTitle, consentDescription string, tmpl *template.Template) (*httptest.Server, repository.Repository, string) {
 	// Create temp directory and repository
 	tmpDir, err := os.MkdirTemp("", "idp_test_*")
 	require.NoError(t, err)
@@ -80,6 +86,9 @@ func setupTestServerWithConsent(t *testing.T, consentTitle string, consentDescri
 	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter, consentTitle, consentDescription)
 	require.NoError(t, err)
 
+	if tmpl != nil {
+		idpRouter.consentTemplate = tmpl
+	}
 	idpRouter.SetupRoutes(router)
 
 	// Start test server
@@ -301,7 +310,7 @@ func registerTestClient(t *testing.T, serverURL string) registrationResponse {
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
 		ResponseTypes:           []string{"code"},
 		TokenEndpointAuthMethod: "client_secret_basic",
-		Scope:                   "test",
+		Scope:                   "test another",
 		RedirectURIs:            []string{"http://localhost:8080/callback"},
 	}
 
@@ -404,7 +413,7 @@ func TestAuthorizationReturnRequiresOriginalSession(t *testing.T) {
 func consentPageHTML(t *testing.T, server *httptest.Server, clientID string) string {
 	t.Helper()
 
-	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=consent-state&scope=test",
+	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=consent-state&scope=test%%20another",
 		server.URL, AuthorizationEndpoint, clientID,
 		url.QueryEscape("http://localhost:8080/callback"))
 
@@ -442,6 +451,7 @@ func TestConsentPageShowsClientAndScopes(t *testing.T) {
 	require.Contains(t, body, "Grant access to Grafana MCP")
 	require.Contains(t, body, regResp.ClientID)
 	require.Contains(t, body, "<li>test</li>")
+	require.Contains(t, body, "<li>another</li>")
 	require.Contains(t, body, "This grants read-only access to your Grafana data through MCP.")
 	require.Contains(t, body, "<form method=\"post\">")
 }
@@ -455,6 +465,60 @@ func TestConsentPageDefaults(t *testing.T) {
 	require.Contains(t, body, "Authorize")
 	require.Contains(t, body, regResp.ClientID)
 	require.NotContains(t, body, "<p class=\"description\">")
+}
+
+func TestConsentPageEscapesConfiguration(t *testing.T) {
+	server, _, _ := setupTestServerWithConsent(t, `<script>alert("x")</script>`, `<img src=x onerror=alert(1)>`)
+	reg := registerTestClient(t, server.URL)
+	body := consentPageHTML(t, server, reg.ClientID)
+	require.NotContains(t, body, `<script>alert`)
+	require.NotContains(t, body, `<img src=x`)
+	require.Contains(t, body, `&lt;script&gt;`)
+	require.Contains(t, body, `&lt;img src=x`)
+}
+
+func TestConsentPageRejectsRenderFailure(t *testing.T) {
+	tmpl := template.Must(template.New("broken").Parse(`{{.MissingField}}`))
+	server, _, _ := setupTestServerWithConsentTemplate(t, "", "", tmpl)
+	reg := registerTestClient(t, server.URL)
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+	client := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=consent-state&scope=test", server.URL, AuthorizationEndpoint, reg.ClientID, url.QueryEscape("http://localhost:8080/callback"))
+	resp, err := client.Get(authURL)
+	require.NoError(t, err)
+	location := resp.Header.Get("Location")
+	resp.Body.Close()
+	require.Equal(t, http.StatusFound, resp.StatusCode)
+	resp, err = client.Get(server.URL + location)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NotContains(t, string(body), "<form")
+}
+
+func TestConsentPageRejectsMissingRequest(t *testing.T) {
+	server, repo, _ := setupTestServer(t)
+	reg := registerTestClient(t, server.URL)
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+	client := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=consent-state&scope=test", server.URL, AuthorizationEndpoint, reg.ClientID, url.QueryEscape("http://localhost:8080/callback"))
+	resp, err := client.Get(authURL)
+	require.NoError(t, err)
+	resp.Body.Close()
+	require.Equal(t, http.StatusFound, resp.StatusCode)
+	location := resp.Header.Get("Location")
+	require.NoError(t, repo.DeleteAuthorizeRequest(context.Background(), strings.TrimPrefix(location, "/.idp/auth/")))
+	resp, err = client.Get(server.URL + location)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NotContains(t, string(body), "<form")
 }
 
 func TestPublicClientRequiresPKCE(t *testing.T) {

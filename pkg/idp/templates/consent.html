@@ -21,9 +21,8 @@
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
         text-align: center;
-        min-width: 350px;
-        max-width: 400px;
-        width: 100%;
+        box-sizing: border-box;
+        width: min(400px, calc(100% - 2rem));
       }
       h1 {
         color: #333;
@@ -34,7 +33,7 @@
         color: #555;
         font-size: 0.95rem;
         line-height: 1.5;
-        word-break: break-all;
+        overflow-wrap: anywhere;
       }
       code {
         background: #f1f3f5;

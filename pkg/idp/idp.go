@@ -185,17 +185,11 @@ func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 		return
 	}
 
-	// The stored authorize request carries the client and the requested
-	// scopes shown on the consent page; fall back to a generic page when it
-	// cannot be loaded so the flow stays completable.
-	var clientID string
-	var scopes []string
 	ar, err := a.repo.GetAuthorizeRequest(c.Request.Context(), arID)
 	if err != nil {
 		a.logger.Error("Failed to get authorize requester for the consent page", zap.Error(err))
-	} else {
-		clientID = ar.GetClient().GetID()
-		scopes = ar.GetRequestedScopes()
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Unable to load the authorization request; please start again"})
+		return
 	}
 
 	data := struct {
@@ -206,13 +200,13 @@ func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 	}{
 		Title:       a.consentTitle,
 		Description: a.consentDescription,
-		ClientID:    clientID,
-		Scopes:      scopes,
+		ClientID:    ar.GetClient().GetID(),
+		Scopes:      ar.GetRequestedScopes(),
 	}
 	var page bytes.Buffer
 	if err := a.consentTemplate.Execute(&page, data); err != nil {
 		a.logger.Error("Failed to render consent page", zap.Error(err))
-		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html><body><form method="post"><button type="submit">Authorize</button></form></body></html>`))
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Unable to render the consent page; please start again"})
 		return
 	}
 	c.Data(http.StatusOK, "text/html; charset=utf-8", page.Bytes())
