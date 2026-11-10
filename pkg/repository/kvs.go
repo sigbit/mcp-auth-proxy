@@ -18,7 +18,8 @@ type kvsRepository struct {
 	bucketName string
 }
 
-var RefreshTokenGracePeriod = 1 * time.Hour
+// RefreshTokenGracePeriod is configured once at startup, before serving requests.
+var RefreshTokenGracePeriod = time.Minute
 
 func NewKVSRepository(path string, bucketName string) (Repository, error) {
 	db, err := bbolt.Open(path, 0600, nil)

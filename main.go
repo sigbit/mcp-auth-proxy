@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	mcpproxy "github.com/sigbit/mcp-auth-proxy/v2/pkg/mcp-proxy"
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/repository"
 	"github.com/spf13/cobra"
 )
 
@@ -187,6 +190,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var dataPath string
 	var repositoryBackend string
 	var repositoryDSN string
+	var refreshTokenGracePeriod string
 	var externalURL string
 	var googleClientID string
 	var googleClientSecret string
@@ -221,6 +225,14 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 
 	rootCmd := &cobra.Command{
 		Use: "mcp-warp",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			duration, err := time.ParseDuration(refreshTokenGracePeriod)
+			if err != nil || duration < 0 {
+				return fmt.Errorf("invalid refresh-token-grace-period %q: expected a non-negative duration such as 60s or 2m", refreshTokenGracePeriod)
+			}
+			repository.RefreshTokenGracePeriod = duration
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			googleAllowedUsersList := splitCSV(googleAllowedUsers)
 			googleAllowedWorkspacesList := splitCSV(googleAllowedWorkspaces)
@@ -306,6 +318,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&tlsKeyFile, "tls-key-file", getEnvWithDefault("TLS_KEY_FILE", ""), "Path to TLS private key file (PEM). Requires --tls-cert-file")
 	rootCmd.Flags().StringVarP(&dataPath, "data-path", "d", getEnvWithDefault("DATA_PATH", "./data"), "Path to the data directory")
 	rootCmd.Flags().StringVar(&repositoryBackend, "repository-backend", getEnvWithDefault("REPOSITORY_BACKEND", "local"), "Repository backend to use: local, sqlite, postgres, or mysql")
+	rootCmd.Flags().StringVar(&refreshTokenGracePeriod, "refresh-token-grace-period", getEnvWithDefault("REFRESH_TOKEN_GRACE_PERIOD", "60s"), "Refresh token rotation retry grace period (e.g. 60s, 2m; 0 disables grace)")
 	rootCmd.Flags().StringVar(&repositoryDSN, "repository-dsn", getEnvWithDefault("REPOSITORY_DSN", ""), "DSN passed directly to the SQL driver (required when repository-backend is sqlite/postgres/mysql)")
 	rootCmd.Flags().StringVarP(&externalURL, "external-url", "e", getEnvWithDefault("EXTERNAL_URL", "http://localhost"), "External URL for the proxy")
 

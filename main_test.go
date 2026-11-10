@@ -3,6 +3,9 @@ package main
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/sigbit/mcp-auth-proxy/v2/pkg/repository"
 )
 
 func TestSplitWithEscapes(t *testing.T) {
@@ -650,5 +653,51 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 
 	if !forwardAuthorization {
 		t.Fatalf("expected forwardAuthorizationHeader to default to true from env var")
+	}
+}
+
+func TestRefreshTokenGracePeriodConfiguration(t *testing.T) {
+	original := repository.RefreshTokenGracePeriod
+	defer func() { repository.RefreshTokenGracePeriod = original }()
+	tests := []struct {
+		name, env string
+		args      []string
+		want      time.Duration
+		invalid   bool
+	}{
+		{name: "default", want: time.Minute},
+		{name: "environment", env: "2m", want: 2 * time.Minute},
+		{name: "flag overrides environment", env: "2m", args: []string{"--refresh-token-grace-period", "15s"}, want: 15 * time.Second},
+		{name: "flag overrides invalid environment", env: "broken", args: []string{"--refresh-token-grace-period", "10s"}, want: 10 * time.Second},
+		{name: "zero", env: "0", want: 0},
+		{name: "invalid", env: "sixty seconds", invalid: true},
+		{name: "negative", env: "-1s", invalid: true},
+		{name: "invalid flag", args: []string{"--refresh-token-grace-period", "abc"}, invalid: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("REFRESH_TOKEN_GRACE_PERIOD", tt.env)
+			cmd := newRootCommand(nil)
+			if err := cmd.ParseFlags(tt.args); err != nil {
+				t.Fatal(err)
+			}
+			before := repository.RefreshTokenGracePeriod
+			err := cmd.PreRunE(cmd, nil)
+			if tt.invalid {
+				if err == nil {
+					t.Fatal("expected invalid duration error")
+				}
+				if repository.RefreshTokenGracePeriod != before {
+					t.Fatal("invalid input changed the grace period")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if repository.RefreshTokenGracePeriod != tt.want {
+				t.Fatalf("got %s, want %s", repository.RefreshTokenGracePeriod, tt.want)
+			}
+		})
 	}
 }
