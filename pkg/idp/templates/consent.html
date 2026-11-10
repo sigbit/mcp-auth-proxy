@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{.Title}} - MCP Auth Proxy</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .consent-container {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        text-align: center;
+        min-width: 350px;
+        max-width: 400px;
+        width: 100%;
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+      }
+      p {
+        color: #555;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        word-break: break-all;
+      }
+      code {
+        background: #f1f3f5;
+        border-radius: 4px;
+        padding: 0.1rem 0.35rem;
+        font-size: 0.85em;
+      }
+      ul {
+        text-align: left;
+        color: #555;
+        font-size: 0.9rem;
+        margin: 0.5rem 0 1rem 0;
+        padding-left: 1.5rem;
+      }
+      .description {
+        color: #666;
+        font-size: 0.9rem;
+      }
+      button {
+        background: #4f6ef7;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 1rem;
+      }
+      button:hover {
+        background: #3d5bd9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="consent-container">
+      <h1>{{.Title}}</h1>
+      {{if .ClientID}}
+      <p>The application <code>{{.ClientID}}</code> requests access.</p>
+      {{end}} {{if .Scopes}}
+      <p>Requested scopes:</p>
+      <ul>
+        {{range .Scopes}}
+        <li>{{.}}</li>
+        {{end}}
+      </ul>
+      {{end}} {{if .Description}}
+      <p class="description">{{.Description}}</p>
+      {{end}}
+      <form method="post"><button type="submit">Authorize</button></form>
+    </div>
+  </body>
+</html>

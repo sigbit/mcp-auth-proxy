@@ -1,10 +1,13 @@
 package idp
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"html/template"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -23,15 +26,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+//go:embed templates/*
+var templateFS embed.FS
+
 type IDPRouter struct {
-	repo        repository.Repository
-	privKey     *rsa.PrivateKey
-	logger      *zap.Logger
-	externalURL string
-	hasher      fosite.Hasher
-	provider    fosite.OAuth2Provider
-	signer      *jwt.DefaultSigner
-	authRouter  *auth.AuthRouter
+	repo               repository.Repository
+	privKey            *rsa.PrivateKey
+	logger             *zap.Logger
+	externalURL        string
+	hasher             fosite.Hasher
+	provider           fosite.OAuth2Provider
+	signer             *jwt.DefaultSigner
+	authRouter         *auth.AuthRouter
+	consentTemplate    *template.Template
+	consentTitle       string
+	consentDescription string
 }
 
 func NewIDPRouter(
@@ -41,7 +50,16 @@ func NewIDPRouter(
 	externalURL string,
 	secret []byte,
 	authRouter *auth.AuthRouter,
+	consentTitle string,
+	consentDescription string,
 ) (*IDPRouter, error) {
+	consentTmpl, err := template.ParseFS(templateFS, "templates/consent.html")
+	if err != nil {
+		return nil, err
+	}
+	if consentTitle == "" {
+		consentTitle = "Authorize"
+	}
 	hasher := &fosite.BCrypt{
 		Config: &fosite.Config{
 			HashCost: bcrypt.DefaultCost,
@@ -63,14 +81,17 @@ func NewIDPRouter(
 	provider, signer := customCompose(config, repo, privKey)
 
 	return &IDPRouter{
-		repo:        repo,
-		privKey:     privKey,
-		logger:      logger,
-		externalURL: externalURL,
-		hasher:      hasher,
-		provider:    provider,
-		signer:      signer,
-		authRouter:  authRouter,
+		repo:               repo,
+		privKey:            privKey,
+		logger:             logger,
+		externalURL:        externalURL,
+		hasher:             hasher,
+		provider:           provider,
+		signer:             signer,
+		authRouter:         authRouter,
+		consentTemplate:    consentTmpl,
+		consentTitle:       consentTitle,
+		consentDescription: consentDescription,
 	}, nil
 }
 
@@ -164,7 +185,37 @@ func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 		return
 	}
 
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html><body><form method="post"><button type="submit">Authorize</button></form></body></html>`))
+	// The stored authorize request carries the client and the requested
+	// scopes shown on the consent page; fall back to a generic page when it
+	// cannot be loaded so the flow stays completable.
+	var clientID string
+	var scopes []string
+	ar, err := a.repo.GetAuthorizeRequest(c.Request.Context(), arID)
+	if err != nil {
+		a.logger.Error("Failed to get authorize requester for the consent page", zap.Error(err))
+	} else {
+		clientID = ar.GetClient().GetID()
+		scopes = ar.GetRequestedScopes()
+	}
+
+	data := struct {
+		Title       string
+		Description string
+		ClientID    string
+		Scopes      []string
+	}{
+		Title:       a.consentTitle,
+		Description: a.consentDescription,
+		ClientID:    clientID,
+		Scopes:      scopes,
+	}
+	var page bytes.Buffer
+	if err := a.consentTemplate.Execute(&page, data); err != nil {
+		a.logger.Error("Failed to render consent page", zap.Error(err))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html><body><form method="post"><button type="submit">Authorize</button></form></body></html>`))
+		return
+	}
+	c.Data(http.StatusOK, "text/html; charset=utf-8", page.Bytes())
 }
 
 func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {

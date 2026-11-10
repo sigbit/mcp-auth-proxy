@@ -167,6 +167,8 @@ type proxyRunnerFunc func(
 	httpStreamingOnly bool,
 	headerMapping map[string]string,
 	headerMappingBase string,
+	consentTitle string,
+	consentDescription string,
 ) error
 
 func main() {
@@ -217,6 +219,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var headerMapping string
 	var headerMappingBase string
 	var httpStreamingOnly bool
+	var consentTitle string
+	var consentDescription string
 	var trustedProxies string
 
 	rootCmd := &cobra.Command{
@@ -290,6 +294,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				httpStreamingOnly,
 				headerMappingMap,
 				headerMappingBase,
+				consentTitle,
+				consentDescription,
 			); err != nil {
 				panic(err)
 			}
@@ -348,6 +354,8 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().BoolVar(&httpStreamingOnly, "http-streaming-only", getEnvBoolWithDefault("HTTP_STREAMING_ONLY", false), "Reject SSE (GET) requests and keep the backend in HTTP streaming-only mode")
 	rootCmd.Flags().StringVar(&headerMapping, "header-mapping", getEnvWithDefault("HEADER_MAPPING", ""), "Comma-separated mapping of JSON pointer paths to header names (e.g., /email:X-Forwarded-Email,/preferred_username:X-Forwarded-User)")
 	rootCmd.Flags().StringVar(&headerMappingBase, "header-mapping-base", getEnvWithDefault("HEADER_MAPPING_BASE", "/userinfo"), "JSON pointer base path for header mapping claims lookup (e.g., /userinfo or /)")
+	rootCmd.Flags().StringVar(&consentTitle, "consent-title", getEnvWithDefault("CONSENT_TITLE", "Authorize"), "Title shown on the OAuth consent page")
+	rootCmd.Flags().StringVar(&consentDescription, "consent-description", getEnvWithDefault("CONSENT_DESCRIPTION", ""), "Optional explanation shown on the OAuth consent page")
 
 	return rootCmd
 }

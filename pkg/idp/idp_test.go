@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -28,6 +29,10 @@ import (
 )
 
 func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, string) {
+	return setupTestServerWithConsent(t, "", "")
+}
+
+func setupTestServerWithConsent(t *testing.T, consentTitle string, consentDescription string) (*httptest.Server, repository.Repository, string) {
 	// Create temp directory and repository
 	tmpDir, err := os.MkdirTemp("", "idp_test_*")
 	require.NoError(t, err)
@@ -72,7 +77,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, str
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()
-	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter)
+	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter, consentTitle, consentDescription)
 	require.NoError(t, err)
 
 	idpRouter.SetupRoutes(router)
@@ -394,6 +399,62 @@ func TestAuthorizationReturnRequiresOriginalSession(t *testing.T) {
 	require.NoError(t, err)
 	defer victimResp.Body.Close()
 	require.Equal(t, http.StatusForbidden, victimResp.StatusCode)
+}
+
+func consentPageHTML(t *testing.T, server *httptest.Server, clientID string) string {
+	t.Helper()
+
+	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=consent-state&scope=test",
+		server.URL, AuthorizationEndpoint, clientID,
+		url.QueryEscape("http://localhost:8080/callback"))
+
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	authResp, err := client.Get(authURL)
+	require.NoError(t, err)
+	defer authResp.Body.Close()
+	require.Contains(t, []int{http.StatusFound, http.StatusSeeOther}, authResp.StatusCode)
+	location := authResp.Header.Get("Location")
+	require.NotEmpty(t, location)
+
+	formResp, err := client.Get(server.URL + location)
+	require.NoError(t, err)
+	defer formResp.Body.Close()
+	require.Equal(t, http.StatusOK, formResp.StatusCode)
+	body, err := io.ReadAll(formResp.Body)
+	require.NoError(t, err)
+	return string(body)
+}
+
+func TestConsentPageShowsClientAndScopes(t *testing.T) {
+	server, _, _ := setupTestServerWithConsent(t, "Grant access to Grafana MCP", "This grants read-only access to your Grafana data through MCP.")
+	regResp := registerTestClient(t, server.URL)
+
+	body := consentPageHTML(t, server, regResp.ClientID)
+
+	require.Contains(t, body, "Grant access to Grafana MCP")
+	require.Contains(t, body, regResp.ClientID)
+	require.Contains(t, body, "<li>test</li>")
+	require.Contains(t, body, "This grants read-only access to your Grafana data through MCP.")
+	require.Contains(t, body, "<form method=\"post\">")
+}
+
+func TestConsentPageDefaults(t *testing.T) {
+	server, _, _ := setupTestServerWithConsent(t, "", "")
+	regResp := registerTestClient(t, server.URL)
+
+	body := consentPageHTML(t, server, regResp.ClientID)
+
+	require.Contains(t, body, "Authorize")
+	require.Contains(t, body, regResp.ClientID)
+	require.NotContains(t, body, "<p class=\"description\">")
 }
 
 func TestPublicClientRequiresPKCE(t *testing.T) {
