@@ -184,11 +184,13 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 | --- | --- | --- | --- |
 | `--refresh-token-grace-period` | `REFRESH_TOKEN_GRACE_PERIOD` | `60s` | Time during which a rotated refresh token may be retried. |
 
-Use a non-negative duration such as `30s`, `2m`, or `0`. A command-line option takes precedence over the environment variable. With `0`, reuse is rejected immediately after rotation. Invalid or negative values prevent startup.
+When a refresh token is exchanged, the old token remains usable for 60 seconds by default. This gives a client time to retry if it did not receive the response. The window starts with the first exchange; retries do not extend it.
 
-The window starts at the token's first rotation and is not extended by retries. During the window, the old token can be exchanged again, including by anyone who has stolen it. After the window, presenting it triggers reuse detection and revokes the associated refresh and access token sessions; the client must authorize again. A shorter window reduces the opportunity for reuse but can cause reauthorization after delayed retries or concurrent refreshes. Choose a value suited to client behavior and configure the same value on every instance sharing a repository.
+During that window, anyone holding the old token can exchange it again. Afterward, using it triggers reuse detection: the server rejects the request and revokes the refresh and access token sessions associated with the authorization. The client must then authorize again.
 
-For example, set `REFRESH_TOKEN_GRACE_PERIOD=30s` or pass `--refresh-token-grace-period 30s`.
+Set the window to suit your clients. A shorter window limits the time a stolen token can be reused, but delayed or concurrent requests may force legitimate users to authorize again. Use the same setting on every instance sharing a repository.
+
+Set `REFRESH_TOKEN_GRACE_PERIOD=30s` or pass `--refresh-token-grace-period 30s`. The option takes precedence over the environment variable. Durations must be non-negative; for example, `30s` and `2m` are valid. Set `0` to reject reuse immediately after rotation. An invalid or negative value prevents startup.
 
 ### Proxy Options
 
