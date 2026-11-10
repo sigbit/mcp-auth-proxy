@@ -197,11 +197,14 @@ func (r *sqlRepository) GetRefreshTokenSession(ctx context.Context, signature st
 	if err := json.Unmarshal(session.Request, &req); err != nil {
 		return nil, fmt.Errorf("failed to decode refresh token session: %w", err)
 	}
-	if isRotatedBeyondGracePeriod(req.RotatedAt) {
-		return nil, fosite.ErrInactiveToken
+	fositeReq, err := unmarshalRequest(session.Request, sess)
+	if err != nil {
+		return nil, err
 	}
-
-	return unmarshalRequest(session.Request, sess)
+	if isRotatedBeyondGracePeriod(req.RotatedAt) {
+		return fositeReq, fosite.ErrInactiveToken
+	}
+	return fositeReq, nil
 }
 
 func (r *sqlRepository) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
@@ -209,37 +212,84 @@ func (r *sqlRepository) DeleteRefreshTokenSession(ctx context.Context, signature
 }
 
 func (r *sqlRepository) RotateRefreshToken(ctx context.Context, requestID string, signature string) error {
-	var session refreshTokenSession
-	if err := r.db.WithContext(ctx).First(&session, "signature = ?", signature).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fosite.ErrNotFound
+	for {
+		var session refreshTokenSession
+		if err := r.db.WithContext(ctx).First(&session, "signature = ?", signature).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fosite.ErrNotFound
+			}
+			return err
 		}
-		return fmt.Errorf("failed to load refresh token session: %w", err)
+		var req models.Request
+		if err := json.Unmarshal(session.Request, &req); err != nil {
+			return err
+		}
+		if !req.RotatedAt.IsZero() {
+			return nil
+		}
+		req.RotatedAt = time.Now().UTC()
+		data, err := json.Marshal(req)
+		if err != nil {
+			return err
+		}
+		result := r.db.WithContext(ctx).Model(&refreshTokenSession{}).
+			Where("signature = ? AND request = ?", signature, session.Request).Update("request", data)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 1 {
+			return nil
+		}
 	}
 
-	var req models.Request
-	if err := json.Unmarshal(session.Request, &req); err != nil {
-		return fmt.Errorf("failed to decode refresh token session: %w", err)
-	}
-	req.RotatedAt = time.Now().UTC()
-
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to encode refresh token session: %w", err)
-	}
-
-	return r.db.WithContext(ctx).
-		Model(&refreshTokenSession{}).
-		Where("signature = ?", signature).
-		Update("request", data).Error
 }
 
 func (r *sqlRepository) RevokeRefreshToken(ctx context.Context, requestID string) error {
-	return r.db.WithContext(ctx).Delete(&refreshTokenSession{}, "signature = ?", requestID).Error
+	return r.revokeSessions(ctx, requestID, true)
 }
 
 func (r *sqlRepository) RevokeAccessToken(ctx context.Context, requestID string) error {
-	return r.db.WithContext(ctx).Delete(&accessTokenSession{}, "signature = ?", requestID).Error
+	return r.revokeSessions(ctx, requestID, false)
+}
+
+// Scan serialized requests so sessions created before this fix are also revoked.
+func (r *sqlRepository) revokeSessions(ctx context.Context, requestID string, refresh bool) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if refresh {
+			var sessions []refreshTokenSession
+			if err := tx.Find(&sessions).Error; err != nil {
+				return err
+			}
+			for _, session := range sessions {
+				var req models.Request
+				if err := json.Unmarshal(session.Request, &req); err != nil {
+					return err
+				}
+				if req.ID == requestID {
+					if err := tx.Delete(&refreshTokenSession{}, "signature = ?", session.Signature).Error; err != nil {
+						return err
+					}
+				}
+			}
+		} else {
+			var sessions []accessTokenSession
+			if err := tx.Find(&sessions).Error; err != nil {
+				return err
+			}
+			for _, session := range sessions {
+				var req models.Request
+				if err := json.Unmarshal(session.Request, &req); err != nil {
+					return err
+				}
+				if req.ID == requestID {
+					if err := tx.Delete(&accessTokenSession{}, "signature = ?", session.Signature).Error; err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (r *sqlRepository) RegisterClient(ctx context.Context, fositeClient fosite.Client) error {
