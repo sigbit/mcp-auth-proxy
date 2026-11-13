@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.10.4](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.3...v2.10.4) (2026-11-13)
+
+
+### Bug Fixes
+
+* **idp:** apply RFC 7591 §2 defaults to DCR registration response ([#206](https://github.com/sigbit/mcp-auth-proxy/issues/206)) ([557d2f7](https://github.com/sigbit/mcp-auth-proxy/commit/557d2f7daca02d10c25f7da47191432537444875))
+* **idp:** replay authorize redirect for duplicate submissions ([#204](https://github.com/sigbit/mcp-auth-proxy/issues/204)) ([2913c8e](https://github.com/sigbit/mcp-auth-proxy/commit/2913c8ea139de111d693050fb5e8a6c5a4bdbe1c))
+* preserve upstream tool schemas verbatim through the stdio→HTTP relay ([#179](https://github.com/sigbit/mcp-auth-proxy/issues/179)) ([47f26ac](https://github.com/sigbit/mcp-auth-proxy/commit/47f26ac45774e640bcf7849aed65604b441d1e4d))
+* **proxy:** serve path-specific protected-resource metadata ([#190](https://github.com/sigbit/mcp-auth-proxy/issues/190)) ([2a89ef3](https://github.com/sigbit/mcp-auth-proxy/commit/2a89ef3e29537b58214a999aa89e160ee6d6f7b9))
+
 ## [2.10.3](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.2...v2.10.3) (2026-11-13)
 
 
