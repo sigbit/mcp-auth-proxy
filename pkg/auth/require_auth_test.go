@@ -12,10 +12,9 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// TestRequireAuthStopsUnauthenticatedRequests is a regression test for the
-// login bypass reported in November 2026: RequireAuth redirected to the
-// login page but did not abort the gin handler chain, so the protected
-// handler still ran for unauthenticated requests.
+// TestRequireAuthStopsUnauthenticatedRequests verifies that RequireAuth
+// stops unauthenticated requests: they receive a redirect to the login
+// page and the protected handler never runs.
 func TestRequireAuthStopsUnauthenticatedRequests(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

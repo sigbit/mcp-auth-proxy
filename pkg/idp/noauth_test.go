@@ -60,9 +60,9 @@ func setupTestServerNoAuth(t *testing.T) *httptest.Server {
 }
 
 // TestAuthorizationReturnRequiresLogin is an end-to-end regression test
-// for the login bypass reported in November 2026: without a login,
-// POST /.idp/auth/:ar_id must redirect to the login page instead of
-// issuing an authorization code.
+// verifying that the authorization return endpoints require a login:
+// without one, requests redirect to the login page and no authorization
+// code is delivered to the client's redirect URI.
 func TestAuthorizationReturnRequiresLogin(t *testing.T) {
 	server := setupTestServerNoAuth(t)
 
