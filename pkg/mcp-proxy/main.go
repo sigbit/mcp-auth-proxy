@@ -126,8 +126,9 @@ func Run(
 		}
 	}
 
+	debugMode := os.Getenv("MODE") == "debug"
 	var config zap.Config
-	if os.Getenv("MODE") == "debug" {
+	if debugMode {
 		gin.SetMode(gin.DebugMode)
 		config = zap.NewDevelopmentConfig()
 	} else {
@@ -314,7 +315,7 @@ func Run(
 	})
 
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
-	router.Use(ginzap.CustomRecoveryWithZap(logger, true, func(c *gin.Context, err any) {
+	router.Use(recoveryWithZap(logger, debugMode, func(c *gin.Context, err any) {
 		if err == http.ErrAbortHandler {
 			c.Abort()
 			return
