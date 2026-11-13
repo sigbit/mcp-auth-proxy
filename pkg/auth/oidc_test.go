@@ -48,6 +48,7 @@ func setupOIDCTest(allowedUsers []string, userIDField string) (Provider, gin.IRo
 		[]string{},
 		nil,
 		nil,
+		"",
 	)
 	if err != nil {
 		panic(err)
@@ -188,6 +189,7 @@ func TestOIDCProviderErrors(t *testing.T) {
 			[]string{},
 			nil,
 			nil,
+			"",
 		)
 		require.Error(t, err)
 	})
@@ -212,6 +214,7 @@ func TestOIDCProviderErrors(t *testing.T) {
 			[]string{},
 			nil,
 			nil,
+			"",
 		)
 		require.Error(t, err)
 	})
@@ -236,6 +239,7 @@ func TestOIDCProviderErrors(t *testing.T) {
 			[]string{},
 			nil,
 			nil,
+			"",
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "502 Bad Gateway")
@@ -308,6 +312,7 @@ func TestOIDCProviderGlobPatterns(t *testing.T) {
 		[]string{"*@example.com", "admin.*@company.*"},
 		nil,
 		nil,
+		"",
 	)
 	require.NoError(t, err)
 
@@ -459,6 +464,7 @@ func TestOIDCProviderAttributeMatching(t *testing.T) {
 				[]string{}, // no user glob restrictions
 				tc.allowedAttributes,
 				tc.allowedAttributesGlob,
+				"",
 			)
 			require.NoError(t, err)
 
