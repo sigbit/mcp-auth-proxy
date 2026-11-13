@@ -184,8 +184,9 @@ func TestPrivateClient(t *testing.T) {
 			TokenURL: server.URL + TokenEndpoint,
 		},
 	}
+	verifier := oauth2.GenerateVerifier()
 	state := "test-state"
-	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(verifier))
 
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
@@ -238,6 +239,7 @@ func TestPrivateClient(t *testing.T) {
 	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
 	tokenReq.Set("client_id", regResp.ClientID)
 	tokenReq.Set("client_secret", regResp.ClientSecret)
+	tokenReq.Set("code_verifier", verifier)
 
 	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
 	require.NoError(t, err)
@@ -464,10 +466,14 @@ func TestAuthWithoutState(t *testing.T) {
 	server, _, _ := setupTestServer(t)
 	regResp := registerTestClient(t, server.URL)
 
+	verifier := oauth2.GenerateVerifier()
+	sum := sha256.Sum256([]byte(verifier))
+	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
+
 	// Build authorization URL manually WITHOUT a state parameter
-	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s",
+	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&code_challenge=%s&code_challenge_method=S256",
 		server.URL, AuthorizationEndpoint, regResp.ClientID,
-		url.QueryEscape("http://localhost:8080/callback"))
+		url.QueryEscape("http://localhost:8080/callback"), challenge)
 
 	callbackURL := testAuthFlowWithURL(t, server.URL, authURL)
 
@@ -482,6 +488,7 @@ func TestAuthWithoutState(t *testing.T) {
 	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
 	tokenReq.Set("client_id", regResp.ClientID)
 	tokenReq.Set("client_secret", regResp.ClientSecret)
+	tokenReq.Set("code_verifier", verifier)
 
 	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
 	require.NoError(t, err)
@@ -499,10 +506,14 @@ func TestAuthWithEmptyState(t *testing.T) {
 	server, _, _ := setupTestServer(t)
 	regResp := registerTestClient(t, server.URL)
 
+	verifier := oauth2.GenerateVerifier()
+	sum := sha256.Sum256([]byte(verifier))
+	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
+
 	// Build authorization URL with an empty state parameter
-	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=",
+	authURL := fmt.Sprintf("%s%s?response_type=code&client_id=%s&redirect_uri=%s&state=&code_challenge=%s&code_challenge_method=S256",
 		server.URL, AuthorizationEndpoint, regResp.ClientID,
-		url.QueryEscape("http://localhost:8080/callback"))
+		url.QueryEscape("http://localhost:8080/callback"), challenge)
 
 	callbackURL := testAuthFlowWithURL(t, server.URL, authURL)
 
@@ -517,6 +528,7 @@ func TestAuthWithEmptyState(t *testing.T) {
 	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
 	tokenReq.Set("client_id", regResp.ClientID)
 	tokenReq.Set("client_secret", regResp.ClientSecret)
+	tokenReq.Set("code_verifier", verifier)
 
 	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
 	require.NoError(t, err)
@@ -545,7 +557,8 @@ func TestAccessTokenAudienceClaim(t *testing.T) {
 		},
 	}
 
-	callbackURL := testAuthFlowWithURL(t, server.URL, config.AuthCodeURL("test-state"))
+	verifier := oauth2.GenerateVerifier()
+	callbackURL := testAuthFlowWithURL(t, server.URL, config.AuthCodeURL("test-state", oauth2.S256ChallengeOption(verifier)))
 	code := callbackURL.Query().Get("code")
 
 	tokenReq := url.Values{}
@@ -554,6 +567,7 @@ func TestAccessTokenAudienceClaim(t *testing.T) {
 	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
 	tokenReq.Set("client_id", regResp.ClientID)
 	tokenReq.Set("client_secret", regResp.ClientSecret)
+	tokenReq.Set("code_verifier", verifier)
 
 	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
 	require.NoError(t, err)
@@ -597,7 +611,8 @@ func TestAccessTokenPreservesUserIdentity(t *testing.T) {
 		},
 	}
 
-	callbackURL := testAuthFlowWithURL(t, server.URL, config.AuthCodeURL("test-state"))
+	verifier := oauth2.GenerateVerifier()
+	callbackURL := testAuthFlowWithURL(t, server.URL, config.AuthCodeURL("test-state", oauth2.S256ChallengeOption(verifier)))
 	code := callbackURL.Query().Get("code")
 
 	tokenReq := url.Values{}
@@ -606,6 +621,7 @@ func TestAccessTokenPreservesUserIdentity(t *testing.T) {
 	tokenReq.Set("redirect_uri", "http://localhost:8080/callback")
 	tokenReq.Set("client_id", regResp.ClientID)
 	tokenReq.Set("client_secret", regResp.ClientSecret)
+	tokenReq.Set("code_verifier", verifier)
 
 	tokenResp, err := http.PostForm(server.URL+TokenEndpoint, tokenReq)
 	require.NoError(t, err)

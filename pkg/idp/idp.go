@@ -5,7 +5,10 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"html"
 	"math/big"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -53,7 +56,7 @@ func NewIDPRouter(
 		RefreshTokenLifespan:           30 * 24 * time.Hour,
 		RefreshTokenScopes:             []string{},
 		AccessTokenIssuer:              externalURL,
-		EnforcePKCE:                    false,
+		EnforcePKCE:                    true,
 		EnforcePKCEForPublicClients:    true,
 		EnablePKCEPlainChallengeMethod: false,
 		ScopeStrategy:                  fosite.HierarchicScopeStrategy,
@@ -158,13 +161,36 @@ func (a *IDPRouter) handleAuth(c *gin.Context) {
 }
 
 func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
+	ctx := c.Request.Context()
 	arID := c.Param("ar_id")
 	if !hasAuthorizeRequestID(sessions.Default(c), arID) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "invalid authorization session"})
 		return
 	}
 
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html><body><form method="post"><button type="submit">Authorize</button></form></body></html>`))
+	ar, err := a.repo.GetAuthorizeRequest(ctx, arID)
+	if err != nil {
+		a.logger.Error("Failed to get authorize requester", zap.Error(err))
+		c.AbortWithStatusJSON(500, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	// Show who is asking and where the result will be sent, so a user
+	// can recognize a request they did not initiate. Clients can be
+	// registered dynamically, so the redirect target is essential
+	// information for the user to verify the request.
+	var b strings.Builder
+	b.WriteString("<!doctype html><html><body>")
+	b.WriteString("<p>An application is requesting authorization.</p>")
+	fmt.Fprintf(&b, "<p>Client ID: %s</p>", html.EscapeString(ar.GetClient().GetID()))
+	if redirectURI := ar.GetRedirectURI(); redirectURI != nil {
+		fmt.Fprintf(&b, "<p>After approval, the authorization result will be sent to: %s</p>", html.EscapeString(redirectURI.String()))
+	}
+	if scopes := ar.GetRequestedScopes(); len(scopes) > 0 {
+		fmt.Fprintf(&b, "<p>Requested scopes: %s</p>", html.EscapeString(strings.Join(scopes, " ")))
+	}
+	b.WriteString(`<form method="post"><button type="submit">Authorize</button></form></body></html>`)
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(b.String()))
 }
 
 func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
@@ -338,6 +364,36 @@ type registrationResponse struct {
 	ClientIDIssuedAt        int64    `json:"client_id_issued_at"`
 }
 
+// validateRedirectURI restricts dynamically registered redirect URIs
+// to https URLs, plus http on loopback hosts for native apps
+// (RFC 8252 Section 7.3). Fragments are rejected per RFC 6749
+// Section 3.1.2.
+func validateRedirectURI(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || !u.IsAbs() || u.Host == "" {
+		return fmt.Errorf("redirect_uri %q is not an absolute URL with a host", raw)
+	}
+	if u.Fragment != "" {
+		return fmt.Errorf("redirect_uri %q must not contain a fragment", raw)
+	}
+	switch {
+	case u.Scheme == "https":
+		return nil
+	case u.Scheme == "http" && isLoopbackHost(u.Hostname()):
+		return nil
+	default:
+		return fmt.Errorf("redirect_uri %q must use https (http is allowed only for loopback hosts)", raw)
+	}
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func (a *IDPRouter) handleRegister(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -345,6 +401,13 @@ func (a *IDPRouter) handleRegister(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "invalid_request", "error_description": err.Error()})
 		return
+	}
+
+	for _, redirectURI := range req.RedirectURIs {
+		if err := validateRedirectURI(redirectURI); err != nil {
+			c.JSON(400, gin.H{"error": "invalid_redirect_uri", "error_description": err.Error()})
+			return
+		}
 	}
 
 	clientID, err := utils.GenerateClientID()
