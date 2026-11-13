@@ -28,6 +28,7 @@ import (
 	"github.com/sigbit/mcp-auth-proxy/v2/pkg/tlsreload"
 	"github.com/sigbit/mcp-auth-proxy/v2/pkg/utils"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
@@ -317,7 +318,17 @@ func Run(
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+	router.Use(ginzap.GinzapWithConfig(logger, &ginzap.Config{
+		TimeFormat:   time.RFC3339,
+		UTC:          true,
+		DefaultLevel: zapcore.InfoLevel,
+		Context: func(c *gin.Context) []zapcore.Field {
+			if subject, exists := c.Get("subject"); exists {
+				return []zapcore.Field{zap.Any("subject", subject)}
+			}
+			return nil
+		},
+	}))
 	router.Use(recoveryWithZap(logger, debugMode, func(c *gin.Context, err any) {
 		if err == http.ErrAbortHandler {
 			c.Abort()
