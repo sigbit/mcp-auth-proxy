@@ -105,7 +105,6 @@ const (
 	RegistrationEndpoint             = "/.idp/register"
 	OauthAuthorizationServerEndpoint = "/.well-known/oauth-authorization-server"
 	JWKSEndpoint                     = "/.well-known/jwks.json"
-	sessionKeyAuthorizeRequestIDs    = "idp_authorize_request_ids"
 	sessionKeyCompletedAuthorizes    = "idp_completed_authorizations"
 )
 
@@ -116,6 +115,10 @@ const (
 // redirect again instead of an error. The authorization code itself
 // stays single-use at the token endpoint.
 const authorizeReplayWindow = 30 * time.Second
+
+// maxCompletedAuthorizations bounds the replay records kept in the
+// session cookie; see rememberCompletedAuthorization.
+const maxCompletedAuthorizations = 10
 
 func (a *IDPRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(AuthorizationEndpoint, a.handleAuth)
@@ -158,9 +161,10 @@ func (a *IDPRouter) handleAuth(c *gin.Context) {
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, fosite.ErrServerError.WithWrap(err))
 		return
 	}
-	session := sessions.Default(c)
-	addAuthorizeRequestID(session, ar.GetID())
-	if err := session.Save(); err != nil {
+	// Bind the request to this browser with a cookie of its own. A shared
+	// list in the session cookie lost entries whenever a client opened
+	// several authorization requests at once.
+	if err := a.authRouter.Flows().SetAuthorizeRequest(c, ar.GetID()); err != nil {
 		a.logger.Error("Failed to save authorize request in session", zap.Error(err))
 		_ = a.repo.DeleteAuthorizeRequest(ctx, ar.GetID())
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, fosite.ErrServerError.WithWrap(err))
@@ -173,7 +177,7 @@ func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 	ctx := c.Request.Context()
 	arID := c.Param("ar_id")
 	session := sessions.Default(c)
-	if !hasAuthorizeRequestID(session, arID) {
+	if !a.authRouter.Flows().HasAuthorizeRequest(c, arID) {
 		if redirectURL, ok := completedAuthorizationRedirect(session, arID); ok {
 			c.Redirect(http.StatusSeeOther, redirectURL)
 			return
@@ -211,7 +215,7 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 	ctx := c.Request.Context()
 	arID := c.Param("ar_id")
 	session := sessions.Default(c)
-	if !hasAuthorizeRequestID(session, arID) {
+	if !a.authRouter.Flows().HasAuthorizeRequest(c, arID) {
 		if redirectURL, ok := completedAuthorizationRedirect(session, arID); ok {
 			c.Redirect(http.StatusSeeOther, redirectURL)
 			return
@@ -276,61 +280,14 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 		}
 	}
 
-	removeAuthorizeRequestID(session, arID)
+	a.authRouter.Flows().DeleteAuthorizeRequest(c, arID)
+	// The replay record is best-effort: failing to persist it (for example
+	// when the session cookie is full) must not fail the authorization.
 	if err := session.Save(); err != nil {
-		a.logger.Error("Failed to remove authorize request from session", zap.Error(err))
-		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, fosite.ErrServerError.WithWrap(err))
-		return
+		a.logger.Error("Failed to save session", zap.Error(err))
 	}
 
 	a.provider.WriteAuthorizeResponse(ctx, c.Writer, ar, response)
-}
-
-func authorizeRequestIDs(session sessions.Session) []string {
-	value, ok := session.Get(sessionKeyAuthorizeRequestIDs).(string)
-	if !ok || value == "" {
-		return nil
-	}
-	var ids []string
-	if err := json.Unmarshal([]byte(value), &ids); err != nil {
-		return nil
-	}
-	return ids
-}
-
-func addAuthorizeRequestID(session sessions.Session, arID string) {
-	ids := authorizeRequestIDs(session)
-	if hasAuthorizeRequestID(session, arID) {
-		return
-	}
-	ids = append(ids, arID)
-	data, _ := json.Marshal(ids)
-	session.Set(sessionKeyAuthorizeRequestIDs, string(data))
-}
-
-func hasAuthorizeRequestID(session sessions.Session, arID string) bool {
-	for _, id := range authorizeRequestIDs(session) {
-		if id == arID {
-			return true
-		}
-	}
-	return false
-}
-
-func removeAuthorizeRequestID(session sessions.Session, arID string) {
-	ids := authorizeRequestIDs(session)
-	remaining := ids[:0]
-	for _, id := range ids {
-		if id != arID {
-			remaining = append(remaining, id)
-		}
-	}
-	if len(remaining) == 0 {
-		session.Delete(sessionKeyAuthorizeRequestIDs)
-		return
-	}
-	data, _ := json.Marshal(remaining)
-	session.Set(sessionKeyAuthorizeRequestIDs, string(data))
 }
 
 type completedAuthorization struct {
@@ -361,6 +318,19 @@ func rememberCompletedAuthorization(session sessions.Session, arID, redirectURL 
 		if now.Sub(time.Unix(entry.CompletedAt, 0)) > authorizeReplayWindow {
 			delete(entries, id)
 		}
+	}
+	// Cap the retained entries as well: many completions in quick
+	// succession (a client opening several flows at once) would otherwise
+	// grow the session cookie past its size limit.
+	for len(entries) >= maxCompletedAuthorizations {
+		var oldestID string
+		var oldestAt int64
+		for id, entry := range entries {
+			if oldestID == "" || entry.CompletedAt < oldestAt {
+				oldestID, oldestAt = id, entry.CompletedAt
+			}
+		}
+		delete(entries, oldestID)
 	}
 	entries[arID] = completedAuthorization{RedirectURL: redirectURL, CompletedAt: now.Unix()}
 	data, _ := json.Marshal(entries)
