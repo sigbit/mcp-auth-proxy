@@ -233,6 +233,7 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 				return
 			}
 			c.Redirect(http.StatusFound, LoginEndpoint)
+			c.Abort()
 			return
 		}
 
