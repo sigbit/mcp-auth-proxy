@@ -588,6 +588,99 @@ func TestProxyRouter_ProtectedResourceTrailingSlash(t *testing.T) {
 	assert.Equal(t, []string{"https://example.com/"}, resp.AuthorizationServers)
 }
 
+func TestProxyRouter_ProtectedResourceForPath(t *testing.T) {
+	_, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+	gin.SetMode(gin.TestMode)
+
+	cases := []struct {
+		name                 string
+		externalURL          string
+		requestPath          string
+		wantResource         string
+		wantAuthorizationSrv []string
+	}{
+		{"mcp path", "https://example.com", "/.well-known/oauth-protected-resource/mcp", "https://example.com/mcp", []string{"https://example.com"}},
+		{"mcp path trailing slash external", "https://example.com/", "/.well-known/oauth-protected-resource/mcp", "https://example.com/mcp", []string{"https://example.com/"}},
+		{"nested path", "https://example.com", "/.well-known/oauth-protected-resource/foo/bar", "https://example.com/foo/bar", []string{"https://example.com"}},
+		{"root unchanged", "https://example.com/", "/.well-known/oauth-protected-resource", "https://example.com/", []string{"https://example.com/"}},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			proxyRouter, err := NewProxyRouter(tt.externalURL, http.NotFoundHandler(), publicKey, http.Header{}, false, false, nil, "/userinfo")
+			require.NoError(t, err)
+			router := gin.New()
+			proxyRouter.SetupRoutes(router)
+
+			req, err := http.NewRequest(http.MethodGet, tt.requestPath, nil)
+			require.NoError(t, err)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code)
+			var resp protectedResourceResponse
+			require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+			assert.Equal(t, tt.wantResource, resp.Resource)
+			assert.Equal(t, tt.wantAuthorizationSrv, resp.AuthorizationServers)
+		})
+	}
+}
+
+func TestProxyRouter_AuthenticationChallenge(t *testing.T) {
+	privateKey, publicKey, err := generateRSAKeyPair()
+	require.NoError(t, err)
+	gin.SetMode(gin.TestMode)
+
+	validToken, err := createJWT(privateKey, jwt.MapClaims{
+		"sub": "test-user",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"iat": time.Now().Unix(),
+	})
+	require.NoError(t, err)
+
+	cases := []struct {
+		name          string
+		externalURL   string
+		path          string
+		authorization string
+		wantStatus    int
+		wantChallenge string
+		wantBackend   bool
+	}{
+		{"missing credentials on /mcp", "https://example.com", "/mcp", "", http.StatusUnauthorized, `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource/mcp"`, false},
+		{"missing credentials trailing slash external", "https://example.com/", "/mcp", "", http.StatusUnauthorized, `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource/mcp"`, false},
+		{"non-bearer on /mcp", "https://example.com", "/mcp", "Basic credentials", http.StatusUnauthorized, `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource/mcp"`, false},
+		{"invalid token on /mcp", "https://example.com", "/mcp", "Bearer invalid", http.StatusUnauthorized, `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource/mcp", error="invalid_token"`, false},
+		{"missing credentials on root", "https://example.com", "/", "", http.StatusUnauthorized, `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource"`, false},
+		{"missing credentials on nested path", "https://example.com", "/foo/bar", "", http.StatusUnauthorized, `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource/foo/bar"`, false},
+		{"valid token", "https://example.com", "/mcp", "Bearer " + validToken, http.StatusOK, "", true},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			backendCalled := false
+			backend := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				backendCalled = true
+				w.WriteHeader(http.StatusOK)
+			})
+			proxyRouter, err := NewProxyRouter(tt.externalURL, backend, publicKey, http.Header{}, false, false, nil, "/userinfo")
+			require.NoError(t, err)
+			router := gin.New()
+			proxyRouter.SetupRoutes(router)
+
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			if tt.authorization != "" {
+				req.Header.Set("Authorization", tt.authorization)
+			}
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Equal(t, tt.wantChallenge, w.Header().Get("WWW-Authenticate"))
+			assert.Equal(t, tt.wantBackend, backendCalled)
+		})
+	}
+}
+
 func TestProxyRouter_HTTPStreamingOnlyRejectsSSE(t *testing.T) {
 	privateKey, publicKey, err := generateRSAKeyPair()
 	require.NoError(t, err)
