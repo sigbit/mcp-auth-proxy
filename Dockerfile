@@ -14,7 +14,27 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 
 FROM node:24-bookworm-slim AS node
 
-FROM debian:bookworm-slim
+# certificates only exists to provide the CA bundle for the scratch-based
+# minimal image.
+FROM debian:bookworm-slim AS certificates
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# minimal: just the proxy binary and CA certificates, for deployments that
+# forward to an existing HTTP/SSE MCP server (no stdio subprocess support).
+FROM scratch AS minimal
+
+COPY --from=builder /app/bin/main /usr/local/bin/mcp-auth-proxy
+COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+ENV DATA_PATH=/data
+
+ENTRYPOINT [ "/usr/local/bin/mcp-auth-proxy" ]
+
+# full: the default image, with Node.js and Python for running stdio MCP
+# servers. Keep this as the last stage so a plain `docker build` produces it.
+FROM debian:bookworm-slim AS full
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl python3 python3-pip \
