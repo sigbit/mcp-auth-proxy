@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.10.3](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.2...v2.10.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **auth:** abort handler chain after login redirect in RequireAuth ([#199](https://github.com/sigbit/mcp-auth-proxy/issues/199)) ([1ce4a75](https://github.com/sigbit/mcp-auth-proxy/commit/1ce4a75e649c934f4c9e9bf20bd2df1f76c61a04)), closes [#196](https://github.com/sigbit/mcp-auth-proxy/issues/196)
+* **docker:** ship Node 24 instead of EOL Node 18 from Debian bookworm ([#201](https://github.com/sigbit/mcp-auth-proxy/issues/201)) ([20a898f](https://github.com/sigbit/mcp-auth-proxy/commit/20a898f76af8eb4c6addf8279383cefb68413018))
+* **idp:** require PKCE for all clients, validate DCR redirect URIs, show client on consent page ([#200](https://github.com/sigbit/mcp-auth-proxy/issues/200)) ([1d9705a](https://github.com/sigbit/mcp-auth-proxy/commit/1d9705ad036e3c9f11e4dc9baf756a8f249d29fb)), closes [#191](https://github.com/sigbit/mcp-auth-proxy/issues/191)
+* redact credentials in panic request dumps ([#187](https://github.com/sigbit/mcp-auth-proxy/issues/187)) ([085c374](https://github.com/sigbit/mcp-auth-proxy/commit/085c374a7833926d35aea26eb374b523ee42109f))
+
 ## [2.10.2](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.1...v2.10.2) (2026-05-08)
 
 
