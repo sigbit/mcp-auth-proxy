@@ -77,7 +77,7 @@ func setupTestServerBackend(t *testing.T, backend string) (*httptest.Server, rep
 	})
 
 	// Create auth router and IDP router
-	authRouter, err := auth.NewAuthRouter([]string{}, false, nil, auth.NewFlowCookies(secret[:], false))
+	authRouter, err := auth.NewAuthRouter(zap.NewNop(), []string{}, false, nil, auth.NewFlowCookies(secret[:], false))
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()
@@ -662,7 +662,7 @@ func setupTestServerWithKey(t *testing.T, repo repository.Repository, privKey *r
 		c.Next()
 	})
 
-	authRouter, err := auth.NewAuthRouter([]string{}, false, nil, auth.NewFlowCookies(secret[:], false))
+	authRouter, err := auth.NewAuthRouter(zap.NewNop(), []string{}, false, nil, auth.NewFlowCookies(secret[:], false))
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()

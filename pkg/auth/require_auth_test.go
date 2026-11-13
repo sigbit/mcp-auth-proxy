@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
@@ -24,7 +26,7 @@ func TestRequireAuthStopsUnauthenticatedRequests(t *testing.T) {
 	mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 	mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
-	authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+	authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 	require.NoError(t, err)
 
 	router := gin.New()
