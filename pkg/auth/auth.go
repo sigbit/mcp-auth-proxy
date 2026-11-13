@@ -30,9 +30,10 @@ type AuthRouter struct {
 	// stripped before the data is stored in the session cookie. This
 	// prevents oversized cookies when the provider returns many claims.
 	userInfoFields []string
+	flows          *FlowCookies
 }
 
-func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, providers ...Provider) (*AuthRouter, error) {
+func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFields []string, flows *FlowCookies, providers ...Provider) (*AuthRouter, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/login.html")
 	if err != nil {
 		return nil, err
@@ -56,7 +57,13 @@ func NewAuthRouter(passwordHash []string, noProviderAutoSelect bool, userInfoFie
 		errorTemplate:        errorTmpl,
 		noProviderAutoSelect: noProviderAutoSelect,
 		userInfoFields:       userInfoFields,
+		flows:                flows,
 	}, nil
+}
+
+// Flows returns the per-flow cookie store, which the IdP router shares.
+func (a *AuthRouter) Flows() *FlowCookies {
+	return a.flows
 }
 
 const (
@@ -72,11 +79,9 @@ const (
 	PasswordProvider = "password"
 	PasswordUserID   = "password_user"
 
-	SessionKeyAuthorized  = "authorized"
-	SessionKeyRedirectURL = "redirect_url"
-	SessionKeyOAuthState  = "oauth_state"
-	SessionKeyUserID      = "user_id"
-	SessionKeyUserInfo    = "user_info"
+	SessionKeyAuthorized = "authorized"
+	SessionKeyUserID     = "user_id"
+	SessionKeyUserInfo   = "user_info"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
@@ -85,13 +90,14 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(LogoutEndpoint, a.handleLogout)
 	for _, provider := range a.providers {
 		router.GET(provider.RedirectURL(), func(c *gin.Context) {
-			session := sessions.Default(c)
-			state := session.Get(SessionKeyOAuthState)
-			if state == nil {
-				a.renderError(c, errors.New("OAuth state is missing"))
+			state := c.Query("state")
+			redirectURL, ok := a.flows.Get(c, oauthFlowPrefix, state)
+			if !ok {
+				a.renderError(c, errors.New("OAuth state is missing or expired"))
 				return
 			}
-			token, err := provider.Exchange(c, state.(string))
+			a.flows.Delete(c, oauthFlowPrefix, state)
+			token, err := provider.Exchange(c, state)
 			if err != nil {
 				a.renderError(c, err)
 				return
@@ -105,6 +111,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				a.renderUnauthorized(c, user, provider.Name())
 				return
 			}
+			session := sessions.Default(c)
 			session.Set(SessionKeyAuthorized, true)
 			session.Set(SessionKeyUserID, user)
 			if userInfo != nil {
@@ -115,25 +122,18 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 					session.Set(SessionKeyUserInfo, string(userInfoJSON))
 				}
 			}
-			redirectURL := session.Get(SessionKeyRedirectURL)
-			if redirectURL != nil {
-				session.Delete(SessionKeyRedirectURL)
-			}
 			if err := session.Save(); err != nil {
 				a.renderError(c, err)
 				return
 			}
 
-			if redirectURL == nil {
-				c.Redirect(http.StatusFound, "/")
-			} else {
-				c.Redirect(http.StatusFound, redirectURL.(string))
+			if redirectURL == "" {
+				redirectURL = "/"
 			}
+			c.Redirect(http.StatusFound, redirectURL)
 		})
 
 		router.GET(provider.AuthURL(), func(c *gin.Context) {
-			session := sessions.Default(c)
-
 			state, err := utils.GenerateState()
 			if err != nil {
 				a.renderError(c, err)
@@ -144,8 +144,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 				a.renderError(c, err)
 				return
 			}
-			session.Set(SessionKeyOAuthState, state)
-			if err := session.Save(); err != nil {
+			if err := a.flows.Set(c, oauthFlowPrefix, state, safeRedirect(c.Query("rd"))); err != nil {
 				a.renderError(c, err)
 				return
 			}
@@ -161,7 +160,7 @@ func (a *AuthRouter) handleLogin(c *gin.Context) {
 	}
 	// Auto-redirect to the sole provider if enabled and no password is set
 	if !a.noProviderAutoSelect && len(a.passwordHash) == 0 && len(a.providers) == 1 {
-		c.Redirect(http.StatusFound, a.providers[0].AuthURL())
+		c.Redirect(http.StatusFound, withRedirect(a.providers[0].AuthURL(), safeRedirect(c.Query("rd"))))
 		return
 	}
 	a.renderLogin(c, "")
@@ -196,20 +195,16 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set(SessionKeyAuthorized, true)
 	session.Set(SessionKeyUserID, PasswordUserID)
-	redirectURL := session.Get(SessionKeyRedirectURL)
-	if redirectURL != nil {
-		session.Delete(SessionKeyRedirectURL)
-	}
 	if err := session.Save(); err != nil {
 		a.renderError(c, err)
 		return
 	}
 
-	if redirectURL == nil {
-		c.Redirect(http.StatusFound, "/")
-	} else {
-		c.Redirect(http.StatusFound, redirectURL.(string))
+	redirectURL := safeRedirect(c.PostForm("rd"))
+	if redirectURL == "" {
+		redirectURL = "/"
 	}
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func (a *AuthRouter) handleLogout(c *gin.Context) {
@@ -227,12 +222,9 @@ func (a *AuthRouter) RequireAuth() gin.HandlerFunc {
 		session := sessions.Default(c)
 		authorized := session.Get(SessionKeyAuthorized)
 		if authorized == nil {
-			session.Set(SessionKeyRedirectURL, c.Request.URL.String())
-			if err := session.Save(); err != nil {
-				a.renderError(c, err)
-				return
-			}
-			c.Redirect(http.StatusFound, LoginEndpoint)
+			// The return address travels with the flow rather than in the
+			// session, so concurrent flows cannot overwrite each other's.
+			c.Redirect(http.StatusFound, withRedirect(LoginEndpoint, safeRedirect(c.Request.URL.RequestURI())))
 			c.Abort()
 			return
 		}
@@ -250,6 +242,7 @@ type loginTemplateData struct {
 	Providers     []Provider
 	HasPassword   bool
 	PasswordError string
+	Redirect      string
 }
 
 type unauthorizedTemplateData struct {
@@ -266,6 +259,7 @@ func (a *AuthRouter) renderLogin(c *gin.Context, passwordError string) {
 		Providers:     a.providers,
 		HasPassword:   len(a.passwordHash) > 0,
 		PasswordError: passwordError,
+		Redirect:      safeRedirect(c.Request.FormValue("rd")),
 	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	if passwordError != "" {

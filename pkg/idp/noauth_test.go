@@ -46,7 +46,7 @@ func setupTestServerNoAuth(t *testing.T) *httptest.Server {
 	store := cookie.NewStore(keyMaterial[:])
 	router.Use(sessions.Sessions("test_session", store))
 
-	authRouter, err := auth.NewAuthRouter([]string{}, false, nil)
+	authRouter, err := auth.NewAuthRouter([]string{}, false, nil, auth.NewFlowCookies(keyMaterial[:], false))
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()
@@ -116,7 +116,9 @@ func TestAuthorizationReturnRequiresLogin(t *testing.T) {
 	require.NoError(t, err)
 	resp.Body.Close()
 	require.Equal(t, http.StatusFound, resp.StatusCode)
-	require.Equal(t, auth.LoginEndpoint, resp.Header.Get("Location"))
+	// The login redirect carries the return address as a query parameter
+	// so that concurrent flows cannot overwrite each other's.
+	require.Equal(t, auth.LoginEndpoint+"?rd="+url.QueryEscape(returnPath), resp.Header.Get("Location"))
 
 	// The code-issuing POST must redirect to the login page and must
 	// not deliver an authorization code to the client's redirect URI.
@@ -125,6 +127,6 @@ func TestAuthorizationReturnRequiresLogin(t *testing.T) {
 	resp.Body.Close()
 	require.Equal(t, http.StatusFound, resp.StatusCode)
 	location := resp.Header.Get("Location")
-	require.Equal(t, auth.LoginEndpoint, location)
+	require.Equal(t, auth.LoginEndpoint+"?rd="+url.QueryEscape(returnPath), location)
 	require.NotContains(t, location, "code=")
 }

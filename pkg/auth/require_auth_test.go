@@ -24,7 +24,7 @@ func TestRequireAuthStopsUnauthenticatedRequests(t *testing.T) {
 	mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 	mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
-	authRouter, err := NewAuthRouter(nil, false, nil, mockProvider)
+	authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -52,7 +52,9 @@ func TestRequireAuthStopsUnauthenticatedRequests(t *testing.T) {
 		resp.Body.Close()
 
 		require.Equal(t, http.StatusFound, resp.StatusCode, "%s: expected redirect to login", method)
-		require.Equal(t, LoginEndpoint, resp.Header.Get("Location"), "%s: expected redirect to login", method)
+		// The return address travels as a query parameter on the login
+		// redirect so concurrent flows cannot overwrite each other's.
+		require.Equal(t, LoginEndpoint+"?rd=%2Fprotected", resp.Header.Get("Location"), "%s: expected redirect to login", method)
 		require.False(t, handlerRan, "%s: protected handler must not run for unauthenticated requests", method)
 	}
 }

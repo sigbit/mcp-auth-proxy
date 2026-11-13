@@ -152,6 +152,7 @@
 
       {{if .HasPassword}}
       <form class="password-form" action="/.auth/login" method="POST">
+        {{if .Redirect}}<input type="hidden" name="rd" value="{{.Redirect}}" />{{end}}
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
           <input
@@ -172,7 +173,7 @@
         <span>or</span>
       </div>
       {{end}} {{range .Providers}}
-      <a href="{{.AuthURL}}" class="provider-button {{.Type}}">
+      <a href="{{.AuthURL}}{{if $.Redirect}}?rd={{$.Redirect}}{{end}}" class="provider-button {{.Type}}">
         Login with {{.Name}}
       </a>
       {{end}}
