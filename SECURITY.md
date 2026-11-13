@@ -1,17 +1,17 @@
-# セキュリティポリシー
+# Security Policy
 
-## サポート対象バージョン
+## Supported Versions
 
-セキュリティアップデートの対象は最新リリースのみです。
+Only the latest release is supported with security updates.
 
-## 脆弱性の報告
+## Reporting a Vulnerability
 
-脆弱性は公開の GitHub issue では報告しないでください。
+Please do not report security vulnerabilities through public GitHub issues.
 
-このリポジトリの GitHub プライベート脆弱性報告（private vulnerability reporting）をご利用ください:
+Use GitHub's private vulnerability reporting for this repository:
 
 https://github.com/sigbit/mcp-auth-proxy/security/advisories/new
 
-または、メンテナ宛てにメール（me@hrntknr.net）でも受け付けます。
+Alternatively, email the maintainer at me@hrntknr.net.
 
-報告を受けたら、受領の連絡、調査、公開時期の調整を行います。
+We will acknowledge your report, investigate it, and coordinate disclosure with you.
