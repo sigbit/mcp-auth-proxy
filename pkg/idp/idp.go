@@ -106,7 +106,16 @@ const (
 	OauthAuthorizationServerEndpoint = "/.well-known/oauth-authorization-server"
 	JWKSEndpoint                     = "/.well-known/jwks.json"
 	sessionKeyAuthorizeRequestIDs    = "idp_authorize_request_ids"
+	sessionKeyCompletedAuthorizes    = "idp_completed_authorizations"
 )
+
+// authorizeReplayWindow is how long a completed authorization can be
+// replayed to the same browser session. Some clients and browsers submit
+// the confirmation form a second time shortly after completion (see
+// #167); within this window the duplicate request receives the original
+// redirect again instead of an error. The authorization code itself
+// stays single-use at the token endpoint.
+const authorizeReplayWindow = 30 * time.Second
 
 func (a *IDPRouter) SetupRoutes(router gin.IRouter) {
 	router.GET(AuthorizationEndpoint, a.handleAuth)
@@ -163,7 +172,12 @@ func (a *IDPRouter) handleAuth(c *gin.Context) {
 func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 	ctx := c.Request.Context()
 	arID := c.Param("ar_id")
-	if !hasAuthorizeRequestID(sessions.Default(c), arID) {
+	session := sessions.Default(c)
+	if !hasAuthorizeRequestID(session, arID) {
+		if redirectURL, ok := completedAuthorizationRedirect(session, arID); ok {
+			c.Redirect(http.StatusSeeOther, redirectURL)
+			return
+		}
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "invalid authorization session"})
 		return
 	}
@@ -198,6 +212,10 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 	arID := c.Param("ar_id")
 	session := sessions.Default(c)
 	if !hasAuthorizeRequestID(session, arID) {
+		if redirectURL, ok := completedAuthorizationRedirect(session, arID); ok {
+			c.Redirect(http.StatusSeeOther, redirectURL)
+			return
+		}
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "invalid authorization session"})
 		return
 	}
@@ -240,6 +258,22 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 		a.logger.With(utils.Err(err)...).Error("Failed to generate authorization response", zap.Error(err))
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, err)
 		return
+	}
+
+	// Remember the completed authorization briefly so a duplicate
+	// submission from the same session replays this redirect instead of
+	// failing (see authorizeReplayWindow). Only the query response mode
+	// produces a plain redirect URL to replay.
+	if redirectURI := ar.GetRedirectURI(); redirectURI != nil {
+		if mode := ar.GetResponseMode(); mode == fosite.ResponseModeQuery || mode == fosite.ResponseModeDefault {
+			u := *redirectURI
+			q := u.Query()
+			for k := range response.GetParameters() {
+				q.Set(k, response.GetParameters().Get(k))
+			}
+			u.RawQuery = q.Encode()
+			rememberCompletedAuthorization(session, arID, u.String())
+		}
 	}
 
 	removeAuthorizeRequestID(session, arID)
@@ -297,6 +331,53 @@ func removeAuthorizeRequestID(session sessions.Session, arID string) {
 	}
 	data, _ := json.Marshal(remaining)
 	session.Set(sessionKeyAuthorizeRequestIDs, string(data))
+}
+
+type completedAuthorization struct {
+	RedirectURL string `json:"redirect_url"`
+	CompletedAt int64  `json:"completed_at"` // unix seconds
+}
+
+func completedAuthorizations(session sessions.Session) map[string]completedAuthorization {
+	value, ok := session.Get(sessionKeyCompletedAuthorizes).(string)
+	if !ok || value == "" {
+		return nil
+	}
+	var entries map[string]completedAuthorization
+	if err := json.Unmarshal([]byte(value), &entries); err != nil {
+		return nil
+	}
+	return entries
+}
+
+func rememberCompletedAuthorization(session sessions.Session, arID, redirectURL string) {
+	entries := completedAuthorizations(session)
+	if entries == nil {
+		entries = make(map[string]completedAuthorization)
+	}
+	now := time.Now()
+	// Prune entries outside the replay window to keep the session small.
+	for id, entry := range entries {
+		if now.Sub(time.Unix(entry.CompletedAt, 0)) > authorizeReplayWindow {
+			delete(entries, id)
+		}
+	}
+	entries[arID] = completedAuthorization{RedirectURL: redirectURL, CompletedAt: now.Unix()}
+	data, _ := json.Marshal(entries)
+	session.Set(sessionKeyCompletedAuthorizes, string(data))
+}
+
+// completedAuthorizationRedirect returns the redirect URL of a recently
+// completed authorization, if arID was completed within the replay window.
+func completedAuthorizationRedirect(session sessions.Session, arID string) (string, bool) {
+	entry, ok := completedAuthorizations(session)[arID]
+	if !ok {
+		return "", false
+	}
+	if time.Since(time.Unix(entry.CompletedAt, 0)) > authorizeReplayWindow {
+		return "", false
+	}
+	return entry.RedirectURL, true
 }
 
 func (a *IDPRouter) handleToken(c *gin.Context) {
