@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,7 +18,8 @@ type kvsRepository struct {
 	bucketName string
 }
 
-var RefreshTokenGracePeriod = 1 * time.Hour
+// RefreshTokenGracePeriod is configured once at startup, before serving requests.
+var RefreshTokenGracePeriod = time.Minute
 
 func NewKVSRepository(path string, bucketName string) (Repository, error) {
 	db, err := bbolt.Open(path, 0600, nil)
@@ -132,6 +134,9 @@ func (r *kvsRepository) GetRefreshTokenSession(ctx context.Context, signature st
 	if err := restoreSession(fositeReq, req.SessionData, sess); err != nil {
 		return nil, err
 	}
+	if isRotatedBeyondGracePeriod(req.RotatedAt) {
+		return fositeReq, fosite.ErrInactiveToken
+	}
 	return fositeReq, nil
 }
 
@@ -140,12 +145,27 @@ func (r *kvsRepository) DeleteRefreshTokenSession(ctx context.Context, signature
 }
 
 func (r *kvsRepository) RotateRefreshToken(ctx context.Context, requestID string, signature string) error {
-	var req models.Request
-	if err := r.get(ctx, "refresh_token-"+signature, &req); err != nil {
-		return err
-	}
-	req.RotatedAt = time.Now()
-	return r.update(ctx, "refresh_token-"+signature, req)
+	return r.db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket([]byte(r.bucketName))
+		key := []byte("refresh_token-" + signature)
+		data := bucket.Get(key)
+		if data == nil {
+			return fosite.ErrNotFound
+		}
+		var req models.Request
+		if err := json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		if !req.RotatedAt.IsZero() {
+			return nil
+		}
+		req.RotatedAt = time.Now().UTC()
+		data, err := json.Marshal(req)
+		if err != nil {
+			return err
+		}
+		return bucket.Put(key, data)
+	})
 }
 
 // RevokeRefreshToken revokes a refresh token as specified in:
@@ -156,7 +176,7 @@ func (r *kvsRepository) RotateRefreshToken(ctx context.Context, requestID string
 // also invalidate all access tokens based on the same authorization
 // grant (see Implementation Note).
 func (r *kvsRepository) RevokeRefreshToken(ctx context.Context, requestID string) error {
-	return r.delete(ctx, "refresh_token-"+requestID)
+	return r.revokeSessions("refresh_token-", requestID)
 }
 
 // RevokeAccessToken revokes an access token as specified in:
@@ -165,7 +185,26 @@ func (r *kvsRepository) RevokeRefreshToken(ctx context.Context, requestID string
 // is an access token, the server MAY revoke the respective refresh
 // token as well.
 func (r *kvsRepository) RevokeAccessToken(ctx context.Context, requestID string) error {
-	return r.delete(ctx, "access_token-"+requestID)
+	return r.revokeSessions("access_token-", requestID)
+}
+
+func (r *kvsRepository) revokeSessions(prefix, requestID string) error {
+	return r.db.Update(func(tx *bbolt.Tx) error {
+		c := tx.Bucket([]byte(r.bucketName)).Cursor()
+		p := []byte(prefix)
+		for k, v := c.Seek(p); k != nil && bytes.HasPrefix(k, p); k, v = c.Next() {
+			var req models.Request
+			if err := json.Unmarshal(v, &req); err != nil {
+				return err
+			}
+			if req.ID == requestID {
+				if err := c.Delete(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (r *kvsRepository) RegisterClient(ctx context.Context, fositeClient fosite.Client) error {

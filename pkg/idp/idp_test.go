@@ -28,13 +28,22 @@ import (
 )
 
 func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, string) {
+	return setupTestServerBackend(t, "kvs")
+}
+
+func setupTestServerBackend(t *testing.T, backend string) (*httptest.Server, repository.Repository, string) {
 	// Create temp directory and repository
 	tmpDir, err := os.MkdirTemp("", "idp_test_*")
 	require.NoError(t, err)
 	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := repository.NewKVSRepository(dbPath, "test")
+	var repo repository.Repository
+	if backend == "sqlite" {
+		repo, err = repository.NewSQLRepository("sqlite", dbPath)
+	} else {
+		repo, err = repository.NewKVSRepository(dbPath, "test")
+	}
 	require.NoError(t, err)
 	t.Cleanup(func() { repo.Close() })
 
@@ -149,7 +158,13 @@ func TestJWKSEndpoint(t *testing.T) {
 }
 
 func TestPrivateClient(t *testing.T) {
-	server, _, _ := setupTestServer(t)
+	for _, backend := range []string{"kvs", "sqlite"} {
+		t.Run(backend, func(t *testing.T) { testPrivateClient(t, backend) })
+	}
+}
+
+func testPrivateClient(t *testing.T, backend string) {
+	server, _, _ := setupTestServerBackend(t, backend)
 
 	// Register a test client using the registration endpoint
 	regReq := registrationRequest{
@@ -287,6 +302,30 @@ func TestPrivateClient(t *testing.T) {
 	require.True(t, ok)
 	require.NotEmpty(t, newAccessToken)
 	require.NotEqual(t, originalAccessToken, newAccessToken, "Access token should be different after refresh")
+
+	newRefreshToken, ok := refreshResult["refresh_token"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, newRefreshToken)
+	oldGrace := repository.RefreshTokenGracePeriod
+	repository.RefreshTokenGracePeriod = 0
+	defer func() { repository.RefreshTokenGracePeriod = oldGrace }()
+
+	// Reuse of the rotated token revokes the replacement grant.
+	reuseResp, err := http.PostForm(server.URL+TokenEndpoint, refreshReq)
+	require.NoError(t, err)
+	defer reuseResp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, reuseResp.StatusCode)
+	var reuseResult map[string]any
+	require.NoError(t, json.NewDecoder(reuseResp.Body).Decode(&reuseResult))
+	require.Equal(t, "invalid_grant", reuseResult["error"])
+	refreshReq.Set("refresh_token", newRefreshToken)
+	replacementResp, err := http.PostForm(server.URL+TokenEndpoint, refreshReq)
+	require.NoError(t, err)
+	defer replacementResp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, replacementResp.StatusCode)
+	var replacementResult map[string]any
+	require.NoError(t, json.NewDecoder(replacementResp.Body).Decode(&replacementResult))
+	require.Equal(t, "invalid_grant", replacementResult["error"])
 }
 
 // registerTestClient is a helper that registers a private OAuth client and returns the registration response.

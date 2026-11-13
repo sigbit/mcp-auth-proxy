@@ -178,6 +178,20 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 --repository-backend mysql --repository-dsn "user:pass@tcp(hostname:3306)/database?parseTime=true"
 ```
 
+### Refresh Token Rotation
+
+| Option | Environment Variable | Default | Description |
+| --- | --- | --- | --- |
+| `--refresh-token-grace-period` | `REFRESH_TOKEN_GRACE_PERIOD` | `60s` | Time during which a rotated refresh token may be retried. |
+
+When a refresh token is exchanged, the old token remains usable for 60 seconds by default. This gives a client time to retry if it did not receive the response. The window starts with the first exchange; retries do not extend it.
+
+During that window, anyone holding the old token can exchange it again. Afterward, using it triggers reuse detection: the server rejects the request and revokes the refresh and access token sessions associated with the authorization. The client must then authorize again.
+
+Set the window to suit your clients. A shorter window limits the time a stolen token can be reused, but delayed or concurrent requests may force legitimate users to authorize again. Use the same setting on every instance sharing a repository.
+
+Set `REFRESH_TOKEN_GRACE_PERIOD=30s` or pass `--refresh-token-grace-period 30s`. The option takes precedence over the environment variable. Durations must be non-negative; for example, `30s` and `2m` are valid. Set `0` to reject reuse immediately after rotation. An invalid or negative value prevents startup.
+
 ### Proxy Options
 
 | Option                          | Environment Variable          | Default     | Description                                                                                           |
