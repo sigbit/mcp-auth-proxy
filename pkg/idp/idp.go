@@ -176,10 +176,9 @@ func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 	}
 
 	// Show who is asking and where the result will be sent, so a user
-	// can recognize a request they did not initiate. Any client can be
-	// registered dynamically, so the redirect target is the one piece
-	// of information that distinguishes a legitimate client from an
-	// attacker-registered one.
+	// can recognize a request they did not initiate. Clients can be
+	// registered dynamically, so the redirect target is essential
+	// information for the user to verify the request.
 	var b strings.Builder
 	b.WriteString("<!doctype html><html><body>")
 	b.WriteString("<p>An application is requesting authorization.</p>")

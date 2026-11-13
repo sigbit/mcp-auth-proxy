@@ -14,11 +14,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Tests for the hardening that addresses the unauthenticated dynamic
-// client registration attack reported in #191: an attacker registers a
-// client with their own redirect_uri and tricks a logged-in user into
-// authorizing it, then exchanges the intercepted code for a token in
-// the victim's name.
+// Tests for the dynamic client registration hardening in #191:
+// PKCE enforcement for all clients, redirect URI validation at
+// registration, and the consent page content.
 
 func TestValidateRedirectURI(t *testing.T) {
 	valid := []string{
@@ -68,7 +66,7 @@ func TestRegistrationRejectsInsecureRedirectURI(t *testing.T) {
 		return resp.StatusCode, body
 	}
 
-	status, body := register("http://attacker.example.com/cb")
+	status, body := register("http://app.example.com/cb")
 	require.Equal(t, http.StatusBadRequest, status)
 	require.Equal(t, "invalid_redirect_uri", body["error"])
 
