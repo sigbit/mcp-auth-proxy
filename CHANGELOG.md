@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.10.5](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.4...v2.10.5) (2026-11-13)
+
+
+### Bug Fixes
+
+* keep each OAuth flow's state in its own cookie ([#208](https://github.com/sigbit/mcp-auth-proxy/issues/208)) ([03818a0](https://github.com/sigbit/mcp-auth-proxy/commit/03818a034db551c3261c07928cefc28d253cb753))
+* **oauth:** detect refresh token reuse after the rotation grace period ([#197](https://github.com/sigbit/mcp-auth-proxy/issues/197)) ([7cb8b47](https://github.com/sigbit/mcp-auth-proxy/commit/7cb8b472a71e4e3364224b2285170de3e255a4ae))
+
 ## [2.10.4](https://github.com/sigbit/mcp-auth-proxy/compare/v2.10.3...v2.10.4) (2026-11-13)
 
 
