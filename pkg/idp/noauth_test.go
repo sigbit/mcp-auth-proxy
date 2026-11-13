@@ -46,7 +46,7 @@ func setupTestServerNoAuth(t *testing.T) *httptest.Server {
 	store := cookie.NewStore(keyMaterial[:])
 	router.Use(sessions.Sessions("test_session", store))
 
-	authRouter, err := auth.NewAuthRouter([]string{}, false, nil, auth.NewFlowCookies(keyMaterial[:], false))
+	authRouter, err := auth.NewAuthRouter(zap.NewNop(), []string{}, false, nil, auth.NewFlowCookies(keyMaterial[:], false))
 	require.NoError(t, err)
 
 	logger, _ := zap.NewDevelopment()

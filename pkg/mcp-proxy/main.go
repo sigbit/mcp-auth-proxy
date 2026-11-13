@@ -295,7 +295,7 @@ func Run(
 	userInfoFields := userInfoFieldsFromConfig(oidcUserIDField, headerMapping)
 
 	flows := auth.NewFlowCookies(secret, sessionCookieSecure(parsedExternalURL))
-	authRouter, err := auth.NewAuthRouter(passwordHashes, noProviderAutoSelect, userInfoFields, flows, providers...)
+	authRouter, err := auth.NewAuthRouter(logger, passwordHashes, noProviderAutoSelect, userInfoFields, flows, providers...)
 	if err != nil {
 		return fmt.Errorf("failed to create auth router: %w", err)
 	}

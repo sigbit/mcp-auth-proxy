@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -107,7 +109,7 @@ func TestUserInfoFilteringInOAuthFlow(t *testing.T) {
 		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
 		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "user@example.com", fullUserInfo, nil)
 
-		authRouter, err := NewAuthRouter(nil, false, []string{"email", "preferred_username"}, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, []string{"email", "preferred_username"}, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		// Add a route that reads back the session to verify stored userinfo
@@ -176,7 +178,7 @@ func TestUserInfoFilteringInOAuthFlow(t *testing.T) {
 		mockProvider.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(mockToken, nil)
 		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "user@example.com", fullUserInfo, nil)
 
-		authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		var storedUserInfo string
@@ -227,7 +229,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
 		// Create AuthRouter (auto-select enabled by default)
-		authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		router := setupTestRouter(authRouter)
@@ -266,7 +268,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "authorized_user", map[string]any{"email": "authorized_user@example.com"}, nil)
 
 		// Create AuthRouter
-		authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		router := setupTestRouter(authRouter)
@@ -332,7 +334,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(false, "unauthorized_user", map[string]any{"email": "unauthorized_user@example.com"}, nil)
 
 		// Create AuthRouter
-		authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		router := setupTestRouter(authRouter)
@@ -382,7 +384,7 @@ func TestLoginAutoRedirect(t *testing.T) {
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
-		authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		router := gin.New()
@@ -413,7 +415,7 @@ func TestLoginAutoRedirect(t *testing.T) {
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
-		authRouter, err := NewAuthRouter(nil, true, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, true, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		router := gin.New()
@@ -443,7 +445,7 @@ func TestLoginAutoRedirect(t *testing.T) {
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
 
 		// Non-empty passwordHash slice disables auto-select
-		authRouter, err := NewAuthRouter([]string{"dummy"}, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		authRouter, err := NewAuthRouter(zap.NewNop(), []string{"dummy"}, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
 
 		router := gin.New()
@@ -523,7 +525,7 @@ func TestConcurrentOAuthFlows(t *testing.T) {
 	}).AnyTimes()
 	mockProvider.EXPECT().Authorization(gomock.Any(), mockToken).Return(true, "user@example.com", nil, nil).AnyTimes()
 
-	authRouter, err := NewAuthRouter(nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+	authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -596,4 +598,44 @@ func TestLoginRedirectStaysOnSite(t *testing.T) {
 			require.Equal(t, rd, safeRedirect(rd))
 		})
 	}
+}
+
+// TestCallbackErrorResponse_DoesNotLeakInternals verifies callbacks return
+// HTTP 400 with a generic message and no internal error or app-name leak.
+func TestCallbackErrorResponse_DoesNotLeakInternals(t *testing.T) {
+	t.Run("missing OAuth state returns 400 and generic message", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockProvider := NewMockProvider(ctrl)
+		mockProvider.EXPECT().Name().Return("test").AnyTimes()
+		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
+		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+
+		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
+		require.NoError(t, err)
+
+		router := gin.New()
+		store := memstore.NewStore([]byte("test-secret"))
+		router.Use(sessions.Sessions("session", store))
+		authRouter.SetupRoutes(router)
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		// Hit callback with no prior /.auth/test request — no flow state.
+		resp, err := http.Get(server.URL + "/.auth/test/callback")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode, "missing OAuth state must return 400, not 500")
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		bodyStr := string(body)
+
+		require.Contains(t, bodyStr, publicAuthErrorMessage, "response should render the generic public error message")
+		require.False(t, strings.Contains(bodyStr, "OAuth state is missing"), "response must not leak internal error text")
+		require.False(t, strings.Contains(bodyStr, "MCP Auth Proxy"), "response must not fingerprint the application in the page title")
+	})
 }
