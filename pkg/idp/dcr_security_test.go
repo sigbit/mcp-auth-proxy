@@ -120,13 +120,13 @@ func TestConfidentialClientRequiresPKCE(t *testing.T) {
 }
 
 func TestConsentFormShowsClientAndRedirectURI(t *testing.T) {
-	server, _, _ := setupTestServer(t)
+	server, _, _ := setupTestServerBackend(t, "kvs", `<b>Access</b>`, `<script>danger</script>`)
 	regResp := registerTestClient(t, server.URL)
 
 	config := &oauth2.Config{
 		ClientID:    regResp.ClientID,
 		RedirectURL: "http://localhost:8080/callback",
-		Scopes:      []string{},
+		Scopes:      []string{"test"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  server.URL + AuthorizationEndpoint,
 			TokenURL: server.URL + TokenEndpoint,
@@ -155,6 +155,10 @@ func TestConsentFormShowsClientAndRedirectURI(t *testing.T) {
 
 	body, err := io.ReadAll(formResp.Body)
 	require.NoError(t, err)
+	require.Contains(t, string(body), "<h1>&lt;b&gt;Access&lt;/b&gt;</h1>")
+	require.Contains(t, string(body), "&lt;script&gt;danger&lt;/script&gt;")
+	require.NotContains(t, string(body), "<script>")
+	require.Contains(t, string(body), "Requested scopes: test")
 	require.Contains(t, string(body), regResp.ClientID, "consent form must identify the client")
 	require.Contains(t, string(body), "http://localhost:8080/callback", "consent form must show where the result will be sent")
 }

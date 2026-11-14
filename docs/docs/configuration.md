@@ -27,6 +27,15 @@ Complete reference for all MCP Auth Proxy configuration options.
 
 ### Authentication Options
 
+#### OAuth Consent Page
+
+| Option | Environment Variable | Default | Description |
+| ------ | -------------------- | ------- | ----------- |
+| `--consent-title` | `CONSENT_TITLE` | empty | Optional title displayed on the consent page |
+| `--consent-description` | `CONSENT_DESCRIPTION` | empty | Optional explanation displayed on the consent page |
+
+Both values are plain text. The client ID, redirect URI, and requested scopes are still displayed when provided by the authorization request.
+
 #### Password Authentication
 
 | Option                      | Environment Variable      | Default | Description                                                                                  |

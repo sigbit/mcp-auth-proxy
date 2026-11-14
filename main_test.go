@@ -395,6 +395,83 @@ func TestSplitCSV(t *testing.T) {
 	}
 }
 
+func TestNewRootCommandConsentText(t *testing.T) {
+	for _, tc := range []struct {
+		name, envTitle, envDescription string
+		args                           []string
+		wantTitle, wantDescription     string
+	}{
+		{name: "environment", envTitle: "Environment title", envDescription: "Environment description", args: []string{"http://backend"}, wantTitle: "Environment title", wantDescription: "Environment description"},
+		{name: "flags override environment", envTitle: "Environment title", envDescription: "Environment description", args: []string{"--consent-title", "Flag title", "--consent-description", "Flag description", "http://backend"}, wantTitle: "Flag title", wantDescription: "Flag description"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("CONSENT_TITLE", tc.envTitle)
+			t.Setenv("CONSENT_DESCRIPTION", tc.envDescription)
+			var gotTitle, gotDescription string
+			runner := proxyRunnerFunc(func(listen string,
+				tlsListen string,
+				autoTLS bool,
+				tlsHost string,
+				tlsDirectoryURL string,
+				tlsAcceptTOS bool,
+				tlsCertFile string,
+				tlsKeyFile string,
+				dataPath string,
+				repositoryBackend string,
+				repositoryDSN string,
+				externalURL string,
+				googleClientID string,
+				googleClientSecret string,
+				googleAllowedUsers []string,
+				googleAllowedWorkspaces []string,
+				githubURL string,
+				githubAPIURL string,
+				githubClientID string,
+				githubClientSecret string,
+				githubAllowedUsers []string,
+				githubAllowedOrgs []string,
+				oidcConfigurationURL string,
+				oidcClientID string,
+				oidcClientSecret string,
+				oidcScopes []string,
+				oidcUserIDField string,
+				oidcProviderName string,
+				oidcAllowedUsers []string,
+				oidcAllowedUsersGlob []string,
+				oidcAllowedAttributes map[string][]string,
+				oidcAllowedAttributesGlob map[string][]string,
+				oidcPrompt string,
+				noProviderAutoSelect bool,
+				password string,
+				passwordHash string,
+				trustedProxy []string,
+				proxyHeaders []string,
+				proxyBearerToken string,
+				forwardAuthorizationHeader bool,
+				proxyTarget []string,
+				httpStreamingOnly bool,
+				headerMapping map[string]string,
+				headerMappingBase string,
+				consentTitle string,
+				consentDescription string,
+			) error {
+				gotTitle = consentTitle
+				gotDescription = consentDescription
+				return nil
+			})
+
+			cmd := newRootCommand(runner)
+			cmd.SetArgs(tc.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if gotTitle != tc.wantTitle || gotDescription != tc.wantDescription {
+				t.Fatalf("got %q / %q, want %q / %q", gotTitle, gotDescription, tc.wantTitle, tc.wantDescription)
+			}
+		})
+	}
+}
+
 func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 	t.Setenv("HTTP_STREAMING_ONLY", "")
 
@@ -444,6 +521,8 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		consentTitle string,
+		consentDescription string,
 	) error {
 		streamingOnly = httpStreamingOnly
 		receivedTargets = proxyTarget
@@ -513,6 +592,8 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		consentTitle string,
+		consentDescription string,
 	) error {
 		streamingOnly = httpStreamingOnly
 		return nil
@@ -578,6 +659,8 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		consentTitle string,
+		consentDescription string,
 	) error {
 		forwardAuthorization = forwardAuthorizationHeader
 		return nil
@@ -643,6 +726,8 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 		httpStreamingOnly bool,
 		headerMapping map[string]string,
 		headerMappingBase string,
+		consentTitle string,
+		consentDescription string,
 	) error {
 		forwardAuthorization = forwardAuthorizationHeader
 		return nil
