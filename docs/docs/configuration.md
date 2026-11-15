@@ -52,6 +52,7 @@ Both values are plain text. The client ID, redirect URI, and requested scopes ar
 | `--google-client-secret`      | `GOOGLE_CLIENT_SECRET`      | -       | Google OAuth client secret                            |
 | `--google-allowed-users`      | `GOOGLE_ALLOWED_USERS`      | -       | Comma-separated list of allowed Google users (emails) |
 | `--google-allowed-workspaces` | `GOOGLE_ALLOWED_WORKSPACES` | -       | Comma-separated list of allowed Google workspaces     |
+| `--google-allowed-users-file` | `GOOGLE_ALLOWED_USERS_FILE` | -       | Path to a file listing the allowed Google users (emails). See [Allowed Users Files](#allowed-users-files) |
 
 #### GitHub OAuth
 
@@ -63,6 +64,7 @@ Both values are plain text. The client ID, redirect URI, and requested scopes ar
 | `--github-client-secret` | `GITHUB_CLIENT_SECRET` | -       | GitHub OAuth client secret                                                                                                       |
 | `--github-allowed-users` | `GITHUB_ALLOWED_USERS` | -       | Comma-separated list of allowed GitHub users (usernames)                                                                         |
 | `--github-allowed-orgs`  | `GITHUB_ALLOWED_ORGS`  | -       | Comma-separated list of allowed GitHub organizations. You can also restrict access to specific teams using the format `Org:Team` |
+| `--github-allowed-users-file` | `GITHUB_ALLOWED_USERS_FILE` | -       | Path to a file listing the allowed GitHub users (usernames). See [Allowed Users Files](#allowed-users-files) |
 
 If using GitHub Enterprise Server or Cloud, set `--github-url` to the instance URL (eg `https://github.example.com`) and `--github-api-url` to the base of the instance's API URL (eg `https://github.example.com/api/v3`).
 
@@ -77,6 +79,7 @@ If using GitHub Enterprise Server or Cloud, set `--github-url` to the instance U
 | `--oidc-allowed-users-glob`      | `OIDC_ALLOWED_USERS_GLOB`      | -                      | Comma-separated list of glob patterns for allowed OIDC users                      |
 | `--oidc-allowed-attributes`      | `OIDC_ALLOWED_ATTRIBUTES`      | -                      | Comma-separated list of allowed attribute key=value pairs (e.g., `/groups=admin`) |
 | `--oidc-allowed-attributes-glob` | `OIDC_ALLOWED_ATTRIBUTES_GLOB` | -                      | Comma-separated list of attribute key=pattern pairs for glob matching             |
+| `--oidc-allowed-users-file`      | `OIDC_ALLOWED_USERS_FILE`      | -                      | Path to a file listing the allowed OIDC users (exact match). See [Allowed Users Files](#allowed-users-files) |
 | `--oidc-provider-name`           | `OIDC_PROVIDER_NAME`           | `OIDC`                 | Display name for OIDC provider                                                    |
 | `--oidc-scopes`                  | `OIDC_SCOPES`                  | `openid,profile,email` | Comma-separated list of OIDC scopes                                               |
 | `--oidc-user-id-field`           | `OIDC_USER_ID_FIELD`           | `/email`               | JSON pointer to user ID field in userinfo endpoint response                       |
@@ -141,6 +144,40 @@ For Okta, you typically need to:
 1. Add the `groups` scope: `--oidc-scopes "openid,profile,email,groups"`
 2. Configure a groups claim in Okta Admin (Security → API → Authorization Servers → Claims)
    :::
+
+#### Allowed Users Files
+
+Each OAuth provider can read its allowed users from a file instead of from the command line:
+
+| Provider | Option                        | Listed users                           |
+| -------- | ----------------------------- | -------------------------------------- |
+| Google   | `--google-allowed-users-file` | Emails                                 |
+| GitHub   | `--github-allowed-users-file` | Usernames                              |
+| OIDC     | `--oidc-allowed-users-file`   | Values of the `--oidc-user-id-field`   |
+
+The file lists one user per line (or comma-separated). Blank lines and lines starting with `#` are ignored, and users are matched exactly:
+
+```text
+# allowed-users
+alice@example.com
+bob@example.com
+```
+
+```bash
+--google-allowed-users-file /etc/mcp-auth-proxy/allowed-users
+```
+
+Unlike the `--*-allowed-users` options, the file is the live source of truth:
+
+- **No restart needed**: the file is read again on every sign-in, so added users can sign in right away.
+- **Removal revokes access**: the file is also checked on every proxied request. A user who is removed from the file gets `401 invalid_token` on the next request, even if their access token has not expired yet. A refreshed token is refused in the same way.
+- **Fail closed**: the proxy does not start if the file cannot be read. If the file becomes unreadable while the proxy runs, the users of that provider are denied until it is readable again. An empty file allows nobody.
+
+A file is the only allow-list of its provider: it cannot be combined with that provider's other `--<provider>-allowed-*` options (those rules cannot be re-checked on every request), and the proxy refuses to start if both are set. Providers without a file, and password authentication, are not affected.
+
+:::note
+Access tokens name the provider the user signed in with (`provider` claim), so each token is checked against the file of its own provider. Tokens issued before upgrading to a version with this option do not have the claim; they stay valid only if the user is listed in one of the configured files.
+:::
 
 ### Cryptographic Key Options
 

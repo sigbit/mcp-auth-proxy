@@ -20,6 +20,7 @@ type ProxyRouter struct {
 	forwardAuthorizationHeader bool
 	headerMapping              map[string]string
 	headerMappingBase          string
+	claimsAuthorizer           func(jwt.MapClaims) bool
 }
 
 func NewProxyRouter(
@@ -42,6 +43,14 @@ func NewProxyRouter(
 		headerMapping:              headerMapping,
 		headerMappingBase:          headerMappingBase,
 	}, nil
+}
+
+// SetClaimsAuthorizer installs a check that runs on every proxied request,
+// after the bearer token's signature, issuer and audience have been verified.
+// When it returns false the request is rejected like an invalid token, so
+// access can be withdrawn before an issued token expires.
+func (p *ProxyRouter) SetClaimsAuthorizer(authorize func(jwt.MapClaims) bool) {
+	p.claimsAuthorizer = authorize
 }
 
 const (
@@ -119,6 +128,12 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
 
 	if subject, _ := claims.GetSubject(); subject != "" {
 		c.Set("subject", subject)
+	}
+
+	if p.claimsAuthorizer != nil && !p.claimsAuthorizer(claims) {
+		p.setWWWAuthenticate(c, true)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
 	}
 
 	if p.httpStreamingOnly && isSSEGetRequest(c.Request) {

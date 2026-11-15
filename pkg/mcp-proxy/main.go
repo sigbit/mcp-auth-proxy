@@ -55,12 +55,14 @@ func Run(
 	googleClientSecret string,
 	googleAllowedUsers []string,
 	googleAllowedWorkspaces []string,
+	googleAllowedUsersFile string,
 	githubURL string,
 	githubAPIURL string,
 	githubClientID string,
 	githubClientSecret string,
 	githubAllowedUsers []string,
 	githubAllowedOrgs []string,
+	githubAllowedUsersFile string,
 	oidcConfigurationURL string,
 	oidcClientID string,
 	oidcClientSecret string,
@@ -71,6 +73,7 @@ func Run(
 	oidcAllowedUsersGlob []string,
 	oidcAllowedAttributes map[string][]string,
 	oidcAllowedAttributesGlob map[string][]string,
+	oidcAllowedUsersFile string,
 	oidcPrompt string,
 	noProviderAutoSelect bool,
 	password string,
@@ -239,13 +242,48 @@ func Run(
 	}
 	var providers []auth.Provider
 
+	allowedUsersFiles, err := loadAllowedUsersFiles([]allowedUsersFileOption{
+		{
+			provider:   "google",
+			flag:       "--google-allowed-users-file",
+			path:       googleAllowedUsersFile,
+			configured: googleClientID != "" && googleClientSecret != "",
+			otherRules: len(googleAllowedUsers) > 0 || len(googleAllowedWorkspaces) > 0,
+		},
+		{
+			provider:   "github",
+			flag:       "--github-allowed-users-file",
+			path:       githubAllowedUsersFile,
+			configured: githubClientID != "" && githubClientSecret != "",
+			otherRules: len(githubAllowedUsers) > 0 || len(githubAllowedOrgs) > 0,
+		},
+		{
+			provider:   "oidc",
+			flag:       "--oidc-allowed-users-file",
+			path:       oidcAllowedUsersFile,
+			configured: oidcConfigurationURL != "" && oidcClientID != "" && oidcClientSecret != "",
+			otherRules: len(oidcAllowedUsers) > 0 || len(oidcAllowedUsersGlob) > 0 || len(oidcAllowedAttributes) > 0 || len(oidcAllowedAttributesGlob) > 0,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	// A provider that has an allowed users file identifies the user and the
+	// file decides whether that user may sign in.
+	withAllowedUsersFile := func(provider auth.Provider) auth.Provider {
+		if file, ok := allowedUsersFiles[provider.Type()]; ok {
+			return auth.WithAllowedUsersFile(provider, file)
+		}
+		return provider
+	}
+
 	// Add Google provider if configured
 	if googleClientID != "" && googleClientSecret != "" {
 		googleProvider, err := auth.NewGoogleProvider(externalURL, googleClientID, googleClientSecret, googleAllowedUsers, googleAllowedWorkspaces)
 		if err != nil {
 			return fmt.Errorf("failed to create Google provider: %w", err)
 		}
-		providers = append(providers, googleProvider)
+		providers = append(providers, withAllowedUsersFile(googleProvider))
 	}
 
 	// Add GitHub provider if configured
@@ -254,7 +292,7 @@ func Run(
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub provider: %w", err)
 		}
-		providers = append(providers, githubProvider)
+		providers = append(providers, withAllowedUsersFile(githubProvider))
 	}
 
 	// Add OIDC provider if configured
@@ -276,7 +314,7 @@ func Run(
 		if err != nil {
 			return fmt.Errorf("failed to create OIDC provider: %w", err)
 		}
-		providers = append(providers, oidcProvider)
+		providers = append(providers, withAllowedUsersFile(oidcProvider))
 	}
 
 	var passwordHashes []string
@@ -312,6 +350,12 @@ func Run(
 	proxyRouter, err := newProxyRouter(externalURL, beHandler, &privKey.PublicKey, proxyHeadersMap, httpStreamingOnly, forwardAuthorizationHeader, headerMapping, headerMappingBase)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy router: %w", err)
+	}
+	if len(allowedUsersFiles) > 0 {
+		proxyRouter.SetClaimsAuthorizer(allowedUsersClaimsAuthorizer(allowedUsersFiles))
+		for provider, file := range allowedUsersFiles {
+			logger.Info("Allowed users file is re-checked on every request", zap.String("provider", provider), zap.String("file", file.Path()))
+		}
 	}
 
 	router := gin.New()

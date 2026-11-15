@@ -424,12 +424,14 @@ func TestNewRootCommandConsentText(t *testing.T) {
 				googleClientSecret string,
 				googleAllowedUsers []string,
 				googleAllowedWorkspaces []string,
+				googleAllowedUsersFile string,
 				githubURL string,
 				githubAPIURL string,
 				githubClientID string,
 				githubClientSecret string,
 				githubAllowedUsers []string,
 				githubAllowedOrgs []string,
+				githubAllowedUsersFile string,
 				oidcConfigurationURL string,
 				oidcClientID string,
 				oidcClientSecret string,
@@ -440,6 +442,7 @@ func TestNewRootCommandConsentText(t *testing.T) {
 				oidcAllowedUsersGlob []string,
 				oidcAllowedAttributes map[string][]string,
 				oidcAllowedAttributesGlob map[string][]string,
+				oidcAllowedUsersFile string,
 				oidcPrompt string,
 				noProviderAutoSelect bool,
 				password string,
@@ -472,6 +475,98 @@ func TestNewRootCommandConsentText(t *testing.T) {
 	}
 }
 
+func TestNewRootCommandAllowedUsersFiles(t *testing.T) {
+	for _, tc := range []struct {
+		name                             string
+		env                              map[string]string
+		args                             []string
+		wantGoogle, wantGitHub, wantOIDC string
+	}{
+		{name: "unset by default", args: []string{"http://backend"}},
+		{
+			name: "environment",
+			env:  map[string]string{"GOOGLE_ALLOWED_USERS_FILE": "/env/google", "GITHUB_ALLOWED_USERS_FILE": "/env/github", "OIDC_ALLOWED_USERS_FILE": "/env/oidc"},
+			args: []string{"http://backend"}, wantGoogle: "/env/google", wantGitHub: "/env/github", wantOIDC: "/env/oidc",
+		},
+		{
+			name:       "flags override environment",
+			env:        map[string]string{"GOOGLE_ALLOWED_USERS_FILE": "/env/google", "GITHUB_ALLOWED_USERS_FILE": "/env/github", "OIDC_ALLOWED_USERS_FILE": "/env/oidc"},
+			args:       []string{"--google-allowed-users-file", "/flag/google", "--github-allowed-users-file", "/flag/github", "--oidc-allowed-users-file", "/flag/oidc", "http://backend"},
+			wantGoogle: "/flag/google", wantGitHub: "/flag/github", wantOIDC: "/flag/oidc",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, key := range []string{"GOOGLE_ALLOWED_USERS_FILE", "GITHUB_ALLOWED_USERS_FILE", "OIDC_ALLOWED_USERS_FILE"} {
+				t.Setenv(key, tc.env[key])
+			}
+			var gotGoogle, gotGitHub, gotOIDC string
+			runner := proxyRunnerFunc(func(
+				listen string,
+				tlsListen string,
+				autoTLS bool,
+				tlsHost string,
+				tlsDirectoryURL string,
+				tlsAcceptTOS bool,
+				tlsCertFile string,
+				tlsKeyFile string,
+				dataPath string,
+				repositoryBackend string,
+				repositoryDSN string,
+				externalURL string,
+				googleClientID string,
+				googleClientSecret string,
+				googleAllowedUsers []string,
+				googleAllowedWorkspaces []string,
+				googleAllowedUsersFile string,
+				githubURL string,
+				githubAPIURL string,
+				githubClientID string,
+				githubClientSecret string,
+				githubAllowedUsers []string,
+				githubAllowedOrgs []string,
+				githubAllowedUsersFile string,
+				oidcConfigurationURL string,
+				oidcClientID string,
+				oidcClientSecret string,
+				oidcScopes []string,
+				oidcUserIDField string,
+				oidcProviderName string,
+				oidcAllowedUsers []string,
+				oidcAllowedUsersGlob []string,
+				oidcAllowedAttributes map[string][]string,
+				oidcAllowedAttributesGlob map[string][]string,
+				oidcAllowedUsersFile string,
+				oidcPrompt string,
+				noProviderAutoSelect bool,
+				password string,
+				passwordHash string,
+				trustedProxy []string,
+				proxyHeaders []string,
+				proxyBearerToken string,
+				forwardAuthorizationHeader bool,
+				proxyTarget []string,
+				httpStreamingOnly bool,
+				headerMapping map[string]string,
+				headerMappingBase string,
+				consentTitle string,
+				consentDescription string,
+			) error {
+				gotGoogle, gotGitHub, gotOIDC = googleAllowedUsersFile, githubAllowedUsersFile, oidcAllowedUsersFile
+				return nil
+			})
+
+			cmd := newRootCommand(runner)
+			cmd.SetArgs(tc.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("expected command to succeed, got error: %v", err)
+			}
+			if gotGoogle != tc.wantGoogle || gotGitHub != tc.wantGitHub || gotOIDC != tc.wantOIDC {
+				t.Fatalf("allowed users files = %q, %q, %q; want %q, %q, %q", gotGoogle, gotGitHub, gotOIDC, tc.wantGoogle, tc.wantGitHub, tc.wantOIDC)
+			}
+		})
+	}
+}
+
 func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 	t.Setenv("HTTP_STREAMING_ONLY", "")
 
@@ -493,12 +588,14 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		googleClientSecret string,
 		googleAllowedUsers []string,
 		googleAllowedWorkspaces []string,
+		googleAllowedUsersFile string,
 		githubURL string,
 		githubAPIURL string,
 		githubClientID string,
 		githubClientSecret string,
 		githubAllowedUsers []string,
 		githubAllowedOrgs []string,
+		githubAllowedUsersFile string,
 		oidcConfigurationURL string,
 		oidcClientID string,
 		oidcClientSecret string,
@@ -509,6 +606,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFlag(t *testing.T) {
 		oidcAllowedUsersGlob []string,
 		oidcAllowedAttributes map[string][]string,
 		oidcAllowedAttributesGlob map[string][]string,
+		oidcAllowedUsersFile string,
 		oidcPrompt string,
 		noProviderAutoSelect bool,
 		password string,
@@ -564,12 +662,14 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		googleClientSecret string,
 		googleAllowedUsers []string,
 		googleAllowedWorkspaces []string,
+		googleAllowedUsersFile string,
 		githubURL string,
 		githubAPIURL string,
 		githubClientID string,
 		githubClientSecret string,
 		githubAllowedUsers []string,
 		githubAllowedOrgs []string,
+		githubAllowedUsersFile string,
 		oidcConfigurationURL string,
 		oidcClientID string,
 		oidcClientSecret string,
@@ -580,6 +680,7 @@ func TestNewRootCommand_HTTPStreamingOnlyFromEnv(t *testing.T) {
 		oidcAllowedUsersGlob []string,
 		oidcAllowedAttributes map[string][]string,
 		oidcAllowedAttributesGlob map[string][]string,
+		oidcAllowedUsersFile string,
 		oidcPrompt string,
 		noProviderAutoSelect bool,
 		password string,
@@ -631,12 +732,14 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		googleClientSecret string,
 		googleAllowedUsers []string,
 		googleAllowedWorkspaces []string,
+		googleAllowedUsersFile string,
 		githubURL string,
 		githubAPIURL string,
 		githubClientID string,
 		githubClientSecret string,
 		githubAllowedUsers []string,
 		githubAllowedOrgs []string,
+		githubAllowedUsersFile string,
 		oidcConfigurationURL string,
 		oidcClientID string,
 		oidcClientSecret string,
@@ -647,6 +750,7 @@ func TestNewRootCommand_ForwardAuthorizationFlag(t *testing.T) {
 		oidcAllowedUsersGlob []string,
 		oidcAllowedAttributes map[string][]string,
 		oidcAllowedAttributesGlob map[string][]string,
+		oidcAllowedUsersFile string,
 		oidcPrompt string,
 		noProviderAutoSelect bool,
 		password string,
@@ -698,12 +802,14 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 		googleClientSecret string,
 		googleAllowedUsers []string,
 		googleAllowedWorkspaces []string,
+		googleAllowedUsersFile string,
 		githubURL string,
 		githubAPIURL string,
 		githubClientID string,
 		githubClientSecret string,
 		githubAllowedUsers []string,
 		githubAllowedOrgs []string,
+		githubAllowedUsersFile string,
 		oidcConfigurationURL string,
 		oidcClientID string,
 		oidcClientSecret string,
@@ -714,6 +820,7 @@ func TestNewRootCommand_ForwardAuthorizationFromEnv(t *testing.T) {
 		oidcAllowedUsersGlob []string,
 		oidcAllowedAttributes map[string][]string,
 		oidcAllowedAttributesGlob map[string][]string,
+		oidcAllowedUsersFile string,
 		oidcPrompt string,
 		noProviderAutoSelect bool,
 		password string,

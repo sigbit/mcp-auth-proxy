@@ -100,6 +100,7 @@ func TestUserInfoFilteringInOAuthFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		// The identity provider echoes the state back on the callback.
 		var state string
 		mockProvider.EXPECT().AuthCodeURL(gomock.Any()).DoAndReturn(func(s string) (string, error) {
@@ -169,6 +170,7 @@ func TestUserInfoFilteringInOAuthFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		// The identity provider echoes the state back on the callback.
 		var state string
 		mockProvider.EXPECT().AuthCodeURL(gomock.Any()).DoAndReturn(func(s string) (string, error) {
@@ -227,6 +229,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 
 		// Create AuthRouter (auto-select enabled by default)
 		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
@@ -258,6 +261,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		// The identity provider echoes the state back on the callback.
 		var state string
 		mockProvider.EXPECT().AuthCodeURL(gomock.Any()).DoAndReturn(func(s string) (string, error) {
@@ -324,6 +328,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		// The identity provider echoes the state back on the callback.
 		var state string
 		mockProvider.EXPECT().AuthCodeURL(gomock.Any()).DoAndReturn(func(s string) (string, error) {
@@ -383,6 +388,7 @@ func TestLoginAutoRedirect(t *testing.T) {
 		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 
 		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
@@ -414,6 +420,7 @@ func TestLoginAutoRedirect(t *testing.T) {
 		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 
 		authRouter, err := NewAuthRouter(zap.NewNop(), nil, true, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
@@ -443,6 +450,7 @@ func TestLoginAutoRedirect(t *testing.T) {
 		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 
 		// Non-empty passwordHash slice disables auto-select
 		authRouter, err := NewAuthRouter(zap.NewNop(), []string{"dummy"}, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
@@ -514,6 +522,7 @@ func TestConcurrentOAuthFlows(t *testing.T) {
 	mockProvider.EXPECT().Name().Return("test").AnyTimes()
 	mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 	mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+	mockProvider.EXPECT().Type().Return("test").AnyTimes()
 	mockProvider.EXPECT().AuthCodeURL(gomock.Any()).DoAndReturn(func(state string) (string, error) {
 		return "https://idp.example.com/authorize?state=" + state, nil
 	}).AnyTimes()
@@ -611,6 +620,7 @@ func TestCallbackErrorResponse_DoesNotLeakInternals(t *testing.T) {
 		mockProvider.EXPECT().Name().Return("test").AnyTimes()
 		mockProvider.EXPECT().AuthURL().Return("/.auth/test").AnyTimes()
 		mockProvider.EXPECT().RedirectURL().Return("/.auth/test/callback").AnyTimes()
+		mockProvider.EXPECT().Type().Return("test").AnyTimes()
 
 		authRouter, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), mockProvider)
 		require.NoError(t, err)
