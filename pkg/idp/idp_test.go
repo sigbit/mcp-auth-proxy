@@ -31,7 +31,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, repository.Repository, str
 	return setupTestServerBackend(t, "kvs")
 }
 
-func setupTestServerBackend(t *testing.T, backend string) (*httptest.Server, repository.Repository, string) {
+func setupTestServerBackend(t *testing.T, backend string, consentText ...string) (*httptest.Server, repository.Repository, string) {
 	// Create temp directory and repository
 	tmpDir, err := os.MkdirTemp("", "idp_test_*")
 	require.NoError(t, err)
@@ -84,6 +84,9 @@ func setupTestServerBackend(t *testing.T, backend string) (*httptest.Server, rep
 	idpRouter, err := NewIDPRouter(repo, privKey, logger, "http://localhost:8080", secret[:], authRouter)
 	require.NoError(t, err)
 
+	if len(consentText) == 2 {
+		idpRouter.SetConsentPageText(consentText[0], consentText[1])
+	}
 	idpRouter.SetupRoutes(router)
 
 	// Start test server

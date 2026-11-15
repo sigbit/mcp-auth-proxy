@@ -27,14 +27,16 @@ import (
 )
 
 type IDPRouter struct {
-	repo        repository.Repository
-	privKey     *rsa.PrivateKey
-	logger      *zap.Logger
-	externalURL string
-	hasher      fosite.Hasher
-	provider    fosite.OAuth2Provider
-	signer      *jwt.DefaultSigner
-	authRouter  *auth.AuthRouter
+	repo               repository.Repository
+	privKey            *rsa.PrivateKey
+	logger             *zap.Logger
+	externalURL        string
+	hasher             fosite.Hasher
+	provider           fosite.OAuth2Provider
+	signer             *jwt.DefaultSigner
+	authRouter         *auth.AuthRouter
+	consentTitle       string
+	consentDescription string
 }
 
 func NewIDPRouter(
@@ -75,6 +77,12 @@ func NewIDPRouter(
 		signer:      signer,
 		authRouter:  authRouter,
 	}, nil
+}
+
+// SetConsentPageText configures optional text shown alongside authorization details.
+func (a *IDPRouter) SetConsentPageText(title, description string) {
+	a.consentTitle = title
+	a.consentDescription = description
 }
 
 func customCompose(config *fosite.Config, storage any, key any) (fosite.OAuth2Provider, *jwt.DefaultSigner) {
@@ -199,7 +207,13 @@ func (a *IDPRouter) handleAuthorizationReturnForm(c *gin.Context) {
 	// information for the user to verify the request.
 	var b strings.Builder
 	b.WriteString("<!doctype html><html><body>")
+	if a.consentTitle != "" {
+		fmt.Fprintf(&b, "<h1>%s</h1>", html.EscapeString(a.consentTitle))
+	}
 	b.WriteString("<p>An application is requesting authorization.</p>")
+	if a.consentDescription != "" {
+		fmt.Fprintf(&b, "<p>%s</p>", html.EscapeString(a.consentDescription))
+	}
 	fmt.Fprintf(&b, "<p>Client ID: %s</p>", html.EscapeString(ar.GetClient().GetID()))
 	if redirectURI := ar.GetRedirectURI(); redirectURI != nil {
 		fmt.Fprintf(&b, "<p>After approval, the authorization result will be sent to: %s</p>", html.EscapeString(redirectURI.String()))
