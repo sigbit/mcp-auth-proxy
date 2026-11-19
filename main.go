@@ -143,12 +143,14 @@ type proxyRunnerFunc func(
 	googleClientSecret string,
 	googleAllowedUsers []string,
 	googleAllowedWorkspaces []string,
+	googleAllowedUsersFile string,
 	githubURL string,
 	githubAPIURL string,
 	githubClientID string,
 	githubClientSecret string,
 	githubAllowedUsers []string,
 	githubAllowedOrgs []string,
+	githubAllowedUsersFile string,
 	oidcConfigurationURL string,
 	oidcClientID string,
 	oidcClientSecret string,
@@ -159,6 +161,7 @@ type proxyRunnerFunc func(
 	oidcAllowedUsersGlob []string,
 	oidcAllowedAttributes map[string][]string,
 	oidcAllowedAttributesGlob map[string][]string,
+	oidcAllowedUsersFile string,
 	oidcPrompt string,
 	noProviderAutoSelect bool,
 	password string,
@@ -199,12 +202,14 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var googleClientSecret string
 	var googleAllowedUsers string
 	var googleAllowedWorkspaces string
+	var googleAllowedUsersFile string
 	var githubURL string
 	var githubAPIURL string
 	var githubClientID string
 	var githubClientSecret string
 	var githubAllowedUsers string
 	var githubAllowedOrgs string
+	var githubAllowedUsersFile string
 	var oidcConfigurationURL string
 	var oidcClientID string
 	var oidcClientSecret string
@@ -215,6 +220,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	var oidcAllowedUsersGlob string
 	var oidcAllowedAttributes string
 	var oidcAllowedAttributesGlob string
+	var oidcAllowedUsersFile string
 	var oidcPrompt string
 	var noProviderAutoSelect bool
 	var password string
@@ -281,12 +287,14 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				googleClientSecret,
 				googleAllowedUsersList,
 				googleAllowedWorkspacesList,
+				googleAllowedUsersFile,
 				githubURL,
 				githubAPIURL,
 				githubClientID,
 				githubClientSecret,
 				githubAllowedUsersList,
 				githubAllowedOrgsList,
+				githubAllowedUsersFile,
 				oidcConfigurationURL,
 				oidcClientID,
 				oidcClientSecret,
@@ -297,6 +305,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 				oidcAllowedUsersGlobList,
 				oidcAllowedAttributesMap,
 				oidcAllowedAttributesGlobMap,
+				oidcAllowedUsersFile,
 				oidcPrompt,
 				noProviderAutoSelect,
 				password,
@@ -336,6 +345,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&googleClientSecret, "google-client-secret", getEnvWithDefault("GOOGLE_CLIENT_SECRET", ""), "Google OAuth client secret")
 	rootCmd.Flags().StringVar(&googleAllowedUsers, "google-allowed-users", getEnvWithDefault("GOOGLE_ALLOWED_USERS", ""), "Comma-separated list of allowed Google users (emails)")
 	rootCmd.Flags().StringVar(&googleAllowedWorkspaces, "google-allowed-workspaces", getEnvWithDefault("GOOGLE_ALLOWED_WORKSPACES", ""), "Comma-separated list of allowed Google workspaces")
+	rootCmd.Flags().StringVar(&googleAllowedUsersFile, "google-allowed-users-file", getEnvWithDefault("GOOGLE_ALLOWED_USERS_FILE", ""), "Path to a file listing the allowed Google users (emails). Re-read on every sign-in and every request; cannot be combined with the other --google-allowed-* options")
 
 	// GitHub OAuth configuration
 	rootCmd.Flags().StringVar(&githubURL, "github-url", getEnvWithDefault("GITHUB_URL", ""), "GitHub custom instance URL (eg https://github.example.com)")
@@ -344,6 +354,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&githubClientSecret, "github-client-secret", getEnvWithDefault("GITHUB_CLIENT_SECRET", ""), "GitHub OAuth client secret")
 	rootCmd.Flags().StringVar(&githubAllowedUsers, "github-allowed-users", getEnvWithDefault("GITHUB_ALLOWED_USERS", ""), "Comma-separated list of allowed GitHub users (usernames)")
 	rootCmd.Flags().StringVar(&githubAllowedOrgs, "github-allowed-orgs", getEnvWithDefault("GITHUB_ALLOWED_ORGS", ""), "Comma-separated list of allowed GitHub organizations. You can also restrict access to specific teams using the format `Org:Team`")
+	rootCmd.Flags().StringVar(&githubAllowedUsersFile, "github-allowed-users-file", getEnvWithDefault("GITHUB_ALLOWED_USERS_FILE", ""), "Path to a file listing the allowed GitHub users (usernames). Re-read on every sign-in and every request; cannot be combined with the other --github-allowed-* options")
 
 	// OIDC configuration
 	rootCmd.Flags().StringVar(&oidcConfigurationURL, "oidc-configuration-url", getEnvWithDefault("OIDC_CONFIGURATION_URL", ""), "OIDC configuration URL")
@@ -356,6 +367,7 @@ func newRootCommand(run proxyRunnerFunc) *cobra.Command {
 	rootCmd.Flags().StringVar(&oidcAllowedUsersGlob, "oidc-allowed-users-glob", getEnvWithDefault("OIDC_ALLOWED_USERS_GLOB", ""), "Comma-separated list of glob patterns for allowed OIDC users")
 	rootCmd.Flags().StringVar(&oidcAllowedAttributes, "oidc-allowed-attributes", getEnvWithDefault("OIDC_ALLOWED_ATTRIBUTES", ""), "Comma-separated list of allowed attribute key=value pairs (e.g., /groups=admin,/roles=editor). Keys are JSON pointers.")
 	rootCmd.Flags().StringVar(&oidcAllowedAttributesGlob, "oidc-allowed-attributes-glob", getEnvWithDefault("OIDC_ALLOWED_ATTRIBUTES_GLOB", ""), "Comma-separated list of attribute key=pattern pairs for glob matching (e.g., /groups=*-admins,/email=*@example.com). Keys are JSON pointers.")
+	rootCmd.Flags().StringVar(&oidcAllowedUsersFile, "oidc-allowed-users-file", getEnvWithDefault("OIDC_ALLOWED_USERS_FILE", ""), "Path to a file listing the allowed OIDC users. Re-read on every sign-in and every request; cannot be combined with the other --oidc-allowed-* options")
 	rootCmd.Flags().StringVar(&oidcPrompt, "oidc-prompt", getEnvWithDefault("OIDC_PROMPT", ""), "Value to send as the OIDC `prompt` parameter on /authorize (e.g. `login` to force re-authentication, `consent` to force consent, `select_account`, `none`). Empty disables.")
 
 	// Password authentication

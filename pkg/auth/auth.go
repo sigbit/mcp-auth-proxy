@@ -93,6 +93,7 @@ const (
 	SessionKeyAuthorized = "authorized"
 	SessionKeyUserID     = "user_id"
 	SessionKeyUserInfo   = "user_info"
+	SessionKeyProvider   = "provider"
 )
 
 func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
@@ -125,6 +126,7 @@ func (a *AuthRouter) SetupRoutes(router gin.IRouter) {
 			session := sessions.Default(c)
 			session.Set(SessionKeyAuthorized, true)
 			session.Set(SessionKeyUserID, user)
+			session.Set(SessionKeyProvider, provider.Type())
 			if userInfo != nil {
 				if len(a.userInfoFields) > 0 {
 					userInfo = filterUserInfo(userInfo, a.userInfoFields)
@@ -206,6 +208,7 @@ func (a *AuthRouter) handleLoginPost(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set(SessionKeyAuthorized, true)
 	session.Set(SessionKeyUserID, PasswordUserID)
+	session.Set(SessionKeyProvider, PasswordProvider)
 	if err := session.Save(); err != nil {
 		a.renderError(c, http.StatusInternalServerError, publicAuthErrorMessage, err)
 		return

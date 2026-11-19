@@ -114,6 +114,10 @@ const (
 	OauthAuthorizationServerEndpoint = "/.well-known/oauth-authorization-server"
 	JWKSEndpoint                     = "/.well-known/jwks.json"
 	sessionKeyCompletedAuthorizes    = "idp_completed_authorizations"
+
+	// ProviderClaim is the access token claim that holds the type of the
+	// auth provider (auth.Provider.Type()) the user signed in with.
+	ProviderClaim = "provider"
 )
 
 // authorizeReplayWindow is how long a completed authorization can be
@@ -269,6 +273,15 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
 		a.logger.With(utils.Err(err)...).Error("Failed to create JWT session", zap.Error(err))
 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, err)
 		return
+	}
+
+	// Record which provider authenticated the user, so a provider-specific
+	// allow-list can be re-checked against the token on later requests.
+	if providerType, ok := session.Get(auth.SessionKeyProvider).(string); ok && providerType != "" {
+		if jwtSession.JWTClaims.Extra == nil {
+			jwtSession.JWTClaims.Extra = map[string]any{}
+		}
+		jwtSession.JWTClaims.Extra[ProviderClaim] = providerType
 	}
 
 	response, err := a.provider.NewAuthorizeResponse(ctx, ar, jwtSession)
