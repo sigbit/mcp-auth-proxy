@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -111,6 +113,86 @@ func TestOIDCProvider(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, token)
 	require.Equal(t, token.AccessToken, "test-access-token")
+}
+
+func TestOIDCProviderCustomCallbackPath(t *testing.T) {
+	const callbackPath = "/mcp_oauth/.auth/oidc/callback"
+	const redirectURI = TestOIDCExternalURL + callbackPath
+	idpRoutes := http.NewServeMux()
+	idp := httptest.NewServer(idpRoutes)
+	defer idp.Close()
+	idpRoutes.HandleFunc("/discovery", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"authorization_endpoint": idp.URL + "/authorize",
+			"token_endpoint":         idp.URL + "/token",
+			"userinfo_endpoint":      idp.URL + "/userinfo",
+		})
+	})
+	idpRoutes.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.FormValue("code") != "test-code" ||
+			r.FormValue("redirect_uri") != redirectURI {
+			http.Error(w, "invalid code exchange", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"test-access-token","token_type":"Bearer"}`))
+	})
+	idpRoutes.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-access-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, _ = w.Write([]byte(`{"sub":"test-user"}`))
+	})
+
+	provider, err := NewOIDCProvider(
+		idp.URL+"/discovery", []string{"openid"}, TestOIDCUserIDField,
+		TestOIDCProviderName, TestOIDCExternalURL, TestOIDCClientID, TestOIDCClientSecret,
+		nil, nil, nil, nil, "consent", WithOIDCCallbackPath(callbackPath),
+	)
+	require.NoError(t, err)
+	router, err := NewAuthRouter(zap.NewNop(), nil, false, nil, NewFlowCookies([]byte("test-secret"), false), provider)
+	require.NoError(t, err)
+	server := httptest.NewServer(setupTestRouter(router))
+	defer server.Close()
+	client := setupClient()
+
+	login, err := client.Get(server.URL + OIDCAuthEndpoint)
+	require.NoError(t, err)
+	defer login.Body.Close()
+	require.Equal(t, http.StatusFound, login.StatusCode)
+	authURL, err := login.Location()
+	require.NoError(t, err)
+	require.Equal(t, redirectURI, authURL.Query().Get("redirect_uri"))
+	require.Equal(t, "consent", authURL.Query().Get("prompt"))
+
+	query := url.Values{"state": {authURL.Query().Get("state")}, "code": {"test-code"}}
+	callback, err := client.Get(server.URL + callbackPath + "?" + query.Encode())
+	require.NoError(t, err)
+	defer callback.Body.Close()
+	require.Equal(t, http.StatusFound, callback.StatusCode)
+
+	protected, err := client.Get(server.URL + "/")
+	require.NoError(t, err)
+	defer protected.Body.Close()
+	require.Equal(t, http.StatusOK, protected.StatusCode)
+}
+
+func TestOIDCProviderRejectsInvalidCallbackPaths(t *testing.T) {
+	for _, callbackPath := range []string{
+		"https://other.example/callback", "//other.example/callback", "relative",
+		"/callback?param=value", "/callback#fragment", "/prefix/../callback",
+		"/callback/:param", "/callback/*path",
+	} {
+		t.Run(callbackPath, func(t *testing.T) {
+			_, err := NewOIDCProvider(
+				"", nil, TestOIDCUserIDField, TestOIDCProviderName, TestOIDCExternalURL,
+				TestOIDCClientID, TestOIDCClientSecret, nil, nil, nil, nil,
+				"", WithOIDCCallbackPath(callbackPath),
+			)
+			require.ErrorContains(t, err, "invalid OIDC callback path")
+		})
+	}
 }
 
 func TestOIDCProviderAuthorization(t *testing.T) {

@@ -80,6 +80,7 @@ If using GitHub Enterprise Server or Cloud, set `--github-url` to the instance U
 | `--oidc-provider-name`           | `OIDC_PROVIDER_NAME`           | `OIDC`                 | Display name for OIDC provider                                                    |
 | `--oidc-scopes`                  | `OIDC_SCOPES`                  | `openid,profile,email` | Comma-separated list of OIDC scopes                                               |
 | `--oidc-user-id-field`           | `OIDC_USER_ID_FIELD`           | `/email`               | JSON pointer to user ID field in userinfo endpoint response                       |
+| -                               | `OIDC_CALLBACK_PATH`           | `/.auth/oidc/callback`  | Absolute callback path on `EXTERNAL_URL`. Use a path that does not overlap another proxy endpoint. |
 
 ##### OIDC User Matching
 

@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
+	"regexp"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +21,7 @@ import (
 
 type oidcProvider struct {
 	oauth2                oauth2.Config
+	callbackPath          string
 	providerName          string
 	userInfoURL           string
 	userIDField           string
@@ -39,12 +43,48 @@ type oidcProvider struct {
 	pkceVerifiers sync.Map
 }
 
+// OIDCProviderOption configures an OIDC provider.
+type OIDCProviderOption func(*oidcProvider)
+
+// WithOIDCCallbackPath sets the callback path on the public proxy origin.
+// An empty path uses the default OIDC callback.
+func WithOIDCCallbackPath(callbackPath string) OIDCProviderOption {
+	return func(provider *oidcProvider) {
+		if callbackPath != "" {
+			provider.callbackPath = callbackPath
+		}
+	}
+}
+
+var oidcCallbackPathPattern = regexp.MustCompile(`^/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*/?$`)
+
 func NewOIDCProvider(
 	configurationURL string, scopes []string, userIDField string,
 	providerName, externalURL, clientID, clientSecret string, allowedUsers []string, allowedUsersGlob []string,
 	allowedAttributes map[string][]string, allowedAttributesGlob map[string][]string,
 	promptValue string,
+	options ...OIDCProviderOption,
 ) (Provider, error) {
+	provider := &oidcProvider{
+		callbackPath:      OIDCCallbackEndpoint,
+		providerName:      providerName,
+		userIDField:       userIDField,
+		allowedUsers:      allowedUsers,
+		allowedAttributes: allowedAttributes,
+		promptValue:       promptValue,
+	}
+	for _, option := range options {
+		option(provider)
+	}
+	if !oidcCallbackPathPattern.MatchString(provider.callbackPath) ||
+		path.Clean(provider.callbackPath) != strings.TrimSuffix(provider.callbackPath, "/") {
+		return nil, fmt.Errorf("invalid OIDC callback path %q: expected an absolute, normalized static path", provider.callbackPath)
+	}
+	callbackURL, err := url.JoinPath(externalURL, provider.callbackPath)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := http.Get(configurationURL)
 	if err != nil {
 		return nil, err
@@ -61,11 +101,6 @@ func NewOIDCProvider(
 	if err := json.NewDecoder(resp.Body).Decode(&cfg); err != nil {
 		return nil, err
 	}
-	r, err := url.JoinPath(externalURL, OIDCCallbackEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
 	// Compile glob patterns
 	var compiledGlobs []glob.Glob
 	for _, pattern := range allowedUsersGlob {
@@ -92,26 +127,20 @@ func NewOIDCProvider(
 		}
 	}
 
-	return &oidcProvider{
-		oauth2: oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			RedirectURL:  r,
-			Scopes:       scopes,
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  cfg.AuthEndpoint,
-				TokenURL: cfg.TokenEndpoint,
-			},
+	provider.oauth2 = oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  callbackURL,
+		Scopes:       scopes,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  cfg.AuthEndpoint,
+			TokenURL: cfg.TokenEndpoint,
 		},
-		providerName:          providerName,
-		userInfoURL:           cfg.UserInfo,
-		userIDField:           userIDField,
-		allowedUsers:          allowedUsers,
-		allowedUsersGlob:      compiledGlobs,
-		allowedAttributes:     allowedAttributes,
-		allowedAttributesGlob: compiledAttributeGlobs,
-		promptValue:           promptValue,
-	}, nil
+	}
+	provider.userInfoURL = cfg.UserInfo
+	provider.allowedUsersGlob = compiledGlobs
+	provider.allowedAttributesGlob = compiledAttributeGlobs
+	return provider, nil
 }
 
 func (p *oidcProvider) Name() string {
@@ -123,7 +152,7 @@ func (p *oidcProvider) Type() string {
 }
 
 func (p *oidcProvider) RedirectURL() string {
-	return OIDCCallbackEndpoint
+	return p.callbackPath
 }
 
 func (p *oidcProvider) AuthURL() string {

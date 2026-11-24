@@ -97,6 +97,11 @@ Configure OAuth providers to enable secure authentication for your MCP server.
    - Client ID
    - Client Secret
 
+To use a different callback path, set `OIDC_CALLBACK_PATH=/mcp_oauth/.auth/oidc/callback`
+and register `{EXTERNAL_URL}/mcp_oauth/.auth/oidc/callback` with the provider.
+Configure your reverse proxy to forward that path unchanged to MCP Auth Proxy.
+Keep `EXTERNAL_URL` set to the origin, for example `https://mcp.example.com`.
+
 ### 2. Configure MCP Auth Proxy
 
 #### Exact user matching:

@@ -272,6 +272,7 @@ func Run(
 			oidcAllowedAttributes,
 			oidcAllowedAttributesGlob,
 			oidcPrompt,
+			auth.WithOIDCCallbackPath(os.Getenv("OIDC_CALLBACK_PATH")),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create OIDC provider: %w", err)
