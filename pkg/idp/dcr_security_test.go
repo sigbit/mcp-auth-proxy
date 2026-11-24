@@ -23,21 +23,51 @@ func TestValidateRedirectURI(t *testing.T) {
 		"https://claude.ai/api/mcp/auth_callback",
 		"https://example.com/cb",
 		"http://localhost:8080/callback",
+		"http://LOCALHOST:8080/callback",
 		"http://127.0.0.1:9999/cb",
 		"http://[::1]:8080/cb",
+		"claude://claude.ai/mcp-auth-callback/sdk",
+		"cursor://anysphere.cursor-mcp/oauth/callback",
+		"vscode://ms-vscode.mcp/callback",
+		"com.example.app:/oauth2redirect/example-provider",
+		"com.example.app://oauth2redirect",
 	}
 	for _, u := range valid {
 		require.NoError(t, validateRedirectURI(u), u)
 	}
 
 	invalid := []string{
-		"http://example.com/cb",       // plain http off loopback
-		"http://192.168.1.10/cb",      // non-loopback IP over http
-		"https://example.com/cb#frag", // fragment
-		"javascript:alert(1)",         // non-http scheme
-		"/relative/path",              // not absolute
-		"https://",                    // no host
-		"not a url",                   // unparseable as absolute URL
+		"http://example.com/cb",             // plain http off loopback
+		"http://192.168.1.10/cb",            // non-loopback IP over http
+		"http:/cb",                          // http without host
+		"https:/cb",                         // https without host
+		"https://",                          // no host
+		"https://:443/cb",                   // empty hostname with port
+		"https://example.com/cb#frag",       // fragment
+		"https://example.com/cb#",           // empty fragment delimiter
+		"claude://claude.ai/cb#frag",        // custom scheme with fragment
+		"javascript:alert(1)",               // script scheme (opaque)
+		"javascript://comment/%0aalert(1)",  // script scheme (authority)
+		"JAVASCRIPT://comment/%0aalert(1)",  // uppercase script scheme
+		"data:text/html,<script>1</script>", // data URI
+		"data://text/html/test",             // data URI (authority)
+		"vbscript:msgbox(1)",                // vbscript scheme
+		"file:///etc/passwd",                // file scheme
+		"blob:https://example.com/id",       // blob scheme
+		"about:blank",                       // browser internal scheme
+		"chrome-extension://abcdef/cb",      // browser extension scheme
+		"ftp://example.com/cb",              // non-OAuth protocol scheme
+		"ws://localhost:8080/cb",            // websocket scheme
+		"wss://example.com/cb",              // secure websocket scheme
+		"mailto:user@example.com",           // mailto scheme
+		"myapp:callback",                    // opaque custom URI without leading slash
+		"myapp://",                          // custom scheme with empty host and path
+		"myapp:/",                           // custom scheme with root-only path
+		"myapp:///",                         // custom scheme with empty host and root-only path
+		"myapp://:8080/cb",                  // custom scheme with empty hostname and port
+		"/relative/path",                    // not absolute
+		"not a url",                         // unparseable as absolute URL
+		"",                                  // empty string
 	}
 	for _, u := range invalid {
 		require.Error(t, validateRedirectURI(u), u)
@@ -66,15 +96,105 @@ func TestRegistrationRejectsInsecureRedirectURI(t *testing.T) {
 		return resp.StatusCode, body
 	}
 
-	status, body := register("http://app.example.com/cb")
-	require.Equal(t, http.StatusBadRequest, status)
-	require.Equal(t, "invalid_redirect_uri", body["error"])
+	for _, bad := range []string{
+		"http://app.example.com/cb",
+		"javascript://example.com/%0aalert(1)",
+		"file:///etc/passwd",
+		"myapp:opaque",
+	} {
+		status, body := register(bad)
+		require.Equal(t, http.StatusBadRequest, status, bad)
+		require.Equal(t, "invalid_redirect_uri", body["error"], bad)
+	}
 
-	status, _ = register("https://app.example.com/cb")
-	require.Equal(t, http.StatusCreated, status)
+	for _, good := range []string{
+		"https://app.example.com/cb",
+		"http://localhost:1234/cb",
+		"claude://claude.ai/mcp-auth-callback/sdk",
+		"cursor://anysphere.cursor-mcp/oauth/callback",
+		"com.example.app:/oauth2redirect/callback",
+	} {
+		status, _ := register(good)
+		require.Equal(t, http.StatusCreated, status, good)
+	}
+}
 
-	status, _ = register("http://localhost:1234/cb")
-	require.Equal(t, http.StatusCreated, status)
+func TestCustomSchemeOAuthFlow(t *testing.T) {
+	for _, redirectURI := range []string{
+		"claude://claude.ai/mcp-auth-callback/sdk",
+		"com.example.app:/oauth2redirect/callback",
+	} {
+		t.Run(redirectURI, func(t *testing.T) {
+			server, _, _ := setupTestServer(t)
+
+			regReq := registrationRequest{
+				ClientName:              "Desktop MCP Client",
+				GrantTypes:              []string{"authorization_code", "refresh_token"},
+				ResponseTypes:           []string{"code"},
+				TokenEndpointAuthMethod: "none",
+				Scope:                   "mcp",
+				RedirectURIs:            []string{redirectURI},
+			}
+			reqBody, err := json.Marshal(regReq)
+			require.NoError(t, err)
+			regHTTPResp, err := http.Post(server.URL+RegistrationEndpoint, "application/json", bytes.NewReader(reqBody))
+			require.NoError(t, err)
+			defer regHTTPResp.Body.Close()
+			require.Equal(t, http.StatusCreated, regHTTPResp.StatusCode)
+
+			var regResp registrationResponse
+			require.NoError(t, json.NewDecoder(regHTTPResp.Body).Decode(&regResp))
+
+			config := &oauth2.Config{
+				ClientID:    regResp.ClientID,
+				RedirectURL: redirectURI,
+				Scopes:      []string{"mcp"},
+				Endpoint: oauth2.Endpoint{
+					AuthURL:  server.URL + AuthorizationEndpoint,
+					TokenURL: server.URL + TokenEndpoint,
+				},
+			}
+			verifier := oauth2.GenerateVerifier()
+			authURL := config.AuthCodeURL("custom-scheme-state", oauth2.S256ChallengeOption(verifier))
+
+			client := &http.Client{
+				Jar: mustCookieJar(t),
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
+			authResp, err := client.Get(authURL)
+			require.NoError(t, err)
+			defer authResp.Body.Close()
+			require.Equal(t, http.StatusFound, authResp.StatusCode)
+
+			consentPath := authResp.Header.Get("Location")
+			formResp, err := client.Get(server.URL + consentPath)
+			require.NoError(t, err)
+			defer formResp.Body.Close()
+			require.Equal(t, http.StatusOK, formResp.StatusCode)
+			formBody, err := io.ReadAll(formResp.Body)
+			require.NoError(t, err)
+			require.Contains(t, string(formBody), redirectURI)
+
+			approveResp, err := client.Post(server.URL+consentPath, "application/x-www-form-urlencoded", nil)
+			require.NoError(t, err)
+			defer approveResp.Body.Close()
+			require.Contains(t, []int{http.StatusFound, http.StatusSeeOther}, approveResp.StatusCode)
+
+			callbackURL, err := url.Parse(approveResp.Header.Get("Location"))
+			require.NoError(t, err)
+			require.True(t, strings.HasPrefix(callbackURL.String(), redirectURI+"?"), "got %s", callbackURL.String())
+			code := callbackURL.Query().Get("code")
+			require.NotEmpty(t, code)
+			require.Equal(t, "custom-scheme-state", callbackURL.Query().Get("state"))
+
+			token, err := config.Exchange(t.Context(), code, oauth2.VerifierOption(verifier))
+			require.NoError(t, err)
+			require.NotEmpty(t, token.AccessToken)
+		})
+	}
 }
 
 func TestConfidentialClientRequiresPKCE(t *testing.T) {
