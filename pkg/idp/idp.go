@@ -452,30 +452,85 @@ type registrationResponse struct {
 	ClientIDIssuedAt        int64    `json:"client_id_issued_at"`
 }
 
-// validateRedirectURI restricts dynamically registered redirect URIs
-// to https URLs, plus http on loopback hosts for native apps
-// (RFC 8252 Section 7.3). Fragments are rejected per RFC 6749
-// Section 3.1.2.
+// disallowedRedirectSchemes lists non-HTTP(S) URI schemes that are
+// browser-executable, browser-internal, or standard non-OAuth protocols
+// and must never be registered as OAuth 2.0 redirect URIs.
+var disallowedRedirectSchemes = map[string]struct{}{
+	"about":                {},
+	"blob":                 {},
+	"chrome":               {},
+	"chrome-extension":     {},
+	"data":                 {},
+	"edge":                 {},
+	"file":                 {},
+	"filesystem":           {},
+	"ftp":                  {},
+	"ftps":                 {},
+	"javascript":           {},
+	"mailto":               {},
+	"moz-extension":        {},
+	"safari-extension":     {},
+	"safari-web-extension": {},
+	"sms":                  {},
+	"tel":                  {},
+	"vbscript":             {},
+	"view-source":          {},
+	"ws":                   {},
+	"wss":                  {},
+}
+
+// validateRedirectURI validates dynamically registered redirect URIs:
+//   - https URLs with a non-empty host
+//   - http URLs on loopback hosts for native apps (RFC 8252 Section 7.3)
+//   - private-use custom URI schemes for native apps (RFC 8252 Section 7.1),
+//     excluding dangerous browser and non-OAuth schemes
+//
+// Fragments are rejected per RFC 6749 Section 3.1.2.
 func validateRedirectURI(raw string) error {
 	u, err := url.Parse(raw)
-	if err != nil || !u.IsAbs() || u.Host == "" {
-		return fmt.Errorf("redirect_uri %q is not an absolute URL with a host", raw)
+	if err != nil || !u.IsAbs() {
+		return fmt.Errorf("redirect_uri %q is not an absolute URI", raw)
 	}
-	if u.Fragment != "" {
+	if u.Fragment != "" || strings.Contains(raw, "#") {
 		return fmt.Errorf("redirect_uri %q must not contain a fragment", raw)
 	}
-	switch {
-	case u.Scheme == "https":
+
+	scheme := strings.ToLower(u.Scheme)
+	switch scheme {
+	case "https":
+		if u.Hostname() == "" {
+			return fmt.Errorf("redirect_uri %q is not an absolute URL with a host", raw)
+		}
 		return nil
-	case u.Scheme == "http" && isLoopbackHost(u.Hostname()):
+	case "http":
+		if !isLoopbackHost(u.Hostname()) {
+			return fmt.Errorf("redirect_uri %q must use https (http is allowed only for loopback hosts)", raw)
+		}
 		return nil
 	default:
-		return fmt.Errorf("redirect_uri %q must use https (http is allowed only for loopback hosts)", raw)
+		if _, disallowed := disallowedRedirectSchemes[scheme]; disallowed {
+			return fmt.Errorf("redirect_uri %q uses a disallowed scheme %q", raw, scheme)
+		}
+		if u.Opaque != "" {
+			return fmt.Errorf("redirect_uri %q must not be an opaque URI", raw)
+		}
+		// RFC 8252 Section 7.1 permits both authority form (e.g., app://host/callback)
+		// and single-slash path form (e.g., com.example.app:/oauth2redirect/callback).
+		if u.Host != "" {
+			if u.Hostname() == "" {
+				return fmt.Errorf("redirect_uri %q has an empty host", raw)
+			}
+			return nil
+		}
+		if strings.HasPrefix(u.Path, "/") && strings.Trim(u.Path, "/") != "" {
+			return nil
+		}
+		return fmt.Errorf("redirect_uri %q must include a host or non-root path", raw)
 	}
 }
 
 func isLoopbackHost(host string) bool {
-	if host == "localhost" {
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
 	ip := net.ParseIP(host)
